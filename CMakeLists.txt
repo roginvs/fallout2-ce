@@ -4,7 +4,7 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
 set(EXECUTABLE_NAME fallout2-ce)
 
-if (APPLE)
+if(APPLE)
     if(IOS)
         set(CMAKE_OSX_DEPLOYMENT_TARGET "11" CACHE STRING "")
         set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "")
@@ -20,11 +20,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CXX_EXTENSIONS NO)
 
-if (EMSCRIPTEN)
+if(EMSCRIPTEN)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/web)
 endif()
 
-if (ANDROID)
+if(ANDROID)
     add_library(${EXECUTABLE_NAME} SHARED)
 else()
     add_executable(${EXECUTABLE_NAME} WIN32 MACOSX_BUNDLE)
@@ -277,6 +277,8 @@ target_sources(${EXECUTABLE_NAME} PUBLIC
     "src/sfall_opcodes.h"
     "src/delay.cc"
     "src/delay.h"
+    "src/sfall_arrays.cc"
+    "src/sfall_arrays.h"
 )
 
 if(IOS)
@@ -301,7 +303,7 @@ if(WIN32)
     )
 endif()
 
-if (WIN32)
+if(WIN32)
     target_sources(${EXECUTABLE_NAME} PUBLIC
         "os/windows/fallout2-ce.ico"
         "os/windows/fallout2-ce.rc"
@@ -333,7 +335,7 @@ add_subdirectory("third_party/fpattern")
 target_link_libraries(${EXECUTABLE_NAME} ${FPATTERN_LIBRARY})
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ${FPATTERN_INCLUDE_DIR})
 
-if (NOT EMSCRIPTEN)
+if(NOT EMSCRIPTEN)
     if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         add_subdirectory("third_party/zlib")
         add_subdirectory("third_party/sdl2")
@@ -349,10 +351,9 @@ if (NOT EMSCRIPTEN)
     target_include_directories(${EXECUTABLE_NAME} PRIVATE ${SDL2_INCLUDE_DIRS})
 
 else()
-    # For faster cmake just use build-in from emscripten, they are fine 
+    # For faster cmake just use build-in from emscripten, they are fine
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -sUSE_SDL=2 -sUSE_ZLIB=1")
 endif()
-
 
 if(APPLE)
     if(IOS)
@@ -369,7 +370,7 @@ if(APPLE)
             "
             COMPONENT Runtime)
 
-        if (CPACK_BUNDLE_APPLE_CERT_APP)
+        if(CPACK_BUNDLE_APPLE_CERT_APP)
             install(CODE "
                 execute_process(COMMAND codesign --deep --force --options runtime --sign \"${CPACK_BUNDLE_APPLE_CERT_APP}\" ${CMAKE_BINARY_DIR}/${MACOSX_BUNDLE_BUNDLE_NAME}.app)
                 "
@@ -382,9 +383,9 @@ if(APPLE)
     endif()
 
     include(CPack)
-elseif (EMSCRIPTEN)
+elseif(EMSCRIPTEN)
     target_link_options(${EXECUTABLE_NAME} PRIVATE -sASYNCIFY -sASYNCIFY_STACK_SIZE=5000000)
-    target_link_options(${EXECUTABLE_NAME} PRIVATE -sASYNCIFY_IMPORTS=__syscall_openat,wasi_snapshot_preview1.fd_sync)    
+    target_link_options(${EXECUTABLE_NAME} PRIVATE -sASYNCIFY_IMPORTS=__syscall_openat,wasi_snapshot_preview1.fd_sync)
 
     target_link_options(${EXECUTABLE_NAME} PRIVATE -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=300MB)
 
@@ -400,9 +401,9 @@ elseif (EMSCRIPTEN)
     )
     file(COPY ${WEB_STATIC} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
-    file(COPY os/windows/fallout2-ce.ico DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})    
+    file(COPY os/windows/fallout2-ce.ico DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
-    if(NOT CMAKE_BUILD_TYPE)         
+    if(NOT CMAKE_BUILD_TYPE)
         set(CMAKE_BUILD_TYPE Release)
     endif()
 
