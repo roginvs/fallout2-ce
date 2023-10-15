@@ -193,6 +193,10 @@ jobs:
             -j $(nproc) \
             # EOL
 
+      - name: Run unit tests
+        run: |
+          ./build/run_tests
+
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
