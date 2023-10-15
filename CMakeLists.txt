@@ -401,3 +401,45 @@ if(APPLE)
 
     include(CPack)
 endif()
+
+
+## ------------------------
+
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+enable_testing()
+
+add_executable(
+  tests
+  tests/compat_splitpath_test.cc
+)
+
+
+if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    add_subdirectory("third_party/zlib")
+    add_subdirectory("third_party/sdl2")
+else()
+    find_package(ZLIB)
+    find_package(SDL2)
+endif()
+
+target_link_libraries(
+  tests
+  GTest::gtest_main
+  ${ZLIB_LIBRARIES}
+  ${SDL2_LIBRARIES}
+)
+target_include_directories(tests PRIVATE ${ZLIB_INCLUDE_DIRS})
+target_include_directories(tests PRIVATE ${SDL2_INCLUDE_DIRS})
+
+
+
+include(GoogleTest)
+gtest_discover_tests(tests)
