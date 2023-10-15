@@ -404,6 +404,10 @@ endif()
 
 
 ## --------- tests ---------------
+## TODO:
+##   - Remove duplicate configuration (maybe)
+##   - Run on Windows and other platforms
+##   
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
