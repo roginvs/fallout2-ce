@@ -403,7 +403,8 @@ if(APPLE)
 endif()
 
 
-## ------------------------
+## --------- tests ---------------
+
 
 include(FetchContent)
 FetchContent_Declare(
@@ -417,10 +418,12 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 add_executable(
-  tests
-  tests/compat_splitpath_test.cc
+  run_tests
 )
 
+target_sources(run_tests PUBLIC
+  tests/compat_splitpath_test.cc
+)
 
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     add_subdirectory("third_party/zlib")
@@ -431,15 +434,15 @@ else()
 endif()
 
 target_link_libraries(
-  tests
+  run_tests
   GTest::gtest_main
   ${ZLIB_LIBRARIES}
   ${SDL2_LIBRARIES}
 )
-target_include_directories(tests PRIVATE ${ZLIB_INCLUDE_DIRS})
-target_include_directories(tests PRIVATE ${SDL2_INCLUDE_DIRS})
+target_include_directories(run_tests PRIVATE ${ZLIB_INCLUDE_DIRS})
+target_include_directories(run_tests PRIVATE ${SDL2_INCLUDE_DIRS})
 
 
 
 include(GoogleTest)
-gtest_discover_tests(tests)
+gtest_discover_tests(run_tests)
