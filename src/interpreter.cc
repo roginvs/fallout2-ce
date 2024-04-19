@@ -2524,7 +2524,7 @@ static void opLookupStringProc(Program* program)
 
 void checkScriptsOpcodes()
 {
-    
+
     std::vector<char*> SCRIPTS_FOLDER_PATHS = {
         "master.dat/scripts",
         "data/scripts",
@@ -2554,8 +2554,9 @@ void checkScriptsOpcodes()
         fileClose(stream);
 
         {
-            auto check_data = [&fName, &unknown_opcodes](unsigned char* data, size_t start_pos, size_t end_pos) {
+            auto check_data = [&fName, &unknown_opcodes](unsigned char* data, size_t start_pos, size_t end_pos, size_t static_strings_pos) {
                 size_t i = start_pos;
+                bool isPreviousPush = false;
                 while (i < end_pos) {
                     opcode_t opcode = stackReadInt16(data, i);
                     if (!((opcode >> 8) & 0x80)) {
@@ -2569,15 +2570,41 @@ void checkScriptsOpcodes()
                         set.insert(fName);
                     };
 
+
+                    if (opcode >= 0x8276 && opcode <= 0x827C) {
+                        auto paramsCount = opcode - 0x8276;
+                        /*
+                        printf("DEBUG: opcode=0x%x params=%i pos=0x%x prevPush=%i\n", 
+                          opcode, paramsCount, i, isPreviousPush);
+                        if (i != start_pos) {
+                            if (isPreviousPush) {
+                                printf("  prev push, val=%i\n", stackReadInt32(data, i - 4));
+                                if (static_strings_pos){
+                                    printf("    str=%s\n", &data[static_strings_pos + stackReadInt32(data, i - 4)]);
+                                }else{
+                                    printf("    <no static strings>\n");
+                                }
+                            } else {
+                                printf("  prev not push opcode=0x%x\n", stackReadInt16(data, i - 2));
+                            }
+                        } else {
+                            printf("  ERR: first opcode\n");
+                        }
+                        */
+                    }
+
                     i += 2;
 
                     if (opcodeIndex == (OPCODE_PUSH & 0x3FF)) {
                         i += 4;
+                        isPreviousPush = true;
+                    } else {
+                        isPreviousPush = false;
                     }
                 }
             };
 
-            check_data(data, 0, 0x2A);
+            check_data(data, 0, 0x2A, 0);
 
             auto identifiers_pos = 24 * stackReadInt32(data, 42) + 42 + 4;
             auto static_strings_pos = identifiers_pos + stackReadInt32(data, identifiers_pos) + 4 + 4;
@@ -2589,13 +2616,16 @@ void checkScriptsOpcodes()
 
             // printf("File %s identifiers_pos=%x static_strings_pos=%x code_pos=%x\n", fName.c_str(), identifiers_pos,static_strings_pos, code_pos);
 
-            check_data(data, code_pos, fileSize);
+            check_data(data, code_pos, fileSize, static_strings_pos);
         }
 
         free(data);
     };
 
     int checked_files = 0;
+
+    // check_file("./data/SCRIPTS/gl_p_party_orders.int");
+    // checked_files++;
     for (auto dirPath : SCRIPTS_FOLDER_PATHS) {
         for (auto dirEntry : std::filesystem::directory_iterator(dirPath)) {
             if (!dirEntry.is_regular_file()) {
