@@ -22,7 +22,7 @@ export interface FsNodeOps {
         attr: { mode?: number; timestamp?: number }
     ) => void;
 
-    lookup?: (parent: AsyncFsNode, name: string) => AsyncFsNode;
+    lookup: (parent: AsyncFsNode, name: string) => AsyncFsNode;
     mknod: (
         parent: AsyncFsNode,
         name: string,
@@ -31,6 +31,15 @@ export interface FsNodeOps {
     ) => AsyncFsNode;
 
     readdir: (node: AsyncFsNode) => string[];
+
+    rename: (
+        oldNode: AsyncFsNode,
+        newParent: AsyncFsNode,
+        newName: string
+    ) => void;
+    unlink: (parent: AsyncFsNode, name: string) => void;
+    rmdir: (parent: AsyncFsNode, name: string) => void;
+    symlink: (parent: AsyncFsNode, newname: string, oldpath: string) => void;
 }
 
 export interface AsyncFsStream {
@@ -70,8 +79,36 @@ export interface FsNode {
     stream_ops: FsStreamOps;
     timestamp: number;
     name: string;
+    parent: FsNode;
+}
+
+export interface AsyncFsFile {
+    filePath: string;
+    size: number;
+    content: Uint8Array | null;
+}
+export interface AsyncFsConfig {
+    loadFile: (file: AsyncFsFile) => Promise<Uint8Array>;
+    saveFile: (file: AsyncFsFile, newData: Uint8Array) => Promise<void>;
+}
+export interface AsyncFsMountOptions<T extends AsyncFsFile> {
+    files: T[];
+    config: AsyncFsConfig;
 }
 
 export interface AsyncFsNode extends FsNode {
     size: number;
+    config: AsyncFsConfig;
+
+    /** If it is a directory */
+    childNodes?: Record<string, AsyncFsNode>;
+
+    /** If it is a file */
+    contents?: Uint8Array;
+
+    initialFile: AsyncFsFile;
+
+    unloadTimerId?: number;
+    openedCount: number;
+    is_memfs: boolean;
 }
