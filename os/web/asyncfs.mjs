@@ -79,7 +79,13 @@ function resizeBuf(buf, newSize) {
         return buf;
     }
     const newBuf = new Uint8Array(newSize);
-    newBuf.set(buf);
+    if (newSize === 0) {
+        // Do nothing
+    } else if (newSize > buf.byteLength) {
+        newBuf.set(buf);
+    } else {
+        newBuf.set(buf.subarray(0, newSize));
+    }
     return newBuf;
 }
 
