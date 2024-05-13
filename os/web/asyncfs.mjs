@@ -251,8 +251,13 @@ const write = (stream, buffer, offset, length, position) => {
 
 /** @type {import("./asyncfs.types").FsNodeOps['unlink']} */
 const unlink = (parent, name) => {
-    console.info(`unlink ${name}`, parent);
-    throw new Error(`unlink not implemented`);
+    if (!parent.childNodes) {
+        throw new Error(
+            `unlink called on node ${parent.name} which is not a directory`
+        );
+    }
+    delete parent.childNodes[name];
+    parent.timestamp = Date.now();
 };
 
 /** @type {import("./asyncfs.types").FsNodeOps['mknod']} */
