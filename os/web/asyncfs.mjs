@@ -335,6 +335,9 @@ function mount(params) {
             throw new Error(`Internal error: must be a directory`);
         }
         const fileName = baseName(file.filePath);
+        if (parentNode.childNodes[fileName]) {
+            throw new Error(`Duplicate file ${file.filePath}`);
+        }
         const fileNode = createAsyncNode(parentNode, fileName, FILE_MODE);
         parentNode.childNodes[fileName] = fileNode;
         fileNode.size = file.size;
