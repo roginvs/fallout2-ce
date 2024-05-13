@@ -19,7 +19,7 @@ export interface FsNodeOps {
 
     setattr: (
         node: AsyncFsNode,
-        attr: { mode?: number; timestamp?: number }
+        attr: { mode?: number; timestamp?: number; size?: number }
     ) => void;
 
     lookup: (parent: AsyncFsNode, name: string) => AsyncFsNode;

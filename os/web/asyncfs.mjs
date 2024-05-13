@@ -49,7 +49,6 @@ const readdir = (node) => {
 
 /** @type {import("./asyncfs.types").FsNodeOps['getattr']} */
 const getattr = (node) => {
-    console.info("getattr", node);
     return {
         dev: 1,
         ino: node.id,
@@ -67,6 +66,23 @@ const getattr = (node) => {
     };
 };
 
+/**
+ * @param {Uint8Array | undefined | null} buf
+ * @param {number} newSize
+ * @returns {Uint8Array}
+ */
+function resizeBuf(buf, newSize) {
+    if (!buf) {
+        return new Uint8Array(newSize);
+    }
+    if (newSize === buf.byteLength) {
+        return buf;
+    }
+    const newBuf = new Uint8Array(newSize);
+    newBuf.set(buf);
+    return newBuf;
+}
+
 /** @type {import("./asyncfs.types").FsNodeOps['setattr']} */
 const setattr = (node, attr) => {
     if (attr.mode !== undefined) {
@@ -74,6 +90,11 @@ const setattr = (node, attr) => {
     }
     if (attr.timestamp !== undefined) {
         node.timestamp = attr.timestamp;
+    }
+    if (attr.size !== undefined) {
+        node.size = attr.size;
+        node.is_memfs = true;
+        node.contents = resizeBuf(node.contents, attr.size);
     }
 };
 
@@ -161,14 +182,6 @@ const close = (stream) => {
         return;
     }
 
-    if (node.name === "fallout2.cfg") {
-        // This is a huge workaround.
-        // If we unload fallout2.cfg then game is not able to gracefully exit.
-        // Probably somehow related to async open in write mode but i am not sure.
-        // TODO: Find out what the hell is happening here
-        return;
-    }
-
     if (node.mode === FILE_MODE && node.openedCount === 0) {
         const unloadTimeoutMs = 1000;
         node.unloadTimerId = setTimeout(() => {
@@ -228,10 +241,8 @@ const write = (stream, buffer, offset, length, position) => {
     }
 
     if (position + length > node.contents.byteLength) {
-        const newBuf = new Uint8Array(position + length);
-        newBuf.set(node.contents);
-        node.contents = newBuf;
-        node.size = newBuf.byteLength;
+        node.contents = resizeBuf(node.contents, position + length);
+        node.size = node.contents.byteLength;
     }
     node.contents.set(buffer.subarray(offset, offset + length), position);
 
