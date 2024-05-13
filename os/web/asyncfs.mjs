@@ -372,8 +372,7 @@ function baseName(/** @type {string} */ path) {
 }
 
 /**
- * @template {import("./asyncfs.types").AsyncFsFile} T
- * @param {{opts: import("./asyncfs.types").AsyncFsMountOptions<T>}} params
+ * @param {{opts: import("./asyncfs.types").AsyncFsMountOptions}} params
  */
 function mount(params) {
     const opts = params.opts;

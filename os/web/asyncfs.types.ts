@@ -91,8 +91,8 @@ export interface AsyncFsConfig {
     loadFile: (filePath: string, expectedSize: number) => Promise<Uint8Array>;
     saveFile: (filePath: string, newData: Uint8Array) => Promise<void>;
 }
-export interface AsyncFsMountOptions<T extends AsyncFsFile> {
-    files: T[];
+export interface AsyncFsMountOptions {
+    files: AsyncFsFile[];
     config: AsyncFsConfig;
 }
 
