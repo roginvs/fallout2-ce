@@ -249,17 +249,54 @@ const write = (stream, buffer, offset, length, position) => {
     return length;
 };
 
+/** @type {import("./asyncfs.types").FsNodeOps['unlink']} */
+const unlink = (parent, name) => {
+    console.info(`unlink ${name}`, parent);
+    throw new Error(`unlink not implemented`);
+};
+
+/** @type {import("./asyncfs.types").FsNodeOps['mknod']} */
+const mknod = (parent, name, mode, dev) => {
+    console.info(
+        `ASYNCFETCHFS mknod ` +
+            `parent=${getNodePath(parent)} name=${name} ` +
+            `mode=${mode} dev=${dev}`
+    );
+
+    if (FS.isBlkdev(mode) || FS.isFIFO(mode)) {
+        // no supported
+        console.info(`ASYNCFETCHFS node_ops.mknod NOT SUPPORTED: `, name);
+        throw new FS.ErrnoError(63);
+    }
+
+    const node = createAsyncNode(parent, name, mode);
+
+    node.is_memfs = true;
+    if (FS.isFile(mode)) {
+        node.contents = new Uint8Array(0);
+        node.size = 0;
+    }
+
+    return node;
+};
+
 function createAsyncNode(
     /** @type {import("./asyncfs.types").AsyncFsNode | null} */
     parent,
     /** @type {string} */
     name,
-    /** @type {typeof FILE_MODE | typeof DIR_MODE} */
+    /** @type {number} */
     mode
 ) {
     /** @type {import("./asyncfs.types").AsyncFsNode} */
     const node = FS.createNode(parent, name, mode);
 
+    if (parent) {
+        if (!parent.childNodes) {
+            throw new Error(`Internal error`);
+        }
+        parent.childNodes[name] = node;
+    }
     node.timestamp = Date.now();
 
     node.node_ops = {
@@ -268,10 +305,10 @@ function createAsyncNode(
         setattr,
         // No need to implement this because underlying FS subsystem caches those on FSNode creation
         lookup: makeErrorOp(EIO),
-        mknod: makeErrorOp(EPERM),
+        mknod,
         rename: makeErrorOp(EPERM),
         rmdir: makeErrorOp(EPERM),
-        unlink: makeErrorOp(EPERM),
+        unlink,
         symlink: makeErrorOp(EPERM),
     };
     node.stream_ops = {
@@ -281,12 +318,13 @@ function createAsyncNode(
         open,
         close,
     };
-    if (mode === DIR_MODE) {
-        node.size = 4096;
-        node.childNodes = {};
-    } else {
+
+    if (FS.isFile(mode)) {
         node.size = 0;
         node.contents = undefined;
+    } else {
+        node.size = 4096;
+        node.childNodes = {};
     }
 
     if (parent) {
@@ -307,12 +345,13 @@ function ensureParent(
     let curr = rootNode;
     for (const part of directoryParts) {
         if (!curr.childNodes) {
-            throw new Error(`Internal error`);
+            throw new Error(`Internal error: not a directory`);
         }
         if (curr.childNodes[part] === undefined) {
-            curr.childNodes[part] = createAsyncNode(curr, part, DIR_MODE);
+            curr = createAsyncNode(curr, part, DIR_MODE);
+        } else {
+            curr = curr.childNodes[part];
         }
-        curr = curr.childNodes[part];
     }
     return curr;
 }
@@ -329,6 +368,10 @@ function mount(params) {
     const opts = params.opts;
     const rootNode = createAsyncNode(null, "/", DIR_MODE);
     rootNode.config = opts.config;
+
+    // Because we create nodes here we need to inherit mount
+    /** @type {any} */ (rootNode).mount = params;
+
     for (const file of opts.files) {
         const parentNode = ensureParent(rootNode, file.filePath);
         if (!parentNode.childNodes) {
@@ -339,7 +382,7 @@ function mount(params) {
             throw new Error(`Duplicate file ${file.filePath}`);
         }
         const fileNode = createAsyncNode(parentNode, fileName, FILE_MODE);
-        parentNode.childNodes[fileName] = fileNode;
+
         fileNode.size = file.size;
         fileNode.contents = file.content || undefined;
     }
