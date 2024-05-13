@@ -139,8 +139,13 @@ const open = (stream) => {
     }
 
     return Asyncify.handleAsync(async () => {
-        const data = await node.config.loadFile(node.initialFile);
-
+        const data = await node.config.loadFile(getNodePath(node), node.size);
+        if (data.byteLength !== node.size) {
+            throw new Error(
+                `Unexpected size of file ${getNodePath(node)}: ` +
+                    `expected ${node.size} but got ${data.byteLength}`
+            );
+        }
         node.contents = data;
         node.openedCount++;
     });
@@ -173,6 +178,7 @@ const close = (stream) => {
             } else {
                 console.warn(`Got unload even but node is opened`);
             }
+            node.unloadTimerId = undefined;
         }, unloadTimeoutMs);
     }
 };
@@ -197,7 +203,7 @@ const write = (stream, buffer, offset, length, position) => {
         `ASYNCFETCHFS write ` +
             `${getNodePath(stream.node)} offset=${offset} ` +
             `len=${length} pos=${position} ` +
-            `curSize=${stream.node.contents?.byteLength}`
+            `curSize=${stream.node.contents?.byteLength}=${stream.node.size} `
     );
     // console.info(
     //     `ASYNCFETCHFS write`,
@@ -322,7 +328,6 @@ function mount(params) {
         parentNode.childNodes[fileName] = fileNode;
         fileNode.size = file.size;
         fileNode.contents = file.content || undefined;
-        fileNode.initialFile = file;
     }
     return rootNode;
 }

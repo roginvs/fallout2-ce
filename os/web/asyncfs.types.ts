@@ -88,8 +88,8 @@ export interface AsyncFsFile {
     content: Uint8Array | null;
 }
 export interface AsyncFsConfig {
-    loadFile: (file: AsyncFsFile) => Promise<Uint8Array>;
-    saveFile: (file: AsyncFsFile, newData: Uint8Array) => Promise<void>;
+    loadFile: (filePath: string, expectedSize: number) => Promise<Uint8Array>;
+    saveFile: (filePath: string, newData: Uint8Array) => Promise<void>;
 }
 export interface AsyncFsMountOptions<T extends AsyncFsFile> {
     files: T[];
@@ -105,8 +105,6 @@ export interface AsyncFsNode extends FsNode {
 
     /** If it is a file */
     contents?: Uint8Array;
-
-    initialFile: AsyncFsFile;
 
     unloadTimerId?: number;
     openedCount: number;
