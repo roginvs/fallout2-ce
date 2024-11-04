@@ -557,7 +557,7 @@ int tileSetCenter(int tile, int flags)
             if (dx > abs(dudeScreenX - _tile_offx)
                 || dy > abs(dudeScreenY - _tile_offy)) {
                 if (dx >= 480 || dy >= 400) {
-                    return -1;
+                    // return -1;
                 }
             }
         }
@@ -637,7 +637,7 @@ static void tileRefreshGame(Rect* rect, int elevation)
     Rect rectToUpdate;
 
     if (rectIntersection(rect, &gTileWindowRect, &rectToUpdate) == -1) {
-        return;
+        goto out;
     }
 
     // CE: Clear dirty rect to prevent most of the visual artifacts near map
@@ -653,6 +653,29 @@ static void tileRefreshGame(Rect* rect, int elevation)
     tileRenderRoofsInRect(&rectToUpdate, elevation);
     _obj_render_post_roof(&rectToUpdate, elevation);
     gTileWindowRefreshProc(&rectToUpdate);
+
+out:
+    // Kekeke
+    {
+        // y and x
+        int tile = gHexGridWidth * 40 + gHexGridWidth - 1 - 95;
+
+        int tile_x = gHexGridWidth - 1 - tile % gHexGridWidth;
+        int tile_y = tile / gHexGridWidth;
+
+        int tile_screen_x;
+        int tile_screen_y;
+        tileToScreenXY(tile, &tile_screen_x, &tile_screen_y, elevation);
+
+        printf("Tile=%d, x=%d, y=%d, screenX=%d, screenY=%d\n", tile, tile_x, tile_y, tile_screen_x, tile_screen_y);
+        if (tile_screen_x > 0 && tile_screen_y > 0) {
+            bufferFill(gTileWindowBuffer + tile_screen_y * gTileWindowPitch + tile_screen_x,
+                500,
+                400,
+                gTileWindowPitch,
+                0xA0);
+        }
+    }
 }
 
 // 0x4B1634
