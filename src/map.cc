@@ -1520,6 +1520,8 @@ static void isoWindowRefreshRectGame(Rect* rect)
     _obj_render_pre_roof(&rectToUpdate, gElevation);
     tileRenderRoofsInRect(&rectToUpdate, gElevation);
     _obj_render_post_roof(&rectToUpdate, gElevation);
+
+    draw_square(&rectToUpdate, gElevation);
 }
 
 // 0x483F44

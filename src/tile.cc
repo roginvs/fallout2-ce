@@ -637,7 +637,7 @@ static void tileRefreshGame(Rect* rect, int elevation)
     Rect rectToUpdate;
 
     if (rectIntersection(rect, &gTileWindowRect, &rectToUpdate) == -1) {
-        goto out;
+        return;
     }
 
     // CE: Clear dirty rect to prevent most of the visual artifacts near map
@@ -654,28 +654,30 @@ static void tileRefreshGame(Rect* rect, int elevation)
     _obj_render_post_roof(&rectToUpdate, elevation);
     gTileWindowRefreshProc(&rectToUpdate);
 
-out:
-    // Kekeke
-    {
-        // y and x
-        int tile = gHexGridWidth * 40 + gHexGridWidth - 1 - 95;
+    draw_square(&rectToUpdate, elevation);
+}
 
-        int tile_x = gHexGridWidth - 1 - tile % gHexGridWidth;
-        int tile_y = tile / gHexGridWidth;
+void draw_square(Rect* rect, int elevation)
+{
 
-        int tile_screen_x;
-        int tile_screen_y;
-        tileToScreenXY(tile, &tile_screen_x, &tile_screen_y, elevation);
+    // y and x
+    int tile = gHexGridWidth * 40 + gHexGridWidth - 1 - 95;
 
-        printf("Tile=%d, x=%d, y=%d, screenX=%d, screenY=%d\n", tile, tile_x, tile_y, tile_screen_x, tile_screen_y);
-        if (tile_screen_x > 0 && tile_screen_y > 0) {
-            bufferFill(gTileWindowBuffer + tile_screen_y * gTileWindowPitch + tile_screen_x,
-                500,
-                400,
-                gTileWindowPitch,
-                0xA0);
-        }
-    }
+    int tile_x = gHexGridWidth - 1 - tile % gHexGridWidth;
+    int tile_y = tile / gHexGridWidth;
+
+    int tile_screen_x;
+    int tile_screen_y;
+    tileToScreenXY(tile, &tile_screen_x, &tile_screen_y, elevation);
+
+    printf("KEK Tile=%d, x=%d, y=%d, screenX=%d, screenY=%d\n", tile, tile_x, tile_y, tile_screen_x, tile_screen_y);
+    if (tile_screen_x > 0 && tile_screen_y > 0) {
+        bufferFill(gTileWindowBuffer + tile_screen_y * gTileWindowPitch + tile_screen_x,
+            500,
+            400,
+            gTileWindowPitch,
+            0xA0);
+    };
 }
 
 // 0x4B1634
