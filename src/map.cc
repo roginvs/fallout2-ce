@@ -1521,7 +1521,7 @@ static void isoWindowRefreshRectGame(Rect* rect)
     tileRenderRoofsInRect(&rectToUpdate, gElevation);
     _obj_render_post_roof(&rectToUpdate, gElevation);
 
-    draw_square(&rectToUpdate, gElevation);
+    draw_square(&rectToUpdate, gElevation, "mapGame");
 }
 
 // 0x483F44
@@ -1543,6 +1543,8 @@ static void isoWindowRefreshRectMapper(Rect* rect)
     _obj_render_pre_roof(&rectToUpdate, gElevation);
     tileRenderRoofsInRect(&rectToUpdate, gElevation);
     _obj_render_post_roof(&rectToUpdate, gElevation);
+
+    draw_square(&rectToUpdate, gElevation, "mapMapper");
 }
 
 // NOTE: Inlined.

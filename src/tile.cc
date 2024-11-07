@@ -628,6 +628,9 @@ static void tileRefreshMapper(Rect* rect, int elevation)
     _obj_render_pre_roof(&rectToUpdate, elevation);
     tileRenderRoofsInRect(&rectToUpdate, elevation);
     _obj_render_post_roof(&rectToUpdate, elevation);
+
+    draw_square(&rectToUpdate, elevation, "tileMapper");
+
     gTileWindowRefreshProc(&rectToUpdate);
 }
 
@@ -652,12 +655,13 @@ static void tileRefreshGame(Rect* rect, int elevation)
     _obj_render_pre_roof(&rectToUpdate, elevation);
     tileRenderRoofsInRect(&rectToUpdate, elevation);
     _obj_render_post_roof(&rectToUpdate, elevation);
-    gTileWindowRefreshProc(&rectToUpdate);
 
-    draw_square(&rectToUpdate, elevation);
+    draw_square(&rectToUpdate, elevation, "tileGame");
+
+    gTileWindowRefreshProc(&rectToUpdate);
 }
 
-void draw_square(Rect* rect, int elevation)
+void draw_square(Rect* rect, int elevation, const char* from)
 {
 
     // y and x
@@ -670,14 +674,19 @@ void draw_square(Rect* rect, int elevation)
     int tile_screen_y;
     tileToScreenXY(tile, &tile_screen_x, &tile_screen_y, elevation);
 
-    printf("KEK Tile=%d, x=%d, y=%d, screenX=%d, screenY=%d\n", tile, tile_x, tile_y, tile_screen_x, tile_screen_y);
+    printf("%s Tile=%d, x=%d, y=%d, screenX=%d, screenY=%d width=%d buf1=%x",
+        from, tile, tile_x, tile_y, tile_screen_x, tile_screen_y,
+        gTileWindowWidth,
+        gTileWindowBuffer);
     if (tile_screen_x > 0 && tile_screen_y > 0) {
-        bufferFill(gTileWindowBuffer + tile_screen_y * gTileWindowPitch + tile_screen_x,
+        bufferFill(gTileWindowBuffer + tile_screen_y * gTileWindowWidth + tile_screen_x,
             500,
             400,
-            gTileWindowPitch,
-            0xA0);
-    };
+            gTileWindowWidth,
+            0xD0);
+    } else {
+        printf("%s no render\n", from);
+    }
 }
 
 // 0x4B1634
