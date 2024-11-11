@@ -18,9 +18,9 @@ void init_tile_hires()
 
 
           odd   even
-   x   x   3   2
-     5   4  203  202
-   6   205  204   x
+   x     x     3     2
+      5     4    203   202
+   6    205   204    x
      206   x   x   x
 
 (even have next on the same row, odd have next on the next row)
