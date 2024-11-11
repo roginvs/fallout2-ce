@@ -5,7 +5,7 @@
 namespace fallout {
 
 // TODO: Instead of tiles use square screen tiles 16x18 in size
-
+// And have size 500x200 elements
 static unsigned char tiles[ELEVATION_COUNT][HEX_GRID_SIZE];
 static unsigned char view_area_id = 1;
 
