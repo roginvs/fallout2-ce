@@ -14,6 +14,27 @@ void init_tile_hires()
     memset(tiles, 0, sizeof(tiles));
 }
 
+/*
+
+
+          odd   even
+   x   x   3   2
+     5   4  203  202
+   6   205  204   x
+     206   x   x   x
+
+(even have next on the same row, odd have next on the next row)
+
+
+
+
+tile size is 32 x 18
+
+screen have vertical 0.5 + 31 + 0.5 tiles
+horizontal 20
+
+*/
+
 void on_center_tile_change()
 {
     printf("=========== on_center_tile_change elev=%i tile=%i ================\n",
@@ -23,6 +44,7 @@ void on_center_tile_change()
     if (gCenterTile > 0) {
         tiles[gElevation][gCenterTile - 1] = 2;
     };
+    /*
     if (gCenterTile < HEX_GRID_SIZE - 1) {
         tiles[gElevation][gCenterTile + 1] = 2;
     };
@@ -32,7 +54,7 @@ void on_center_tile_change()
     if (gCenterTile < HEX_GRID_SIZE - HEX_GRID_HEIGHT) {
         tiles[gElevation][gCenterTile + HEX_GRID_HEIGHT] = 2;
     };
-
+*/
     // _obj_scroll_blocking_at
 }
 
@@ -68,8 +90,8 @@ void draw_square(Rect* rect, int elevation, const char* from)
 
 void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, int windowHeight)
 {
-    printf("draw_tile_hires_cover rect=%d,%d,%d,%d window=%d,%d\n",
-        rect->left, rect->top, rect->right, rect->bottom, windowWidth, windowHeight);
+    // printf("draw_tile_hires_cover rect=%d,%d,%d,%d window=%d,%d\n",
+    //     rect->left, rect->top, rect->right, rect->bottom, windowWidth, windowHeight);
 
     Rect updatedRect = *rect;
 
@@ -92,8 +114,8 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
         int screenX;
         int screenY;
         tileToScreenXY(i, &screenX, &screenY, gElevation);
-        constexpr int tileWidth = 20;
-        constexpr int tileHeight = 10;
+        constexpr int tileWidth = 32;
+        constexpr int tileHeight = 18;
         if (screenX < 0 || screenY < 0 || screenX + tileWidth >= windowWidth || screenY + tileHeight >= windowHeight) {
             continue;
         };
