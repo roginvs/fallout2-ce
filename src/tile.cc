@@ -19,6 +19,7 @@
 #include "platform_compat.h"
 #include "settings.h"
 #include "svga.h"
+#include "tile_hires_cover.h"
 #include <stack>
 
 namespace fallout {
@@ -600,6 +601,8 @@ int tileSetCenter(int tile, int flags)
 
     gCenterTile = tile;
 
+    on_center_tile_change();
+
     if ((flags & TILE_SET_CENTER_REFRESH_WINDOW) != 0) {
         // NOTE: Uninline.
         tileWindowRefresh();
@@ -629,7 +632,7 @@ static void tileRefreshMapper(Rect* rect, int elevation)
     tileRenderRoofsInRect(&rectToUpdate, elevation);
     _obj_render_post_roof(&rectToUpdate, elevation);
 
-    draw_square(&rectToUpdate, elevation, "tileMapper");
+    draw_tile_hires_cover(&rectToUpdate, gTileWindowBuffer, gTileWindowWidth, gTileWindowHeight);
 
     gTileWindowRefreshProc(&rectToUpdate);
 }
@@ -656,7 +659,7 @@ static void tileRefreshGame(Rect* rect, int elevation)
     tileRenderRoofsInRect(&rectToUpdate, elevation);
     _obj_render_post_roof(&rectToUpdate, elevation);
 
-    draw_square(&rectToUpdate, elevation, "tileGame");
+    draw_tile_hires_cover(&rectToUpdate, gTileWindowBuffer, gTileWindowWidth, gTileWindowHeight);
 
     gTileWindowRefreshProc(&rectToUpdate);
 }
