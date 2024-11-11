@@ -4,9 +4,12 @@
 #include <string.h>
 namespace fallout {
 
-// TODO: Instead of tiles use square screen tiles 16x18 in size
+// TODO: Use square screen tiles 16x18 in size
 // And have size 500x200 elements
+// Keep this as bool for traversal
 static unsigned char tiles[ELEVATION_COUNT][HEX_GRID_SIZE];
+
+// TODO: Remove this, use boolean, and clean tiles if center is not traversed
 static unsigned char view_area_id = 1;
 
 #define CENTER_VISITED_FLAG 0b10000000
@@ -162,6 +165,7 @@ void on_center_tile_change()
         int tileScreenY;
         tileToScreenXY(tile, &tileScreenX, &tileScreenY, gElevation);
 
+        // TODO: Check are there scroll blocker!
         /*
                 tiles_to_visit.push(
                     tileFromScreenXY(tileScreenX - 32, tileScreenY, gElevation, true));
