@@ -36,8 +36,76 @@ void on_center_tile_change()
     // _obj_scroll_blocking_at
 }
 
+/*
+void draw_square(Rect* rect, int elevation, const char* from)
+{
+
+    // y and x
+    int tile = gHexGridWidth * 40 + gHexGridWidth - 1 - 95;
+
+    int tile_x = gHexGridWidth - 1 - tile % gHexGridWidth;
+    int tile_y = tile / gHexGridWidth;
+
+    int tile_screen_x;
+    int tile_screen_y;
+    tileToScreenXY(tile, &tile_screen_x, &tile_screen_y, elevation);
+
+    printf("%s Tile=%d, x=%d, y=%d, screenX=%d, screenY=%d width=%d buf1=%x",
+        from, tile, tile_x, tile_y, tile_screen_x, tile_screen_y,
+        gTileWindowWidth,
+        gTileWindowBuffer);
+    if (tile_screen_x > 0 && tile_screen_y > 0) {
+        bufferFill(gTileWindowBuffer + tile_screen_y * gTileWindowWidth + tile_screen_x,
+            500,
+            400,
+            gTileWindowWidth,
+            0xD0);
+    } else {
+        printf("%s no render\n", from);
+    }
+}
+*/
+
 void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, int windowHeight)
 {
+    printf("draw_tile_hires_cover rect=%d,%d,%d,%d window=%d,%d\n",
+        rect->left, rect->top, rect->right, rect->bottom, windowWidth, windowHeight);
+
+    Rect updatedRect = *rect;
+
+    int minX = updatedRect.left;
+    int minY = updatedRect.top;
+    int maxX = updatedRect.right;
+    int maxY = updatedRect.bottom;
+
+    int leftTop = tileFromScreenXY(minX, minY, gElevation, true);
+    int rightTop = tileFromScreenXY(maxX, minY, gElevation, true);
+    int leftBottom = tileFromScreenXY(minX, maxY, gElevation, true);
+    int rightBottom = tileFromScreenXY(maxX, maxY, gElevation, true);
+
+    for (int i = 0; i < HEX_GRID_SIZE; i++) {
+        if (tiles[gElevation][i] == 0) {
+            continue;
+        }
+        int color = tiles[gElevation][i] == 1 ? 0x80 : 0x40;
+
+        int screenX;
+        int screenY;
+        tileToScreenXY(i, &screenX, &screenY, gElevation);
+        constexpr int tileWidth = 20;
+        constexpr int tileHeight = 10;
+        if (screenX < 0 || screenY < 0 || screenX + tileWidth >= windowWidth || screenY + tileHeight >= windowHeight) {
+            continue;
+        };
+
+        int pixel = screenY * windowWidth + screenX;
+        for (int y = 0; y < tileHeight; y++) {
+            for (int x = 0; x < tileWidth; x++) {
+                buffer[pixel + x] = color;
+            }
+            pixel += windowWidth;
+        }
+    }
 }
 
 } // namespace fallout

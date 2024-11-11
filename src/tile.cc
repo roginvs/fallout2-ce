@@ -664,34 +664,6 @@ static void tileRefreshGame(Rect* rect, int elevation)
     gTileWindowRefreshProc(&rectToUpdate);
 }
 
-void draw_square(Rect* rect, int elevation, const char* from)
-{
-
-    // y and x
-    int tile = gHexGridWidth * 40 + gHexGridWidth - 1 - 95;
-
-    int tile_x = gHexGridWidth - 1 - tile % gHexGridWidth;
-    int tile_y = tile / gHexGridWidth;
-
-    int tile_screen_x;
-    int tile_screen_y;
-    tileToScreenXY(tile, &tile_screen_x, &tile_screen_y, elevation);
-
-    printf("%s Tile=%d, x=%d, y=%d, screenX=%d, screenY=%d width=%d buf1=%x",
-        from, tile, tile_x, tile_y, tile_screen_x, tile_screen_y,
-        gTileWindowWidth,
-        gTileWindowBuffer);
-    if (tile_screen_x > 0 && tile_screen_y > 0) {
-        bufferFill(gTileWindowBuffer + tile_screen_y * gTileWindowWidth + tile_screen_x,
-            500,
-            400,
-            gTileWindowWidth,
-            0xD0);
-    } else {
-        printf("%s no render\n", from);
-    }
-}
-
 // 0x4B1634
 void tile_toggle_roof(bool refresh)
 {
