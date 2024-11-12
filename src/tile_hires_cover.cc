@@ -117,7 +117,7 @@ static struct XY get_screen_diff()
                 minTileY, minY,
                 maxX, maxY,
                 maxX - minX, maxY - minY);
-            exit(100);
+            exit(108);
         }
     };
 
@@ -146,19 +146,20 @@ static void mark_screen_tiles_around_as_visible(int center_tile)
     if (DO_DEBUG_CHECKS) {
         if (centerTileGlobalX % square_width != 0 || centerTileGlobalY % square_height != 0) {
             printf("centerTileGlobalX=%i, centerTileGlobalY=%i\n", centerTileGlobalX, centerTileGlobalY);
-            exit(100);
+            exit(101);
         }
 
         if (
             centerTileGlobalX - squares_screen_width_half * square_width < 0 || centerTileGlobalY - squares_screen_height_half * square_height < 0) {
             printf("centerTileGlobalX=%i, centerTileGlobalY=%i\n", centerTileGlobalX, centerTileGlobalY);
-            exit(100);
+            printf("kekekek border=%i\n", gTileBorderInitialized);
+            exit(102);
         }
         if (
             centerTileGlobalX + squares_screen_width_half * square_width >= square_width * square_grid_width
             || centerTileGlobalY + squares_screen_height_half * square_height >= square_height * square_grid_height) {
             printf("centerTileGlobalX=%i, centerTileGlobalY=%i\n", centerTileGlobalX, centerTileGlobalY);
-            exit(100);
+            exit(103);
         }
     }
 
@@ -173,13 +174,17 @@ static void mark_screen_tiles_around_as_visible(int center_tile)
 
 void on_center_tile_change()
 {
+    if (!gTileBorderInitialized) {
+        return;
+    };
+
     if (visited_tiles[gElevation][gCenterTile]) {
-        printf("========= NOOP on_center_tile_change elev=%i tile=%i ================\n",
+        printf("=== NOOP on_center_tile_change elev=%i tile=%i ================\n",
             gElevation, gCenterTile);
 
         return;
     } else {
-        printf("=========== on_center_tile_change elev=%i tile=%i ================\n",
+        printf("=== on_center_tile_change elev=%i tile=%i ================\n",
             gElevation, gCenterTile);
     }
 
@@ -194,8 +199,27 @@ void on_center_tile_change()
         auto tile = tiles_to_visit.top();
         tiles_to_visit.pop();
 
+        // printf("Center traversal tile=%i isVisited=%i totalVisited=%i\n",
+        //     tile, visited_tiles[gElevation][tile], visited_tiles_count);
+
         if (visited_tiles[gElevation][tile]) {
             continue;
+        }
+
+        if (tile != gCenterTile) {
+            if (tile < 0 || tile >= HEX_GRID_SIZE) {
+                continue;
+            }
+            if (_obj_scroll_blocking_at(tile, gElevation) == 0) {
+                continue;
+            }
+
+            int tile_x = HEX_GRID_WIDTH - 1 - tile % HEX_GRID_WIDTH;
+            int tile_y = tile / HEX_GRID_WIDTH;
+            if (tile_x <= gTileBorderMinX || tile_x >= gTileBorderMaxX || tile_y <= gTileBorderMinY || tile_y >= gTileBorderMaxY) {
+                // printf("    tile %d is out of bounds\n", tile);
+                continue;
+            }
         }
 
         visited_tiles_count++;
@@ -207,30 +231,11 @@ void on_center_tile_change()
         int tileScreenY;
         tileToScreenXY(tile, &tileScreenX, &tileScreenY, gElevation);
 
-        {
-            int neighbor = tileFromScreenXY(tileScreenX - 32, tileScreenY, gElevation, true);
-            if (neighbor >= 0 && neighbor <= HEX_GRID_SIZE && _obj_scroll_blocking_at(neighbor, gElevation) == 0) {
-                tiles_to_visit.push(neighbor);
-            }
-        }
-        {
-            int neighbor = tileFromScreenXY(tileScreenX + 32, tileScreenY, gElevation, true);
-            if (neighbor >= 0 && neighbor <= HEX_GRID_SIZE && _obj_scroll_blocking_at(neighbor, gElevation) == 0) {
-                tiles_to_visit.push(neighbor);
-            }
-        }
-        {
-            int neighbor = tileFromScreenXY(tileScreenX, tileScreenY - 24, gElevation, true);
-            if (neighbor >= 0 && neighbor <= HEX_GRID_SIZE && _obj_scroll_blocking_at(neighbor, gElevation) == 0) {
-                tiles_to_visit.push(neighbor);
-            }
-        }
-        {
-            int neighbor = tileFromScreenXY(tileScreenX, tileScreenY + 24, gElevation, true);
-            if (neighbor >= 0 && neighbor <= HEX_GRID_SIZE && _obj_scroll_blocking_at(neighbor, gElevation) == 0) {
-                tiles_to_visit.push(neighbor);
-            }
-        }
+        tiles_to_visit.push(tileFromScreenXY(tileScreenX - 32 + 16, tileScreenY + 8, gElevation, true));
+
+        tiles_to_visit.push(tileFromScreenXY(tileScreenX + 32 + 16, tileScreenY + 8, gElevation, true));
+        tiles_to_visit.push(tileFromScreenXY(tileScreenX + 16, tileScreenY - 24 + 8, gElevation, true));
+        tiles_to_visit.push(tileFromScreenXY(tileScreenX + 16, tileScreenY + 24 + 8, gElevation, true));
     }
 
     printf("Done center traversal visited_tiles_count=%i\n", visited_tiles_count);
@@ -285,19 +290,19 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
     if (DO_DEBUG_CHECKS) {
         if (minXglobal < 0) {
             printf("minXglobal=%i\n", minXglobal);
-            exit(100);
+            exit(104);
         };
         if (minYglobal < 0) {
             printf("minYglobal=%i\n", minYglobal);
-            exit(100);
+            exit(105);
         };
         if (maxXglobal >= square_width * square_grid_width) {
             printf("maxXglobal=%i\n", maxXglobal);
-            exit(100);
+            exit(106);
         };
         if (maxYglobal >= square_height * square_grid_height) {
             printf("maxYglobal=%i\n", maxYglobal);
-            exit(100);
+            exit(107);
         };
     };
 
