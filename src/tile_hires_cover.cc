@@ -134,7 +134,7 @@ static struct XY get_screen_diff()
 
 static void mark_screen_tiles_around_as_visible(int center_tile, struct XY screen_diff)
 {
-    // return;
+    // TODO: Use neighbors information to cover only new squares
 
     int centerTileScreenX;
     int centerTileScreenY;
@@ -219,6 +219,7 @@ void on_center_tile_change()
                 continue;
             }
 
+            // TODO: Use a new function (create) from tile.cc, use it for setCenterTile too
             int tile_x = HEX_GRID_WIDTH - 1 - tile % HEX_GRID_WIDTH;
             int tile_y = tile / HEX_GRID_WIDTH;
             if (tile_x <= gTileBorderMinX || tile_x >= gTileBorderMaxX || tile_y <= gTileBorderMinY || tile_y >= gTileBorderMaxY) {
