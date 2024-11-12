@@ -1,8 +1,8 @@
 #include "draw.h"
 #include "stdio.h"
 #include "tile.h"
-#include <stack>
 #include <string.h>
+#include <vector>
 namespace fallout {
 
 static bool visited_tiles[ELEVATION_COUNT][HEX_GRID_SIZE];
@@ -132,13 +132,13 @@ static struct XY get_screen_diff()
     };
 };
 
-static void mark_screen_tiles_around_as_visible(int center_tile)
+static void mark_screen_tiles_around_as_visible(int center_tile, struct XY screen_diff)
 {
+    // return;
 
     int centerTileScreenX;
     int centerTileScreenY;
     tileToScreenXY(center_tile, &centerTileScreenX, &centerTileScreenY, gElevation);
-    auto screen_diff = get_screen_diff();
 
     int centerTileGlobalX = centerTileScreenX - screen_diff.x;
     int centerTileGlobalY = centerTileScreenY - screen_diff.y;
@@ -191,17 +191,18 @@ void on_center_tile_change()
     // TODO: Clear only current elevation
     init_tile_hires();
 
-    std::vector<int> pre_allocated_vector;
-    pre_allocated_vector.reserve(10000);
+    std::vector<int> tiles_to_visit;
+    tiles_to_visit.reserve(10000);
 
-    std::stack<int, std::vector<int>> tiles_to_visit { pre_allocated_vector };
-
-    tiles_to_visit.push(gCenterTile);
+    tiles_to_visit.push_back(gCenterTile);
 
     int visited_tiles_count = 0;
+
+    auto screen_diff = get_screen_diff();
+
     while (!tiles_to_visit.empty()) {
-        auto tile = tiles_to_visit.top();
-        tiles_to_visit.pop();
+        auto tile = tiles_to_visit.back();
+        tiles_to_visit.pop_back();
 
         // printf("Center traversal tile=%i isVisited=%i totalVisited=%i\n",
         //     tile, visited_tiles[gElevation][tile], visited_tiles_count);
@@ -229,16 +230,16 @@ void on_center_tile_change()
         visited_tiles_count++;
 
         visited_tiles[gElevation][tile] = true;
-        mark_screen_tiles_around_as_visible(tile);
+        mark_screen_tiles_around_as_visible(tile, screen_diff);
 
         int tileScreenX;
         int tileScreenY;
         tileToScreenXY(tile, &tileScreenX, &tileScreenY, gElevation);
 
-        tiles_to_visit.push(tileFromScreenXY(tileScreenX - 32 + 16, tileScreenY + 8, gElevation, true));
-        tiles_to_visit.push(tileFromScreenXY(tileScreenX + 32 + 16, tileScreenY + 8, gElevation, true));
-        tiles_to_visit.push(tileFromScreenXY(tileScreenX + 16, tileScreenY - 24 + 8, gElevation, true));
-        tiles_to_visit.push(tileFromScreenXY(tileScreenX + 16, tileScreenY + 24 + 8, gElevation, true));
+        tiles_to_visit.push_back(tileFromScreenXY(tileScreenX - 32 + 16, tileScreenY + 8, gElevation, true));
+        tiles_to_visit.push_back(tileFromScreenXY(tileScreenX + 32 + 16, tileScreenY + 8, gElevation, true));
+        tiles_to_visit.push_back(tileFromScreenXY(tileScreenX + 16, tileScreenY - 24 + 8, gElevation, true));
+        tiles_to_visit.push_back(tileFromScreenXY(tileScreenX + 16, tileScreenY + 24 + 8, gElevation, true));
     }
 
     printf("Done center traversal visited_tiles_count=%i\n", visited_tiles_count);
