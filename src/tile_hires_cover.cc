@@ -178,12 +178,13 @@ void on_center_tile_change()
             gElevation, gCenterTile);
 
         return;
+    } else {
+        printf("=========== on_center_tile_change elev=%i tile=%i ================\n",
+            gElevation, gCenterTile);
     }
-    printf("=========== on_center_tile_change elev=%i tile=%i ================\n",
-        gElevation, gCenterTile);
 
     // TODO: Clear only current elevation
-    // init_tile_hires();
+    init_tile_hires();
 
     std::stack<int> tiles_to_visit;
     tiles_to_visit.push(gCenterTile);
@@ -201,8 +202,6 @@ void on_center_tile_change()
 
         visited_tiles[gElevation][tile] = true;
         mark_screen_tiles_around_as_visible(tile);
-
-        break;
 
         int tileScreenX;
         int tileScreenY;
@@ -231,11 +230,6 @@ void on_center_tile_change()
             if (neighbor >= 0 && neighbor <= HEX_GRID_SIZE && _obj_scroll_blocking_at(neighbor, gElevation) == 0) {
                 tiles_to_visit.push(neighbor);
             }
-        }
-
-        if (visited_tiles_count > 10) {
-            // This is for debug
-            break;
         }
     }
 
@@ -328,7 +322,7 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
     int maxSquareY = maxYglobal / square_height;
     for (int x = minSquareX; x <= maxSquareX; x++) {
         for (int y = minSquareY; y <= maxSquareY; y++) {
-            if (visible_squares[gElevation][x][y]) {
+            if (!visible_squares[gElevation][x][y]) {
                 int screenX = x * square_width + screen_diff.x;
                 int screenY = y * square_height + screen_diff.y;
                 Rect squareRect = {
@@ -347,7 +341,7 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
                     intersection.right - intersection.left + 1,
                     intersection.bottom - intersection.top + 1,
                     windowWidth,
-                    0);
+                    0x40);
             }
         }
     }
