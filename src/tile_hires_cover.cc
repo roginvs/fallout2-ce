@@ -136,6 +136,8 @@ static void mark_screen_tiles_around_as_visible(int center_tile, struct XY scree
 {
     // TODO: Use neighbors information to cover only new squares
 
+    // TODO: This func takes slightly more on the left side
+
     int centerTileScreenX;
     int centerTileScreenY;
     tileToScreenXY(center_tile, &centerTileScreenX, &centerTileScreenY, gElevation);
