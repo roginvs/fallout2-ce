@@ -1,3 +1,4 @@
+#include "draw.h"
 #include "stdio.h"
 #include "tile.h"
 #include <stack>
@@ -182,7 +183,7 @@ void on_center_tile_change()
         gElevation, gCenterTile);
 
     // TODO: Clear only current elevation
-    init_tile_hires();
+    // init_tile_hires();
 
     std::stack<int> tiles_to_visit;
     tiles_to_visit.push(gCenterTile);
@@ -276,12 +277,80 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
     // printf("draw_tile_hires_cover rect=%d,%d,%d,%d window=%d,%d\n",
     //     rect->left, rect->top, rect->right, rect->bottom, windowWidth, windowHeight);
 
-    Rect updatedRect = *rect;
+    int minX = rect->left;
+    int minY = rect->top;
+    int maxX = rect->right;
+    int maxY = rect->bottom;
 
-    int minX = updatedRect.left;
-    int minY = updatedRect.top;
-    int maxX = updatedRect.right;
-    int maxY = updatedRect.bottom;
+    auto screen_diff = get_screen_diff();
+    int minXglobal = minX - screen_diff.x;
+    int minYglobal = minY - screen_diff.y;
+    int maxXglobal = maxX - screen_diff.x;
+    int maxYglobal = maxY - screen_diff.y;
+
+    if (DO_DEBUG_CHECKS) {
+        if (minXglobal < 0) {
+            printf("minXglobal=%i\n", minXglobal);
+            exit(100);
+        };
+        if (minYglobal < 0) {
+            printf("minYglobal=%i\n", minYglobal);
+            exit(100);
+        };
+        if (maxXglobal >= square_width * square_grid_width) {
+            printf("maxXglobal=%i\n", maxXglobal);
+            exit(100);
+        };
+        if (maxYglobal >= square_height * square_grid_height) {
+            printf("maxYglobal=%i\n", maxYglobal);
+            exit(100);
+        };
+    };
+
+    if (minXglobal % square_width != 0) {
+        minXglobal = minXglobal - (minXglobal % square_width);
+    };
+    if (minYglobal % square_height != 0) {
+        minYglobal = minYglobal - (minYglobal % square_height);
+    };
+    maxXglobal++;
+    if ((maxXglobal) % square_width != 0) {
+        maxXglobal = maxXglobal - (maxXglobal % square_width) + square_width;
+    };
+    maxYglobal++;
+    if ((maxYglobal) % square_height != 0) {
+        maxYglobal = maxYglobal - (maxYglobal % square_height) + square_height;
+    };
+
+    int minSquareX = minXglobal / square_width;
+    int minSquareY = minYglobal / square_height;
+    int maxSquareX = maxXglobal / square_width;
+    int maxSquareY = maxYglobal / square_height;
+    for (int x = minSquareX; x <= maxSquareX; x++) {
+        for (int y = minSquareY; y <= maxSquareY; y++) {
+            if (visible_squares[gElevation][x][y]) {
+                int screenX = x * square_width + screen_diff.x;
+                int screenY = y * square_height + screen_diff.y;
+                Rect squareRect = {
+                    .left = screenX,
+                    .top = screenY,
+                    .right = screenX + square_width,
+                    .bottom = screenY + square_height,
+                };
+
+                Rect intersection;
+                if (rectIntersection(rect, &squareRect, &intersection) == -1) {
+                    continue;
+                };
+
+                bufferFill(buffer + windowWidth * intersection.top + intersection.left,
+                    intersection.right - intersection.left + 1,
+                    intersection.bottom - intersection.top + 1,
+                    windowWidth,
+                    0);
+            }
+        }
+    }
 
     /*
         int leftTop = tileFromScreenXY(minX, minY, gElevation, true);
