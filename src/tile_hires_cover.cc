@@ -191,7 +191,11 @@ void on_center_tile_change()
     // TODO: Clear only current elevation
     init_tile_hires();
 
-    std::stack<int> tiles_to_visit;
+    std::vector<int> pre_allocated_vector;
+    pre_allocated_vector.reserve(10000);
+
+    std::stack<int, std::vector<int>> tiles_to_visit { pre_allocated_vector };
+
     tiles_to_visit.push(gCenterTile);
 
     int visited_tiles_count = 0;
@@ -206,7 +210,7 @@ void on_center_tile_change()
             continue;
         }
 
-        if (tile != gCenterTile) {
+        if (tile != gCenterTile) [[unlikely]] {
             if (tile < 0 || tile >= HEX_GRID_SIZE) {
                 continue;
             }
@@ -232,7 +236,6 @@ void on_center_tile_change()
         tileToScreenXY(tile, &tileScreenX, &tileScreenY, gElevation);
 
         tiles_to_visit.push(tileFromScreenXY(tileScreenX - 32 + 16, tileScreenY + 8, gElevation, true));
-
         tiles_to_visit.push(tileFromScreenXY(tileScreenX + 32 + 16, tileScreenY + 8, gElevation, true));
         tiles_to_visit.push(tileFromScreenXY(tileScreenX + 16, tileScreenY - 24 + 8, gElevation, true));
         tiles_to_visit.push(tileFromScreenXY(tileScreenX + 16, tileScreenY + 24 + 8, gElevation, true));
