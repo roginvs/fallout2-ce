@@ -12,7 +12,7 @@ static unsigned char tiles[ELEVATION_COUNT][HEX_GRID_SIZE];
 
 void init_tile_hires();
 
-void on_center_tile_change();
+void on_center_tile_or_elevation_change();
 
 void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, int windowHeight);
 

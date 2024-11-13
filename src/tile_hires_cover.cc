@@ -1,3 +1,4 @@
+#include "debug.h"
 #include "draw.h"
 #include "stdio.h"
 #include "tile.h"
@@ -23,53 +24,22 @@ static_assert(screen_view_width % (2 * square_width) == 0);
 static constexpr int squares_screen_height_half = screen_view_height / 2 / square_height;
 // static_assert(screen_view_height % (2 * square_height) == 0);
 
-#define CENTER_VISITED_FLAG 0b10000000
-// #define TILE_HALF_VISIBLE 0b01000000
-#define CLEAR_FLAGS 0b00111111
-
-// fallout2-ce.js:1816 min tileX=199 x=-3312 tileY=0 y=-1390 maxX=4656 maxY=2186 dx=7968 dy=3576
-static constexpr int hex_tile_with_lowest_x = 199;
-static constexpr int hex_tile_with_lowest_y = 0;
-
-void init_tile_hires()
+static void clean_cache()
 {
-    printf("===========================\n");
-    printf("init_tile_hires\n");
-    printf("===========================\n");
     memset(visited_tiles, 0, sizeof(visited_tiles));
     memset(visible_squares, 0, sizeof(visible_squares));
 }
+static void clean_cache_for_elevation(int elevation)
+{
+    memset(visited_tiles[elevation], 0, sizeof(visited_tiles[elevation]));
+    memset(visible_squares[elevation], 0, sizeof(visible_squares[elevation]));
+}
 
-/*
-
-
-          odd   even
-   x     x     3     2
-      5     4    203   202
-   6    205   204    x
-     206    x     x     x
-
-(even have next on the same row, odd have next on the next row)
-
-
-
-
-tile size is 32 x 18
-   ________
- /         \      ^
-|           |     | 18
- \_________/      v
-
-<----32 ---->
-screen have vertical 0.5 + 31 + 0.5 tiles
-horizontal 20
-
-24 px is vertical distance between 2 rows (up and down arrow press)
-
-
-
-View is 640 x 380
-*/
+void init_tile_hires()
+{
+    debugPrint("init_tile_hires\n");
+    clean_cache();
+}
 
 struct XY {
     int x;
@@ -85,6 +55,9 @@ struct XY {
 
 static struct XY get_screen_diff()
 {
+    constexpr int hex_tile_with_lowest_x = 199;
+    constexpr int hex_tile_with_lowest_y = 0;
+
     if (DO_DEBUG_CHECKS) {
         int minX = 0x7FFFFFFF;
         int minY = 0x7FFFFFFF;
@@ -132,7 +105,7 @@ static struct XY get_screen_diff()
     };
 };
 
-static void mark_screen_tiles_around_as_visible(int center_tile, struct XY screen_diff)
+static void mark_screen_tiles_around_as_visible(int center_tile, struct XY& screen_diff)
 {
     // TODO: Use neighbors information to cover only new squares
 
@@ -174,27 +147,26 @@ static void mark_screen_tiles_around_as_visible(int center_tile, struct XY scree
     }
 }
 
-void on_center_tile_change()
+void on_center_tile_or_elevation_change()
 {
     if (!gTileBorderInitialized) {
         return;
     };
 
     if (visited_tiles[gElevation][gCenterTile]) {
-        printf("=== NOOP on_center_tile_change elev=%i tile=%i ================\n",
+        debugPrint("on_center_tile_or_elevation_change tile was visited gElevation=%i gCenterTile=%i so doing nothing\n",
             gElevation, gCenterTile);
 
         return;
-    } else {
-        printf("=== on_center_tile_change elev=%i tile=%i ================\n",
-            gElevation, gCenterTile);
-    }
+    };
 
-    // TODO: Clear only current elevation
-    init_tile_hires();
+    debugPrint("on_center_tile_or_elevation_change non-visited tile gElevation=%i gCenterTile=%i\n",
+        gElevation, gCenterTile);
 
-    std::vector<int> tiles_to_visit;
-    tiles_to_visit.reserve(10000);
+    clean_cache_for_elevation(gElevation);
+
+    std::vector<int> tiles_to_visit();
+    tiles_to_visit.reserve(7000);
 
     tiles_to_visit.push_back(gCenterTile);
 
@@ -205,9 +177,6 @@ void on_center_tile_change()
     while (!tiles_to_visit.empty()) {
         auto tile = tiles_to_visit.back();
         tiles_to_visit.pop_back();
-
-        // printf("Center traversal tile=%i isVisited=%i totalVisited=%i\n",
-        //     tile, visited_tiles[gElevation][tile], visited_tiles_count);
 
         if (visited_tiles[gElevation][tile]) {
             continue;
@@ -221,11 +190,11 @@ void on_center_tile_change()
                 continue;
             }
 
-            // TODO: Use a new function (create) from tile.cc, use it for setCenterTile too
+            // TODO: Maybe create new function in tile.cc and use it here
             int tile_x = HEX_GRID_WIDTH - 1 - tile % HEX_GRID_WIDTH;
             int tile_y = tile / HEX_GRID_WIDTH;
-            if (tile_x <= gTileBorderMinX || tile_x >= gTileBorderMaxX || tile_y <= gTileBorderMinY || tile_y >= gTileBorderMaxY) {
-                // printf("    tile %d is out of bounds\n", tile);
+            if (
+                tile_x <= gTileBorderMinX || tile_x >= gTileBorderMaxX || tile_y <= gTileBorderMinY || tile_y >= gTileBorderMaxY) {
                 continue;
             }
         }
@@ -245,44 +214,11 @@ void on_center_tile_change()
         tiles_to_visit.push_back(tileFromScreenXY(tileScreenX + 16, tileScreenY + 24 + 8, gElevation, true));
     }
 
-    printf("Done center traversal visited_tiles_count=%i\n", visited_tiles_count);
+    debugPrint("on_center_tile_or_elevation_change visited_tiles_count=%i\n", visited_tiles_count);
 }
-
-/*
-void draw_square(Rect* rect, int elevation, const char* from)
-{
-
-    // y and x
-    int tile = gHexGridWidth * 40 + gHexGridWidth - 1 - 95;
-
-    int tile_x = gHexGridWidth - 1 - tile % gHexGridWidth;
-    int tile_y = tile / gHexGridWidth;
-
-    int tile_screen_x;
-    int tile_screen_y;
-    tileToScreenXY(tile, &tile_screen_x, &tile_screen_y, elevation);
-
-    printf("%s Tile=%d, x=%d, y=%d, screenX=%d, screenY=%d width=%d buf1=%x",
-        from, tile, tile_x, tile_y, tile_screen_x, tile_screen_y,
-        gTileWindowWidth,
-        gTileWindowBuffer);
-    if (tile_screen_x > 0 && tile_screen_y > 0) {
-        bufferFill(gTileWindowBuffer + tile_screen_y * gTileWindowWidth + tile_screen_x,
-            500,
-            400,
-            gTileWindowWidth,
-            0xD0);
-    } else {
-        printf("%s no render\n", from);
-    }
-}
-*/
 
 void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, int windowHeight)
 {
-    // printf("draw_tile_hires_cover rect=%d,%d,%d,%d window=%d,%d\n",
-    //     rect->left, rect->top, rect->right, rect->bottom, windowWidth, windowHeight);
-
     int minX = rect->left;
     int minY = rect->top;
     int maxX = rect->right;
@@ -358,41 +294,6 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
             }
         }
     }
-
-    /*
-        int leftTop = tileFromScreenXY(minX, minY, gElevation, true);
-        int rightTop = tileFromScreenXY(maxX, minY, gElevation, true);
-        int leftBottom = tileFromScreenXY(minX, maxY, gElevation, true);
-        int rightBottom = tileFromScreenXY(maxX, maxY, gElevation, true);
-
-        // TODO: Use rect instead of going through all tiles
-        for (int i = 0; i < HEX_GRID_SIZE; i++) {
-            if (tiles[gElevation][i] != 0) {
-                // TODO Check if centerTile have the same view_area
-                continue;
-            }
-            int color = 0x40;
-
-            int screenX;
-            int screenY;
-            tileToScreenXY(i, &screenX, &screenY, gElevation);
-            constexpr int tileWidth = 32;
-            constexpr int tileHeight = 18;
-
-            if (screenX < 0 || screenY < 0 || screenX + tileWidth >= windowWidth || screenY + tileHeight >= windowHeight) {
-                // TODO: Instead of skipping, draw only visible part
-                continue;
-            };
-
-            int pixel = screenY * windowWidth + screenX;
-            for (int y = 0; y < tileHeight; y++) {
-                for (int x = 0; x < tileWidth; x++) {
-                    buffer[pixel + x] = color;
-                }
-                pixel += windowWidth;
-            }
-        }
-        */
 }
 
 } // namespace fallout
