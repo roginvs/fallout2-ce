@@ -6,23 +6,44 @@
 #include <vector>
 namespace fallout {
 
+//
+// This file is responsible for drawing a overlay over tiles which
+//   are not visible in original screen resolution.
+//
+
+/** This holds hex tiles which can be center tile */
 static bool visited_tiles[ELEVATION_COUNT][HEX_GRID_SIZE];
 
+// A overlay is actually a grid of small squares, each square is 16x12 pixels
+//  which is half of possible screen move by keyboard or mouse
 static constexpr int square_width = 16;
 static constexpr int square_height = 12;
+
+// Dimensions of the grid of squares
 static constexpr int square_grid_width = 500;
 static constexpr int square_grid_height = 300;
+
+// This array holds information about which squares are visible
 static bool visible_squares[ELEVATION_COUNT][square_grid_width][square_grid_height];
+
+// Dimensions of the grid of squares were calculated by
+// going through all hex tiles and finding the lowest and highest x and y.
+// This way we can be sure that all hex tiles can be covered by squares.
 static_assert(square_width * square_grid_width == 8000);
 static_assert(square_height * square_grid_height == 3600);
 
+// What can be seen on the screen in original resolution
 static constexpr int screen_view_width = 640;
 static constexpr int screen_view_height = 380;
 
+// How many squares can be seen in horizontal and vertical directions
 static constexpr int squares_screen_width_half = screen_view_width / 2 / square_width;
-static_assert(screen_view_width % (2 * square_width) == 0);
 static constexpr int squares_screen_height_half = screen_view_height / 2 / square_height;
-// static_assert(screen_view_height % (2 * square_height) == 0);
+// Horizontal visibility fits hex grid perfectly
+static_assert(screen_view_width % (2 * square_width) == 0);
+// In the vertical direction we have 10+10 pixels left per each direction
+// which is covered by squares but theoretically could be seen in the original game
+static_assert(screen_view_height % (2 * square_height) == 20);
 
 static void clean_cache()
 {
@@ -59,6 +80,8 @@ static struct XY get_screen_diff()
 
 #ifdef DO_DEBUG_CHECKS
     {
+        // Just to ensure once again that we have calculated the lowest and highest hex tiles correctly
+
         int minX = 0x7FFFFFFF;
         int minY = 0x7FFFFFFF;
         int maxX = 0;
@@ -106,6 +129,7 @@ static struct XY get_screen_diff()
     };
 };
 
+// This enum is used to tell the marking function to not to re-mark squares which are already marked
 enum class MarkOnlyPart {
     NONE,
     UP,
