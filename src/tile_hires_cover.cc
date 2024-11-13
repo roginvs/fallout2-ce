@@ -248,8 +248,9 @@ void on_center_tile_or_elevation_change()
         tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 32 + 16, tileScreenY + 8, gElevation, true),
             MarkOnlyPart::RIGHT });
         tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 16, tileScreenY - 24 + 8, gElevation, true),
-            MarkOnlyPart::NONE });
-        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 16, tileScreenY + 24 + 8, gElevation, true), MarkOnlyPart::NONE });
+            MarkOnlyPart::UP });
+        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 16, tileScreenY + 24 + 8, gElevation, true),
+            MarkOnlyPart::DOWN });
     }
 
     debugPrint("on_center_tile_or_elevation_change visited_tiles_count=%i\n", visited_tiles_count);
