@@ -14,10 +14,18 @@ namespace fallout {
 /** This holds hex tiles which can be center tile */
 static bool visited_tiles[ELEVATION_COUNT][HEX_GRID_SIZE];
 
+static constexpr int pixels_per_horizontal_move = 32;
+static constexpr int pixels_per_vertical_move = 24;
+
 // A overlay is actually a grid of small squares, each square is 16x12 pixels
 //  which is half of possible screen move by keyboard or mouse
-static constexpr int square_width = 16;
-static constexpr int square_height = 12;
+static constexpr int squares_per_horizontal_move = 2;
+static constexpr int squares_per_vertical_move = 2;
+static constexpr int square_width = pixels_per_horizontal_move / squares_per_horizontal_move;
+static constexpr int square_height = pixels_per_vertical_move / squares_per_vertical_move;
+
+static_assert(pixels_per_horizontal_move % square_width == 0);
+static_assert(pixels_per_vertical_move % square_height == 0);
 
 // Dimensions of the grid of squares
 static constexpr int square_grid_width = 500;
@@ -173,8 +181,29 @@ static void mark_screen_tiles_around_as_visible(int center_tile, struct XY& scre
 
     int squareX = centerTileGlobalX / square_width;
     int squareY = centerTileGlobalY / square_height;
-    for (int x = squareX - squares_screen_width_half + 1; x <= squareX + squares_screen_width_half; x++) {
-        for (int y = squareY - squares_screen_height_half; y <= squareY + squares_screen_height_half; y++) {
+
+    int horizonal_start_full = squareX - squares_screen_width_half + 1;
+    int horizonal_end_full = squareX + squares_screen_width_half;
+
+    int horizontal_start = part != MarkOnlyPart::RIGHT
+        ? horizonal_start_full
+        : horizonal_end_full - squares_per_horizontal_move;
+    int horizontal_end = part != MarkOnlyPart::LEFT
+        ? horizonal_end_full
+        : horizonal_start_full + squares_per_horizontal_move;
+
+    int vertical_start_full = squareY - squares_screen_height_half;
+    int vertical_end_full = squareY + squares_screen_height_half;
+
+    int vertical_start = part != MarkOnlyPart::DOWN
+        ? vertical_start_full
+        : vertical_end_full - squares_per_vertical_move;
+    int vertical_end = part != MarkOnlyPart::UP
+        ? vertical_end_full
+        : vertical_start_full + squares_per_vertical_move;
+
+    for (int x = horizontal_start; x <= horizontal_end; x++) {
+        for (int y = vertical_start; y <= vertical_end; y++) {
             visible_squares[gElevation][x][y] = true;
         }
     }
@@ -258,22 +287,37 @@ void on_center_tile_or_elevation_change()
         // But scrolling top-bottom changes y by 24
         //
         //
-        //        / \ 
-        //       |   |         <----- tiles on vertical change, 32 px
+        //        / \
+        //       |   |         <----- tiles on vertical change, 24 px
         //      / \ / \            |
-        //     |   |   |   <------ | ----- tiles on horizontal change, 24 px
+        //     |   |   |   <------ | ----- tiles on horizontal change, 32 px
         //      \ / \ /            |
         //       |   |         <--/
         //        \ /
         //
 
-        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX - 32 + 16, tileScreenY + 8, gElevation, true),
+        constexpr int tile_center_offset_x = 16;
+        constexpr int tile_center_offset_y = 8;
+
+        tiles_to_visit.push_back({ tileFromScreenXY(
+                                       tileScreenX - pixels_per_horizontal_move + tile_center_offset_x,
+                                       tileScreenY + tile_center_offset_y,
+                                       gElevation, true),
             MarkOnlyPart::LEFT });
-        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 32 + 16, tileScreenY + 8, gElevation, true),
+        tiles_to_visit.push_back({ tileFromScreenXY(
+                                       tileScreenX + pixels_per_horizontal_move + tile_center_offset_x,
+                                       tileScreenY + tile_center_offset_y,
+                                       gElevation, true),
             MarkOnlyPart::RIGHT });
-        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 16, tileScreenY - 24 + 8, gElevation, true),
+        tiles_to_visit.push_back({ tileFromScreenXY(
+                                       tileScreenX + tile_center_offset_x,
+                                       tileScreenY - pixels_per_vertical_move + tile_center_offset_y,
+                                       gElevation, true),
             MarkOnlyPart::UP });
-        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 16, tileScreenY + 24 + 8, gElevation, true),
+        tiles_to_visit.push_back({ tileFromScreenXY(
+                                       tileScreenX + tile_center_offset_x,
+                                       tileScreenY + pixels_per_vertical_move + tile_center_offset_y,
+                                       gElevation, true),
             MarkOnlyPart::DOWN });
     }
 
