@@ -143,7 +143,7 @@ static void mark_screen_tiles_around_as_visible(int center_tile, struct XY& scre
 
     int squareX = centerTileGlobalX / square_width;
     int squareY = centerTileGlobalY / square_height;
-    for (int x = squareX - squares_screen_width_half; x <= squareX + squares_screen_width_half; x++) {
+    for (int x = squareX - squares_screen_width_half + 1; x <= squareX + squares_screen_width_half; x++) {
         for (int y = squareY - squares_screen_height_half; y <= squareY + squares_screen_height_half; y++) {
             visible_squares[gElevation][x][y] = true;
         }
