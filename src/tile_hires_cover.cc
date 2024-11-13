@@ -1,9 +1,17 @@
+#include "tile_hires_cover.h"
 #include "debug.h"
 #include "draw.h"
 #include "stdio.h"
 #include "tile.h"
 #include <string.h>
 #include <vector>
+
+#define DO_DEBUG_CHECKS 1
+
+#ifdef DO_DEBUG_CHECKS
+#include <stdlib.h>
+#endif
+
 namespace fallout {
 
 //
@@ -68,12 +76,6 @@ struct XY {
     int x;
     int y;
 };
-
-#define DO_DEBUG_CHECKS 1
-
-#ifdef DO_DEBUG_CHECKS
-#include <stdlib.h>
-#endif
 
 static struct XY get_screen_diff()
 {
