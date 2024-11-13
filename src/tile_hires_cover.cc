@@ -308,6 +308,7 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
             exit(106);
         };
         if (maxYglobal >= square_height * square_grid_height) {
+            // This can happen if screen width is 640*8
             printf("maxYglobal=%i\n", maxYglobal);
             exit(107);
         };
