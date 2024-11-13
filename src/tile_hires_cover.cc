@@ -222,9 +222,33 @@ void on_center_tile_or_elevation_change()
         int tileScreenY;
         tileToScreenXY(tileInfo.tile, &tileScreenX, &tileScreenY, gElevation);
 
-        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX - 32 + 16, tileScreenY + 8, gElevation, true), MarkOnlyPart::NONE });
-        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 32 + 16, tileScreenY + 8, gElevation, true), MarkOnlyPart::NONE });
-        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 16, tileScreenY - 24 + 8, gElevation, true), MarkOnlyPart::NONE });
+        // tile size is 32 x 18
+        //
+        //  / \      ^
+        // |   |     | 18
+        //  \ /      v
+        //
+        // <-32->
+        //
+        // Scrolling left-right changes x by 32
+        // But scrolling top-bottom changes y by 24
+        //
+        //
+        //        / \ 
+        //       |   |         <----- tiles on vertical change, 32 px
+        //      / \ / \            |
+        //     |   |   |   <------ | ----- tiles on horizontal change, 24 px
+        //      \ / \ /            |
+        //       |   |         <--/
+        //        \ /
+        //
+
+        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX - 32 + 16, tileScreenY + 8, gElevation, true),
+            MarkOnlyPart::LEFT });
+        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 32 + 16, tileScreenY + 8, gElevation, true),
+            MarkOnlyPart::RIGHT });
+        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 16, tileScreenY - 24 + 8, gElevation, true),
+            MarkOnlyPart::NONE });
         tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 16, tileScreenY + 24 + 8, gElevation, true), MarkOnlyPart::NONE });
     }
 
