@@ -106,7 +106,15 @@ static struct XY get_screen_diff()
     };
 };
 
-static void mark_screen_tiles_around_as_visible(int center_tile, struct XY& screen_diff)
+enum class MarkOnlyPart {
+    NONE,
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+};
+
+static void mark_screen_tiles_around_as_visible(int center_tile, struct XY& screen_diff, MarkOnlyPart part)
 {
     // TODO: Use neighbors information to cover only new squares
 
@@ -166,34 +174,39 @@ void on_center_tile_or_elevation_change()
 
     clean_cache_for_elevation(gElevation);
 
-    std::vector<int> tiles_to_visit {};
+    struct TileToVisit {
+        int tile;
+        MarkOnlyPart part;
+    };
+
+    std::vector<struct TileToVisit> tiles_to_visit {};
     tiles_to_visit.reserve(7000);
 
-    tiles_to_visit.push_back(gCenterTile);
+    tiles_to_visit.push_back({ gCenterTile, MarkOnlyPart::NONE });
 
     int visited_tiles_count = 0;
 
     auto screen_diff = get_screen_diff();
 
     while (!tiles_to_visit.empty()) {
-        auto tile = tiles_to_visit.back();
+        auto tileInfo = tiles_to_visit.back();
         tiles_to_visit.pop_back();
 
-        if (visited_tiles[gElevation][tile]) {
+        if (visited_tiles[gElevation][tileInfo.tile]) {
             continue;
         }
 
-        if (tile != gCenterTile) [[unlikely]] {
-            if (tile < 0 || tile >= HEX_GRID_SIZE) {
+        if (tileInfo.tile != gCenterTile) [[unlikely]] {
+            if (tileInfo.tile < 0 || tileInfo.tile >= HEX_GRID_SIZE) {
                 continue;
             }
-            if (_obj_scroll_blocking_at(tile, gElevation) == 0) {
+            if (_obj_scroll_blocking_at(tileInfo.tile, gElevation) == 0) {
                 continue;
             }
 
             // TODO: Maybe create new function in tile.cc and use it here
-            int tile_x = HEX_GRID_WIDTH - 1 - tile % HEX_GRID_WIDTH;
-            int tile_y = tile / HEX_GRID_WIDTH;
+            int tile_x = HEX_GRID_WIDTH - 1 - tileInfo.tile % HEX_GRID_WIDTH;
+            int tile_y = tileInfo.tile / HEX_GRID_WIDTH;
             if (
                 tile_x <= gTileBorderMinX || tile_x >= gTileBorderMaxX || tile_y <= gTileBorderMinY || tile_y >= gTileBorderMaxY) {
                 continue;
@@ -202,17 +215,17 @@ void on_center_tile_or_elevation_change()
 
         visited_tiles_count++;
 
-        visited_tiles[gElevation][tile] = true;
-        mark_screen_tiles_around_as_visible(tile, screen_diff);
+        visited_tiles[gElevation][tileInfo.tile] = true;
+        mark_screen_tiles_around_as_visible(tileInfo.tile, screen_diff, tileInfo.part);
 
         int tileScreenX;
         int tileScreenY;
-        tileToScreenXY(tile, &tileScreenX, &tileScreenY, gElevation);
+        tileToScreenXY(tileInfo.tile, &tileScreenX, &tileScreenY, gElevation);
 
-        tiles_to_visit.push_back(tileFromScreenXY(tileScreenX - 32 + 16, tileScreenY + 8, gElevation, true));
-        tiles_to_visit.push_back(tileFromScreenXY(tileScreenX + 32 + 16, tileScreenY + 8, gElevation, true));
-        tiles_to_visit.push_back(tileFromScreenXY(tileScreenX + 16, tileScreenY - 24 + 8, gElevation, true));
-        tiles_to_visit.push_back(tileFromScreenXY(tileScreenX + 16, tileScreenY + 24 + 8, gElevation, true));
+        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX - 32 + 16, tileScreenY + 8, gElevation, true), MarkOnlyPart::NONE });
+        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 32 + 16, tileScreenY + 8, gElevation, true), MarkOnlyPart::NONE });
+        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 16, tileScreenY - 24 + 8, gElevation, true), MarkOnlyPart::NONE });
+        tiles_to_visit.push_back({ tileFromScreenXY(tileScreenX + 16, tileScreenY + 24 + 8, gElevation, true), MarkOnlyPart::NONE });
     }
 
     debugPrint("on_center_tile_or_elevation_change visited_tiles_count=%i\n", visited_tiles_count);
