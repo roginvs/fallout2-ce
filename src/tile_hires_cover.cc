@@ -64,12 +64,6 @@ static void clean_cache_for_elevation(int elevation)
     memset(visible_squares[elevation], 0, sizeof(visible_squares[elevation]));
 }
 
-void init_tile_hires()
-{
-    debugPrint("init_tile_hires\n");
-    clean_cache();
-}
-
 struct XY {
     int x;
     int y;
@@ -398,6 +392,13 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
             }
         }
     }
+}
+
+void init_tile_hires()
+{
+    debugPrint("init_tile_hires\n");
+    clean_cache();
+    on_center_tile_or_elevation_change();
 }
 
 } // namespace fallout
