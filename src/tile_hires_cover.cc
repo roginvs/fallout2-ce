@@ -86,8 +86,8 @@ struct XY {
 static struct XY get_screen_diff()
 {
     if (DO_DEBUG_CHECKS) {
-        int minX = 0xFFFFFFFF;
-        int minY = 0xFFFFFFFF;
+        int minX = 0x7FFFFFFF;
+        int minY = 0x7FFFFFFF;
         int maxX = 0;
         int maxY = 0;
         int minTileX = -1;
