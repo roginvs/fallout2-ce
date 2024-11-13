@@ -620,6 +620,14 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         `${canvasPixelWidth}`
                     );
 
+                    iniParser.setValue(
+                        "STATIC_SCREENS",
+                        "SPLASH_SCRN_SIZE",
+                        "2"
+                    );
+
+                    iniParser.setValue("MAIN", "SCALE_2X", "0");
+
                     iniParser.setValue("IFACE", "IFACE_BAR_MODE", "0");
                     /*
                     iniParser.setValue(
@@ -632,9 +640,9 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     iniParser.setValue("IFACE", "IFACE_BAR_SIDES_ORI", "0");
 
                     // At this point we assume that graphics is not initialized so it is safe to resize canvas
-                    canvas.width = canvasPixelWidth;
-                    canvas.height = canvasPixelHeight;
-                    resizeCanvas();
+                    //canvas.width = canvasPixelWidth;
+                    //canvas.height = canvasPixelHeight;
+                    //resizeCanvas();
 
                     return iniParser.pack();
                 }
