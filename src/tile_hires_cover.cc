@@ -337,27 +337,22 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
     int maxXglobal = maxX - screen_diff.x;
     int maxYglobal = maxY - screen_diff.y;
 
-#ifdef DO_DEBUG_CHECKS
-    {
-        if (minXglobal < 0) {
-            printf("minXglobal=%i\n", minXglobal);
-            exit(104);
-        };
-        if (minYglobal < 0) {
-            printf("minYglobal=%i\n", minYglobal);
-            exit(105);
-        };
-        if (maxXglobal >= square_width * square_grid_width) {
-            printf("maxXglobal=%i\n", maxXglobal);
-            exit(106);
-        };
-        if (maxYglobal >= square_height * square_grid_height) {
-            // This can happen if screen width is 640*8
-            printf("maxYglobal=%i\n", maxYglobal);
-            exit(107);
-        };
+    if (minXglobal < 0) {
+        // This should never happen
+        minXglobal = 0;
+    };
+    if (minYglobal < 0) {
+        // This should never happen
+        minYglobal = 0;
+    };
+    if (maxXglobal >= square_width * square_grid_width) {
+        // This can happen if screen resulution is really huge
+        maxXglobal = square_width * square_grid_width - 1;
     }
-#endif
+    if (maxYglobal >= square_height * square_grid_height) {
+        // This can happen if screen resulution is really huge
+        maxYglobal = square_height * square_grid_height - 1;
+    }
 
     if (minXglobal % square_width != 0) {
         minXglobal = minXglobal - (minXglobal % square_width);
@@ -399,7 +394,7 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
                     intersection.right - intersection.left + 1,
                     intersection.bottom - intersection.top + 1,
                     windowWidth,
-                    0x40);
+                    0x0);
             }
         }
     }
