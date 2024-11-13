@@ -46,11 +46,10 @@ struct XY {
     int y;
 };
 
-#define DO_DEBUG_CHECKS true
+#define DO_DEBUG_CHECKS 1
 
-#if DO_DEBUG_CHECKS == true
+#ifdef DO_DEBUG_CHECKS
 #include <stdlib.h>
-
 #endif
 
 static struct XY get_screen_diff()
@@ -58,7 +57,8 @@ static struct XY get_screen_diff()
     constexpr int hex_tile_with_lowest_x = 199;
     constexpr int hex_tile_with_lowest_y = 0;
 
-    if (DO_DEBUG_CHECKS) {
+#ifdef DO_DEBUG_CHECKS
+    {
         int minX = 0x7FFFFFFF;
         int minY = 0x7FFFFFFF;
         int maxX = 0;
@@ -93,6 +93,7 @@ static struct XY get_screen_diff()
             exit(108);
         }
     };
+#endif
 
     int offsetX;
     int tmp;
@@ -118,7 +119,8 @@ static void mark_screen_tiles_around_as_visible(int center_tile, struct XY& scre
     int centerTileGlobalX = centerTileScreenX - screen_diff.x;
     int centerTileGlobalY = centerTileScreenY - screen_diff.y;
 
-    if (DO_DEBUG_CHECKS) {
+#ifdef DO_DEBUG_CHECKS
+    {
         if (centerTileGlobalX % square_width != 0 || centerTileGlobalY % square_height != 0) {
             printf("centerTileGlobalX=%i, centerTileGlobalY=%i\n", centerTileGlobalX, centerTileGlobalY);
             exit(101);
@@ -136,7 +138,8 @@ static void mark_screen_tiles_around_as_visible(int center_tile, struct XY& scre
             printf("centerTileGlobalX=%i, centerTileGlobalY=%i\n", centerTileGlobalX, centerTileGlobalY);
             exit(103);
         }
-    }
+    };
+#endif
 
     int squareX = centerTileGlobalX / square_width;
     int squareY = centerTileGlobalY / square_height;
@@ -230,7 +233,8 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
     int maxXglobal = maxX - screen_diff.x;
     int maxYglobal = maxY - screen_diff.y;
 
-    if (DO_DEBUG_CHECKS) {
+#ifdef DO_DEBUG_CHECKS
+    {
         if (minXglobal < 0) {
             printf("minXglobal=%i\n", minXglobal);
             exit(104);
@@ -248,7 +252,8 @@ void draw_tile_hires_cover(Rect* rect, unsigned char* buffer, int windowWidth, i
             printf("maxYglobal=%i\n", maxYglobal);
             exit(107);
         };
-    };
+    }
+#endif
 
     if (minXglobal % square_width != 0) {
         minXglobal = minXglobal - (minXglobal % square_width);
