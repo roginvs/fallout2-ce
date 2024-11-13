@@ -71,7 +71,7 @@ static int _tile_make_line(int currentCenterTile, int newCenterTile, int* tiles,
 static double const dbl_50E7C7 = -4.0;
 
 // 0x51D950
-static bool gTileBorderInitialized = false;
+bool gTileBorderInitialized = false;
 
 // 0x51D954
 static bool gTileScrollBlockingEnabled = true;
@@ -198,16 +198,16 @@ static unsigned char _tile_grid_occupied[512];
 static unsigned char _tile_mask[512];
 
 // 0x66BBC4
-static int gTileBorderMinX = 0;
+int gTileBorderMinX = 0;
 
 // 0x66BBC8
-static int gTileBorderMinY = 0;
+int gTileBorderMinY = 0;
 
 // 0x66BBCC
-static int gTileBorderMaxX = 0;
+int gTileBorderMaxX = 0;
 
 // 0x66BBD0
-static int gTileBorderMaxY = 0;
+int gTileBorderMaxY = 0;
 
 // 0x66BBD4
 static Rect gTileWindowRect;
@@ -535,10 +535,13 @@ void tileWindowRefresh()
     }
 }
 
+#include <stdio.h>
+
 // 0x4B12F8
 int tileSetCenter(int tile, int flags)
 {
     if (!tileIsValid(tile)) {
+        printf("=== tileSetCenter: invalid tile %d\n", tile);
         return -1;
     }
 
@@ -575,6 +578,8 @@ int tileSetCenter(int tile, int flags)
 
     if (gTileBorderInitialized) {
         if (tile_x <= gTileBorderMinX || tile_x >= gTileBorderMaxX || tile_y <= gTileBorderMinY || tile_y >= gTileBorderMaxY) {
+            printf("=== tileSetCenter: tile %d is out of bounds\n", tile);
+            printf("bounds: %d %d %d %d\n", gTileBorderMinX, gTileBorderMaxX, gTileBorderMinY, gTileBorderMaxY);
             return -1;
         }
     }
@@ -601,7 +606,7 @@ int tileSetCenter(int tile, int flags)
 
     gCenterTile = tile;
 
-    on_center_tile_change();
+    on_center_tile_or_elevation_change();
 
     if ((flags & TILE_SET_CENTER_REFRESH_WINDOW) != 0) {
         // NOTE: Uninline.

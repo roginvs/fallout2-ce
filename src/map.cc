@@ -391,7 +391,7 @@ int mapSetElevation(int elevation)
         gameMouseObjectsShow();
     }
 
-    on_center_tile_change();
+    on_center_tile_or_elevation_change();
 
     return 0;
 }
@@ -1047,6 +1047,7 @@ err:
     mapSetEnteringLocation(-1, -1, -1);
 
     init_tile_hires();
+    tileWindowRefresh();
 
     gameMovieFadeOut();
 

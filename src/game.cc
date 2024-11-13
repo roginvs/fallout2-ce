@@ -584,12 +584,15 @@ int gameHandleKey(int eventCode, bool isInCombatMode)
         showQuitConfirmationDialog();
         break;
     case KEY_TAB:
+        /*
         if (interfaceBarEnabled()
             && gPressedPhysicalKeys[SDL_SCANCODE_LALT] == 0
             && gPressedPhysicalKeys[SDL_SCANCODE_RALT] == 0) {
             soundPlayFile("ib1p1xx1");
             automapShow(true, false);
         }
+        */
+        tileSetCenter(gCenterTile + 1, TILE_SET_CENTER_REFRESH_WINDOW);
         break;
     case KEY_CTRL_P:
         soundPlayFile("ib1p1xx1");
