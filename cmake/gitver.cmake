@@ -30,6 +30,8 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+set(ENV{LC_ALL} C)
+
 # Get date of the latest commit
 execute_process(
     COMMAND git log -1 --date=format:"%b %d %Y %H:%M:%S" --pretty=format:%cd
