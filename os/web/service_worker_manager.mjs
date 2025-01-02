@@ -11,7 +11,7 @@ export function registerServiceWorker() {
             navigator.serviceWorker.getRegistrations().then((registrations) => {
                 for (const registration of registrations) {
                     console.info(
-                        `Unregistering service worker ${registration.scope}`
+                        `Unregistering service worker ${registration.scope}`,
                     );
                     registration.unregister();
                 }
@@ -40,7 +40,7 @@ export function registerServiceWorker() {
                         const data = JSON.parse(event.data);
                         if (data.type === "version") {
                             console.info(
-                                `Service worker reported version=${data.version}`
+                                `Service worker reported version=${data.version}`,
                             );
                             addDebugTag("version", data.version);
                         } else {
@@ -50,21 +50,21 @@ export function registerServiceWorker() {
                         console.warn(
                             `Expected non-JSON message or some other error`,
                             e,
-                            event.data
+                            event.data,
                         );
                     }
                 });
                 const msgVersionRequest = '{"type":"versionrequest"}';
                 navigator.serviceWorker.controller?.postMessage(
-                    msgVersionRequest
+                    msgVersionRequest,
                 );
                 navigator.serviceWorker.addEventListener(
                     "controllerchange",
                     () => {
                         navigator.serviceWorker.controller?.postMessage(
-                            msgVersionRequest
+                            msgVersionRequest,
                         );
-                    }
+                    },
                 );
             }
         }
