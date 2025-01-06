@@ -1030,6 +1030,19 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     }
                 }
 
+                if (
+                    !filesIndex.find(
+                        (f) => f.name.toLowerCase() === "f2_res.ini"
+                    )
+                ) {
+                    filesIndex.push({
+                        name: "f2_res.ini",
+                        size: 0,
+                        contents: nullContent,
+                        sha256hash: undefined,
+                    });
+                }
+
                 console.info(filesIndex);
 
                 setStatusText("Mounting file systems");
@@ -1045,8 +1058,13 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     {
                         files: filesIndex,
                         options: {
-                            fetcher: () => {
-                                throw new Error("This should not be called");
+                            /**
+                             *
+                             * @param {string} url
+                             */
+                            fetcher: (url) => {
+                                console.info(`Called fetch on ${url}`);
+                                return nullContent;
                             },
                         },
                     },

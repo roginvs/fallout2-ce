@@ -436,7 +436,10 @@ export const ASYNCFETCHFS = {
             }
 
             console.info(
-                `asyncfetchfs open state=${Asyncify.state} ${getNodePath(node)}`
+                `asyncfetchfs open state=${Asyncify.state} ${getNodePath(
+                    node
+                )}`,
+                node
             );
             if (Asyncify.state == Asyncify.State.Normal) {
                 if (node.contents) {
