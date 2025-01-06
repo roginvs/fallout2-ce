@@ -10,3 +10,10 @@ declare function removeRunDependency(depName: string);
 declare const wasmBinaryFile: string;
 
 declare var setWindowTitle: (title: string) => void;
+
+declare function _fd_read(
+    fd: number,
+    iov: any,
+    iovcnt: number,
+    pnum: number
+): number;

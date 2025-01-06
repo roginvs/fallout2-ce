@@ -32,7 +32,7 @@ function initializeGlobalModuleObject() {
 
         instantiateWasm: (
             /** @type {WebAssembly.Imports} */ info,
-            /** @type {(instance: WebAssembly.Instance, module: WebAssembly.Module) => void} */ receiveInstance,
+            /** @type {(instance: WebAssembly.Instance, module: WebAssembly.Module) => void} */ receiveInstance
         ) => {
             (async () => {
                 setStatusText(`Loading WASM binary`);
@@ -43,15 +43,44 @@ function initializeGlobalModuleObject() {
                     (loaded, total) =>
                         setStatusText(
                             `WASM binary loading ${Math.floor(
-                                (loaded / total) * 100,
-                            )}%`,
-                        ),
+                                (loaded / total) * 100
+                            )}%`
+                        )
                 );
 
                 // await new Promise(r => setTimeout(r, 10000));
 
                 setStatusText("Instantiating WebAssembly");
-                const inst = await WebAssembly.instantiate(arrayBuffer, info);
+
+                const newImports = {
+                    /** @type {typeof _fd_read} */
+                    fd_read: (fd, iovs, iovsLen, nread) => {
+                        console.info("fd_read", fd, iovs, iovsLen, nread);
+                        return /**@type {any} */ (_fd_read)(
+                            fd,
+                            iovs,
+                            iovsLen,
+                            nread
+                        );
+                    },
+                };
+
+                // Current info already have Asyncify.instrumentWasmImports() applied
+                // So we need to apply it for new imports
+                Asyncify.instrumentWasmImports(newImports);
+
+                const monkeyPatchedInfo = {
+                    ...info,
+                    wasi_snapshot_preview1: {
+                        ...info.wasi_snapshot_preview1,
+                        ...newImports,
+                    },
+                };
+
+                const inst = await WebAssembly.instantiate(
+                    arrayBuffer,
+                    monkeyPatchedInfo
+                );
                 setStatusText("");
                 receiveInstance(inst.instance, inst.module);
             })().catch((e) => {
