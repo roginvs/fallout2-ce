@@ -3,6 +3,13 @@ import { loadJs } from "./loadJs.mjs";
 import { setErrorState } from "./setErrorState.mjs";
 import { setStatusText } from "./setStatusText.mjs";
 
+/** @type {typeof _fd_read | null} */
+let fd_read_custom_func = null;
+
+export function setCustomFdRead(/** @type {typeof _fd_read} */ func) {
+    fd_read_custom_func = func;
+}
+
 function initializeGlobalModuleObject() {
     if (/** @type {any} */ (window).Module) {
         throw new Error(`This file must be the first to load`);
@@ -55,13 +62,16 @@ function initializeGlobalModuleObject() {
                 const newImports = {
                     /** @type {typeof _fd_read} */
                     fd_read: (fd, iovs, iovsLen, nread) => {
-                        console.info("fd_read", fd, iovs, iovsLen, nread);
-                        return /**@type {any} */ (_fd_read)(
-                            fd,
-                            iovs,
-                            iovsLen,
-                            nread
-                        );
+                        if (fd_read_custom_func) {
+                            return fd_read_custom_func(
+                                fd,
+                                iovs,
+                                iovsLen,
+                                nread
+                            );
+                        }
+
+                        return _fd_read(fd, iovs, iovsLen, nread);
                     },
                 };
 

@@ -17,6 +17,7 @@ import { preventAutoreload } from "./service_worker_manager.mjs";
 import { setErrorState } from "./setErrorState.mjs";
 import { setStatusText } from "./setStatusText.mjs";
 import { packTarFile, tarEnding, tarReadFile } from "./tar.mjs";
+import { setCustomFdRead } from "./wasm.mjs";
 
 const IDBFS_STORE_NAME = "FILE_DATA";
 
@@ -964,7 +965,6 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                 if (filesList.length === 0) {
                     throw new Error(`No files selected!`);
                 }
-                console.info("fileslist", filesList);
 
                 const filesArray = Array.from(filesList);
                 const selectedFolderNames = [
@@ -983,14 +983,53 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                 }
                 const selectedFolderName = selectedFolderNames[0];
 
+                const nullContent = new Int8Array(0);
                 const filesIndex = filesArray.map((file) => ({
                     name: file.webkitRelativePath.slice(
                         selectedFolderName.length + 1
                     ),
                     size: file.size,
-                    contents: null,
+                    contents: nullContent,
                     sha256hash: undefined,
                 }));
+
+                const filesMap = new Map(
+                    filesArray.map((file) => [
+                        file.webkitRelativePath.slice(
+                            selectedFolderName.length + 1
+                        ),
+                        file,
+                    ])
+                );
+
+                for (const folder of [
+                    "data",
+                    "data/SAVEGAME",
+                    "data/MAPS",
+                    "data/proto",
+                    "data/proto/items",
+                    "data/proto/critters",
+                ]) {
+                    if (
+                        filesIndex.find((f) =>
+                            f.name
+                                .toLowerCase()
+                                .startsWith(folder.toLowerCase() + "/")
+                        )
+                    ) {
+                        console.info(
+                            `Found a file in ${folder}, doing nothing`
+                        );
+                    } else {
+                        filesIndex.push({
+                            name: folder + "/.empty",
+                            size: 0,
+                            contents: nullContent,
+                            sha256hash: undefined,
+                        });
+                    }
+                }
+
                 console.info(filesIndex);
 
                 setStatusText("Mounting file systems");
@@ -1014,21 +1053,6 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     "/" + folderName
                 );
 
-                for (const folder of [
-                    "data",
-                    "data/SAVEGAME",
-                    "data/MAPS",
-                    "data/proto",
-                    "data/proto/items",
-                    "data/proto/critters",
-                ]) {
-                    try {
-                        FS.stat("/" + folderName + "/" + folder);
-                    } catch (_) {
-                        FS.mkdir("/" + folderName + "/" + folder);
-                    }
-                }
-
                 FS.mount(IDBFS, {}, "/" + folderName + "/data/SAVEGAME");
 
                 FS.mount(MEMFS, {}, "/" + folderName + "/data/MAPS");
@@ -1038,6 +1062,77 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                 FS.chdir("/" + folderName);
 
                 await initIdbfs(folderName);
+
+                setCustomFdRead((fd, iov, iovcnt, pnum) => {
+                    const stream = SYSCALLS.getStreamFromFD(fd);
+
+                    const streamPath = stream.path;
+                    const file = filesMap.get(
+                        streamPath.slice(folderName.length + 2)
+                    );
+                    if (!file) {
+                        console.info(
+                            `Simple read ${stream.path}`,
+                            fd,
+                            iov,
+                            iovcnt,
+                            pnum
+                        );
+                        return _fd_read(fd, iov, iovcnt, pnum);
+                    }
+
+                    return Asyncify.handleAsync(async () => {
+                        let num = 0;
+                        for (var i = 0; i < iovcnt; i++) {
+                            var ptr = HEAPU32[iov >> 2];
+                            var len = HEAPU32[(iov + 4) >> 2];
+                            iov += 8;
+
+                            if (len === 0) {
+                                continue;
+                            }
+                            // var curr = FS.read(stream, HEAP8, ptr, len);
+                            var curr = 0;
+                            {
+                                await new Promise((resolve) => {
+                                    const slice = file.slice(
+                                        stream.position,
+                                        stream.position + len
+                                    );
+                                    const reader = new FileReader();
+
+                                    reader.onload = function (event) {
+                                        const r = reader.result;
+                                        if (!r || !(r instanceof ArrayBuffer)) {
+                                            throw new Error("Internal error");
+                                        }
+                                        HEAP8.set(new Uint8Array(r), ptr);
+                                        curr += r.byteLength;
+                                        stream.position += r.byteLength;
+                                        resolve(null);
+                                    };
+
+                                    reader.readAsArrayBuffer(slice);
+                                });
+                            }
+
+                            if (curr < 0) return -1;
+                            num += curr;
+                            if (curr < len) break; // nothing more to read
+                        }
+                        HEAPU32[pnum >> 2] = num;
+
+                        console.info(
+                            `Async read ${stream.path} num=${num}`,
+                            fd,
+                            iov,
+                            iovcnt,
+                            pnum
+                        );
+
+                        return 0;
+                    });
+                });
             }
             setStatusText("Starting");
             removeRunDependency("initialize-filesystems");
