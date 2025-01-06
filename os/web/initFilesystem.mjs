@@ -55,7 +55,7 @@ export async function downloadAllGameFiles(folderName, filesVersion) {
             }
         },
         null,
-        filesVersion,
+        filesVersion
     );
 
     const indexUnpackedRaw = await fetcher("index.txt");
@@ -79,14 +79,14 @@ export async function downloadAllGameFiles(folderName, filesVersion) {
      */
     const WORKERS_SIZE_THRESHOLD = 1024 * 1024;
     const filesForWorkers = filesIndex.filter(
-        (f) => f.size < WORKERS_SIZE_THRESHOLD,
+        (f) => f.size < WORKERS_SIZE_THRESHOLD
     );
     const filesForMainBecauseBig = filesIndex
         .filter((f) => f.size >= WORKERS_SIZE_THRESHOLD)
         .sort(
             (a, b) =>
                 // We want biggest files first to facilitate memory allocations
-                b.size - a.size,
+                b.size - a.size
         );
 
     console.info("Fetching big files");
@@ -128,7 +128,7 @@ export async function initFilesystem(
     folderName,
     filesVersion,
     fileIndexTransformer,
-    fileTransformer,
+    fileTransformer
 ) {
     setStatusText("Fetching files index");
 
@@ -138,7 +138,7 @@ export async function initFilesystem(
         configuration.useGzip,
         setStatusText,
         fileTransformer,
-        filesVersion,
+        filesVersion
     );
 
     const indexUnpackedRaw = await fetcher("index.txt");
@@ -160,7 +160,7 @@ export async function initFilesystem(
                 fetcher,
             },
         },
-        "/" + folderName,
+        "/" + folderName
     );
 
     FS.mount(IDBFS, {}, "/" + folderName + "/data/SAVEGAME");
@@ -171,6 +171,14 @@ export async function initFilesystem(
 
     FS.chdir("/" + folderName);
 
+    await initIdbfs(folderName);
+}
+
+/**
+ *
+ * @param {string} folderName
+ */
+export async function initIdbfs(folderName) {
     await new Promise((resolve) => {
         // The FS.syncfs do not understand nested mounts so we need to find mount node directly
         IDBFS.syncfs(
@@ -178,7 +186,7 @@ export async function initFilesystem(
             true,
             () => {
                 resolve(null);
-            },
+            }
         );
     });
 
@@ -187,7 +195,7 @@ export async function initFilesystem(
         IDBFS.syncfs = (
             /** @type {any} */ mount,
             /** @type {any} */ populate,
-            /** @type {any} */ callback,
+            /** @type {any} */ callback
         ) => {
             originalSyncfs(mount, populate, () => {
                 if (!navigator.storage || !navigator.storage.persist) {
