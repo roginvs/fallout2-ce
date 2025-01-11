@@ -912,7 +912,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
             {
                 // EMSCRIPTEN uses this function to set title
                 // We override it no it will be no-op
-                setWindowTitle = () => {};
+                _emscripten_set_window_title = () => {};
                 document.title = game.name;
             }
         })().catch((e) => {

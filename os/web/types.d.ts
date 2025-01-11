@@ -7,6 +7,7 @@ declare const Asyncify;
 declare function addRunDependency(depName: string);
 declare function removeRunDependency(depName: string);
 
-declare const wasmBinaryFile: string;
+//declare const wasmBinaryFile: string;
+declare function findWasmBinary(): string;
 
-declare var setWindowTitle: (title: string) => void;
+declare var _emscripten_set_window_title: (title: string) => void;
