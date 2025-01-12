@@ -61,12 +61,12 @@ me.addEventListener("install", (event) => {
                         headers: {
                             "Cache-Control": "no-cache",
                         },
-                    })
+                    }),
                 );
             }
 
             await me.skipWaiting();
-        })()
+        })(),
     );
 });
 
@@ -87,7 +87,7 @@ me.addEventListener("activate", (event) => {
             }
 
             await clients.claim();
-        })()
+        })(),
     );
 });
 
@@ -123,13 +123,13 @@ me.addEventListener("fetch", (event) => {
             const cloned = responseFromNetwork.clone();
             console.warn(
                 `Service worker saved engine '${url}' to cache during fetch. ` +
-                    `This should never happen because all engine files should be saved during install phase`
+                    `This should never happen because all engine files should be saved during install phase`,
             );
             const cache = await caches.open(ENGINE_CACHE_NAME);
             cache.put(request, cloned);
 
             return responseFromNetwork;
-        })(event.request)
+        })(event.request),
     );
 });
 
@@ -139,18 +139,18 @@ me.addEventListener("message", (messageEvent) => {
         if (messageEvent.source) {
             console.info(`Service worker replying with version=${VERSION}`);
             messageEvent.source.postMessage(
-                JSON.stringify({ type: "version", version: VERSION })
+                JSON.stringify({ type: "version", version: VERSION }),
             );
         } else {
             console.warn(
                 `Service worker got a message but no source to reply`,
-                messageEvent.data
+                messageEvent.data,
             );
         }
     } else {
         console.warn(
             `Unexpected message for service worker`,
-            messageEvent.data
+            messageEvent.data,
         );
     }
 });
