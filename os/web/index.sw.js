@@ -45,7 +45,7 @@ const CACHE_FILES = [
     "/",
 ];
 
-const VERSION = "1.44-newemscripten";
+const VERSION = "2.0";
 
 const ENGINE_CACHE_NAME = "engine";
 
