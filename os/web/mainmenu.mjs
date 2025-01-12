@@ -581,7 +581,9 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
             try {
                 const promise = canvas.requestPointerLock();
                 if (promise instanceof Promise) {
-                    return promise.catch((e) => {});
+                    return promise.catch((e) => {
+                        console.warn(e);
+                    });
                 } else {
                     return Promise.resolve();
                 }
