@@ -40,14 +40,22 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
+      - name: clang-format
+        run: find src -type f -name \*.cc -o -name \*.h | xargs clang-format --dry-run --Werror
 
+
+  code-format-web:
+    name: Code format check (web)
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
       - name: Use Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
-
-      - name: clang-format
-        run: find src -type f -name \*.cc -o -name \*.h | xargs clang-format --dry-run --Werror
+          node-version: '20.x'       
       - name: prettier
         run: cd os/web && npx prettier -c .
       - name: typescript
