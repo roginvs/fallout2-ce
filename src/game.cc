@@ -1461,6 +1461,19 @@ static void showSplash()
     fileRead(data, 1, width * height, stream);
     fileClose(stream);
 
+    // Fix of wrong Palette, without it this makes background bright
+    // Basically just swapping first and last colors, this problem presented ONLY in F2, F1 has right palette in every splash
+    memcpy(palette + (255 * 3), palette, 3);
+    memset(palette, 0, 3);
+
+    for (int i = 0; i < width * height; i++) {
+        if (data[i] == 0) {
+            data[i] = 255;
+        } else if (data[i] == 255) {
+            data[i] = 0;
+        }
+    }
+
     int size = 0;
 
     // TODO: Move to settings.
