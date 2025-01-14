@@ -45,7 +45,8 @@ const CACHE_FILES = [
     "/",
 ];
 
-const VERSION = "2025-01-14";
+// This will be replaced by CMake
+const VERSION = "@BUILD_DATE_TIME@";
 
 const ENGINE_CACHE_NAME = "engine";
 
