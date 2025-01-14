@@ -45,7 +45,7 @@ const CACHE_FILES = [
     "/",
 ];
 
-const VERSION = "2025-01-13";
+const VERSION = "2025-01-14";
 
 const ENGINE_CACHE_NAME = "engine";
 
