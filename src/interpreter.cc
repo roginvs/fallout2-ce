@@ -3109,7 +3109,7 @@ static void interpreterPrintStats()
 
 void programStackPushValue(Program* program, ProgramValue& programValue)
 {
-    if (program->stackValues->size() > 0x5000) {
+    if (program->stackValues->size() > 0x1000) {
         programFatalError("programStackPushValue: Stack overflow.");
     }
 
