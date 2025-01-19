@@ -1178,6 +1178,7 @@ ${lang.header}
     const links = [
         "https://github.com/roginvs/fallout2-ce",
         "https://github.com/alexbatalov/fallout2-ce",
+        "https://www.youtube.com/watch?v=wYJN0pLDPRw",
     ];
 
     if (
