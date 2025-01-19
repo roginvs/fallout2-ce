@@ -45,7 +45,7 @@ function initializeGlobalModuleObject() {
                 setStatusText(`Loading WASM binary`);
 
                 const arrayBuffer = await fetchArrayBufProgress(
-                    wasmBinaryFile,
+                    findWasmBinary(),
                     false,
                     (loaded, total) =>
                         setStatusText(

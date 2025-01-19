@@ -39,14 +39,22 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
+      - name: clang-format
+        run: find src -type f -name \*.cc -o -name \*.h | xargs clang-format --dry-run --Werror
 
+
+  code-format-web:
+    name: Code format check (web)
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
       - name: Use Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
-
-      - name: clang-format
-        run: find src -type f -name \*.cc -o -name \*.h | xargs clang-format --dry-run --Werror
+          node-version: '20.x'       
       - name: prettier
         run: cd os/web && npx prettier -c .
       - name: typescript
@@ -72,7 +80,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: os/android/app/.cxx
-          key: android-cmake-v1
+          key: android-cmake-v2
 
       - name: Setup signing config
         if: env.KEYSTORE_FILE_BASE64 != '' && env.KEYSTORE_PROPERTIES_FILE_BASE64 != ''
@@ -88,17 +96,21 @@ jobs:
         run: |
           cd os/android
           ./gradlew assembleDebug
-
+      
+      - name: Prepare artifacts
+        run: |
+          mkdir artifacts/
+          cp os/android/app/build/outputs/apk/debug/app-debug.apk artifacts/fallout2-ce-debug.apk
+      
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: fallout2-ce-debug.apk
-          path: os/android/app/build/outputs/apk/debug/app-debug.apk
+          name: artifact-fallout2-ce-debug.apk
+          path:  artifacts/*
           retention-days: 7
 
   ios:
     name: iOS
-
     runs-on: macos-14
 
     steps:
@@ -109,7 +121,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build
-          key: ios-cmake-v2
+          key: ios-cmake-v4
 
       - name: Configure
         run: |
@@ -132,14 +144,17 @@ jobs:
 
       - name: Pack
         run: |
+          mkdir artifacts/
           cd build
           cpack -C RelWithDebInfo
-
+          cd ../
+          cp build/fallout2-ce.ipa artifacts/fallout2-ce.ipa
+      
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: fallout2-ce.ipa
-          path:  build/fallout2-ce.ipa
+          name: artifact-fallout2-ce.ipa
+          path:  artifacts/*
           retention-days: 7
 
   linux:
@@ -176,7 +191,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build
-          key: linux-${{ matrix.arch }}-cmake-v1
+          key: linux-${{ matrix.arch }}-cmake-v3
 
       - name: Configure (x86)
         if: matrix.arch == 'x86'
@@ -201,17 +216,21 @@ jobs:
             --build build \
             -j $(nproc) \
             # EOL
-
+      
+      - name: Prepare artifacts
+        run: |
+          mkdir artifacts/
+          cp build/fallout2-ce artifacts/fallout2-ce-linux-${{ matrix.arch }}
+      
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: fallout2-ce-linux-${{ matrix.arch }}
-          path:  build/fallout2-ce
+          name: artifact-fallout2-ce-linux-${{ matrix.arch }}
+          path:  artifacts/*
           retention-days: 7
 
   macos:
     name: macOS
-
     runs-on: macos-14
 
     steps:
@@ -222,7 +241,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build
-          key: macos-cmake-v4
+          key: macos-cmake-v6
 
       - name: Configure
         run: |
@@ -242,14 +261,17 @@ jobs:
 
       - name: Pack
         run: |
+          mkdir artifacts/
           cd build
           cpack -C RelWithDebInfo
-
+          cd ../
+          cp "build/Fallout II Community Edition.dmg" "artifacts/Fallout II Community Edition.dmg"
+      
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: fallout2-ce-macos.dmg
-          path:  build/Fallout II Community Edition.dmg
+          name: artifact-fallout2-ce-macos.dmg
+          path:  artifacts/*
           retention-days: 7
 
   windows:
@@ -274,7 +296,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build
-          key: windows-${{ matrix.arch }}-cmake-v1
+          key: windows-${{ matrix.arch }}-cmake-v2
 
       - name: Configure
         run: |
@@ -290,10 +312,60 @@ jobs:
             --build build \
             --config RelWithDebInfo \
             # EOL
-
+      
+      - name: Prepare artifacts
+        run: |
+          mkdir artifacts/
+          cp build/RelWithDebInfo/fallout2-ce.exe artifacts/fallout2-ce-windows-${{ matrix.arch }}.exe
+      
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: fallout2-ce-windows-${{ matrix.arch }}
-          path:  build/RelWithDebInfo/fallout2-ce.exe
+          name: artifact-fallout2-ce-windows-${{ matrix.arch }}
+          path:  artifacts/*
           retention-days: 7
+  
+  release:
+    name: Release Continuous build
+    runs-on: ubuntu-latest
+    needs: [android, ios, linux, macos, windows]
+    permissions: write-all
+    steps:
+      - name: Fetch artifacts
+        if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: actions/download-artifact@v4.1.7
+        with:
+          path: artifacts/
+
+      - name: Remove old release
+        if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: dev-drprasad/delete-tag-and-release@v0.2.1
+        with:
+          delete_release: true
+          tag_name: continious
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Repackage binaries and allow GitHub to process removed release for few seconds
+        if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        continue-on-error: true
+        run: |
+          cd artifacts/
+          for i in artifact-*; do
+            mv "$i"/* .
+            rm -rf "$i"
+          done
+          ls -R .
+          cd ../
+          sleep 20s
+
+      - name: Upload new release
+        if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: softprops/action-gh-release@v0.1.15
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: artifacts/*
+          tag_name: continious
+          draft: false
+          prerelease: true
+          name: Fallout2-CE Continuous Build

@@ -12,9 +12,8 @@ declare const HEAP8: Uint8Array;
 declare function addRunDependency(depName: string);
 declare function removeRunDependency(depName: string);
 
-declare const wasmBinaryFile: string;
-
-declare var setWindowTitle: (title: string) => void;
+//declare const wasmBinaryFile: string;
+declare function findWasmBinary(): string;
 
 declare function _fd_read(
     fd: number,
@@ -22,3 +21,4 @@ declare function _fd_read(
     iovcnt: number,
     pnum: number
 ): number;
+declare var _emscripten_set_window_title: (title: string) => void;

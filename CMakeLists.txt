@@ -6,10 +6,10 @@ set(EXECUTABLE_NAME fallout2-ce)
 
 if(APPLE)
     if(IOS)
-        set(CMAKE_OSX_DEPLOYMENT_TARGET "11" CACHE STRING "")
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "12" CACHE STRING "")
         set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "")
     else()
-        set(CMAKE_OSX_DEPLOYMENT_TARGET "10.11" CACHE STRING "")
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "")
         set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "")
     endif()
 endif()
@@ -372,8 +372,7 @@ if(APPLE)
 endif()
 
 add_subdirectory("third_party/fpattern")
-target_link_libraries(${EXECUTABLE_NAME} ${FPATTERN_LIBRARY})
-target_include_directories(${EXECUTABLE_NAME} PRIVATE ${FPATTERN_INCLUDE_DIR})
+target_link_libraries(${EXECUTABLE_NAME} fpattern::fpattern)
 
 if(NOT EMSCRIPTEN)
     if((NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux") AND (NOT ${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD") AND (NOT ${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD"))
@@ -429,6 +428,14 @@ elseif(EMSCRIPTEN)
         "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.html"
     )
     file(COPY ${WEB_STATIC} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+    
+    # Update service worker with current date
+    set(SERVICE_WORKER_FILE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/index.sw.js")
+    file(READ ${SERVICE_WORKER_FILE_PATH} SERVICE_WORKER_FILE_CONTENT)
+    string(TIMESTAMP CURRENT_DATE_TIME "%Y-%m-%d %H:%M:%S")
+    string(REPLACE "@BUILD_DATE_TIME@" "${CURRENT_DATE_TIME}" SERVICE_WORKER_FILE_CONTENT "${SERVICE_WORKER_FILE_CONTENT}")
+    file(WRITE ${SERVICE_WORKER_FILE_PATH} "${SERVICE_WORKER_FILE_CONTENT}")
+
 
     file(COPY os/windows/fallout2-ce.ico DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 

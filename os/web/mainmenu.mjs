@@ -621,7 +621,9 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
             try {
                 const promise = canvas.requestPointerLock();
                 if (promise instanceof Promise) {
-                    return promise;
+                    return promise.catch((e) => {
+                        console.warn(e);
+                    });
                 } else {
                     return Promise.resolve();
                 }
@@ -1153,10 +1155,12 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
             setStatusText("Starting");
             removeRunDependency("initialize-filesystems");
             {
-                // EMSCRIPTEN uses this function to set title
-                // We override it no it will be no-op
-                setWindowTitle = () => {};
-                document.title = game ? game.name : "Fallout II";
+                if (game) {
+                    // EMSCRIPTEN uses this function to set title
+                    // We override it no it will be no-op
+                    _emscripten_set_window_title = () => {};
+                    document.title = game.name;
+                }
             }
         })().catch((e) => {
             setErrorState(e);
@@ -1459,6 +1463,7 @@ ${lang.header}
     const links = [
         "https://github.com/roginvs/fallout2-ce",
         "https://github.com/alexbatalov/fallout2-ce",
+        "https://www.youtube.com/watch?v=wYJN0pLDPRw",
     ];
 
     appendDiv(`<div class="info_links">
