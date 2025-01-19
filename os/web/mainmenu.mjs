@@ -968,7 +968,8 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     throw new Error(`No files selected!`);
                 }
 
-                const filesArray = Array.from(filesList);
+                let filesArray = Array.from(filesList);
+
                 const selectedFolderNames = [
                     ...new Set(
                         filesArray
@@ -984,6 +985,16 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     throw new Error(`Multiple folders selected!`);
                 }
                 const selectedFolderName = selectedFolderNames[0];
+
+                filesArray = filesArray.filter(
+                    (file) =>
+                        !file.webkitRelativePath
+                            .toLowerCase()
+                            .startsWith(
+                                selectedFolderName.toLowerCase() +
+                                    "/data/savegame"
+                            )
+                );
 
                 const nullContent = new Int8Array(0);
                 const filesIndex = filesArray.map((file) => ({
@@ -1054,28 +1065,45 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                 const folderName = "local";
 
                 FS.mkdir(folderName);
-                FS.chdir("/" + folderName);
 
                 for (const file of filesIndex) {
-                    FS.create(folderName + "/" + file.name, 0o666);
-                    /*
+                    FS.chdir("/" + folderName);
+
+                    if (file.name.toLowerCase().startsWith("data/savegame/")) {
+                        console.info(`Skipping ${file.name}`);
+                        continue;
+                    }
+
+                    setStatusText(file.name);
 
                     const path = file.name.split("/");
                     const fileName = path.pop();
+                    // console.info(
+                    //     `Creating ${file.name} file=${fileName}`,
+                    //     path.slice()
+                    // );
 
-                    let currentDir = path.unshift();
-                    while (currentDir){
+                    let currentDir = path.shift();
+                    while (currentDir) {
+                        // console.info('Creating dir "' + currentDir + '"');
                         try {
                             FS.mkdir(currentDir);
-                        } catch(e){
+                        } catch (e) {
                             // do nothing
                         }
-                        
+
                         FS.chdir(currentDir);
-                        currentDir = path.unshift();                            
+                        currentDir = path.shift();
                     }
-                        */
+                    FS.create(fileName);
+                    const l = FS.lookupPath(fileName);
+                    l.node.usedBytes = file.size;
                 }
+
+                FS.chdir("/" + folderName + "/data");
+                FS.mkdir("SAVEGAME");
+
+                FS.chdir("/" + folderName);
 
                 FS.mount(IDBFS, {}, "/" + folderName + "/data/SAVEGAME");
 
@@ -1088,14 +1116,13 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     const file = filesMap.get(
                         streamPath.slice(folderName.length + 2)
                     );
+
+                    // console.info(
+                    //     `Read ${stream.path} intercepting=${!!file} ` +
+                    //         `fd=${fd} iov=${iov} iovcnt=${iovcnt} pnum=${pnum}`
+                    // );
+
                     if (!file) {
-                        console.info(
-                            `Simple read ${stream.path}`,
-                            fd,
-                            iov,
-                            iovcnt,
-                            pnum
-                        );
                         return _fd_read(fd, iov, iovcnt, pnum);
                     }
 
@@ -1140,19 +1167,20 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         }
                         HEAPU32[pnum >> 2] = num;
 
-                        console.info(
-                            `Async read ${stream.path} num=${num}`,
-                            fd,
-                            iov,
-                            iovcnt,
-                            pnum
-                        );
+                        // console.info(
+                        //     `Async read ${stream.path} num=${num}`,
+                        //     fd,
+                        //     iov,
+                        //     iovcnt,
+                        //     pnum
+                        // );
 
                         return 0;
                     });
                 });
             }
-            setStatusText("Starting");
+
+            setStatusText(game ? "Starting" : null);
             removeRunDependency("initialize-filesystems");
             {
                 if (game) {
