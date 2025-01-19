@@ -1052,32 +1052,30 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                 const folderName = "local";
 
                 FS.mkdir(folderName);
+                FS.chdir("/" + folderName);
 
-                FS.mount(
-                    ASYNCFETCHFS,
-                    {
-                        files: filesIndex,
-                        options: {
-                            /**
-                             *
-                             * @param {string} url
-                             */
-                            fetcher: (url) => {
-                                console.info(`Called fetch on ${url}`);
-                                return nullContent;
-                            },
-                        },
-                    },
-                    "/" + folderName
-                );
+                for (const file of filesIndex) {
+                    FS.create(folderName + "/" + file.name, 0o666);
+                    /*
+
+                    const path = file.name.split("/");
+                    const fileName = path.pop();
+
+                    let currentDir = path.unshift();
+                    while (currentDir){
+                        try {
+                            FS.mkdir(currentDir);
+                        } catch(e){
+                            // do nothing
+                        }
+                        
+                        FS.chdir(currentDir);
+                        currentDir = path.unshift();                            
+                    }
+                        */
+                }
 
                 FS.mount(IDBFS, {}, "/" + folderName + "/data/SAVEGAME");
-
-                FS.mount(MEMFS, {}, "/" + folderName + "/data/MAPS");
-                FS.mount(MEMFS, {}, "/" + folderName + "/data/proto/items");
-                FS.mount(MEMFS, {}, "/" + folderName + "/data/proto/critters");
-
-                FS.chdir("/" + folderName);
 
                 await initIdbfs(folderName);
 
