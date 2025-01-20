@@ -35,6 +35,7 @@ const CACHE_FILES = [
     "wasm.mjs",
     "service_worker_manager.mjs",
     "debugTags.mjs",
+    "manifest.json",
 
     "fallout2-ce.wasm",
     "fallout2-ce.js",

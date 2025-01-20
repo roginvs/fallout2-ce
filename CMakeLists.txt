@@ -426,6 +426,7 @@ elseif(EMSCRIPTEN)
         "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.mjs"
         "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.css"
         "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.html"
+        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/manifest.json"
     )
     file(COPY ${WEB_STATIC} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
     
