@@ -1,8 +1,10 @@
 {
     "name": "Fallout Nevada & Sonora",
     "short_name": "Fallout Nevada & Sonora",
-    "start_url": ".",
+    "start_url": "/",
+    "id": "/",
     "display": "fullscreen",
+    "display_override": ["fullscreen", "minimal-ui", "standalone"],
     "background_color": "#000000",
     "theme_color": "#000000",
     "description": "Fallout Nevada & Sonora is a fan-made game based on the Fallout universe.",
