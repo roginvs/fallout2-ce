@@ -7,7 +7,13 @@
     "description": "Fallout Nevada & Sonora is a fan-made game based on the Fallout universe.",
     "icons": [
         {
-            "src": "fallout2-ce.ico"
+            "src": "fallout2-ce.ico",
+            "sizes": "256x256"
+        },
+        {
+            "src": "AppIcon.png",
+            "sizes": "633x633",
+            "type": "image/png"
         }
     ],
     "orientation": "landscape-primary"

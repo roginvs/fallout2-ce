@@ -5,6 +5,7 @@ fallout2-ce.wasm.map
 fallout2-ce.wasm.debug.wasm
 game
 fallout2-ce.ico
+AppIcon.png
 workarond-low-optimization
 emsdk
 src

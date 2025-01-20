@@ -439,6 +439,7 @@ elseif(EMSCRIPTEN)
 
 
     file(COPY os/windows/fallout2-ce.ico DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+    file(COPY os/ios/AppIcon.xcassets/AppIcon.appiconset/AppIcon.png DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
     if(NOT CMAKE_BUILD_TYPE)
         set(CMAKE_BUILD_TYPE Release)
