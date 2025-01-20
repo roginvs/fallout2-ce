@@ -42,11 +42,12 @@ const CACHE_FILES = [
     "fallout2-ce.wasm.map",
 
     "manifest.json",
-    "AppIcon.png",
-    "nevada-640x480-ru.png",
-    "nevada-hires-ru.png",
-    "sonora-640x480-ru.png",
-    "sonora-hires-ru.png",
+
+    // "AppIcon.png",
+    // "nevada-640x480-ru.png",
+    // "nevada-hires-ru.png",
+    // "sonora-640x480-ru.png",
+    // "sonora-hires-ru.png",
 
     // @TODO: Do we want to use '/'? Is this relative to service worker registration? If so, then how it works in "fetch" event?
     "/",
