@@ -1,5 +1,6 @@
 {
     "name": "Fallout Nevada & Sonora",
+    "short_name": "Fallout Nevada & Sonora",
     "start_url": ".",
     "display": "fullscreen",
     "background_color": "#000000",
