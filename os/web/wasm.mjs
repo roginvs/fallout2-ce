@@ -51,6 +51,10 @@ function initializeGlobalModuleObject() {
                 // await new Promise(r => setTimeout(r, 10000));
 
                 setStatusText("Instantiating WebAssembly");
+
+                // We want our own title
+                info.env.emscripten_set_window_title = () => {};
+
                 const inst = await WebAssembly.instantiate(arrayBuffer, info);
                 setStatusText("");
                 receiveInstance(inst.instance, inst.module);

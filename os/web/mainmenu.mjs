@@ -911,12 +911,8 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
             );
             setStatusText("Starting");
             removeRunDependency("initialize-filesystems");
-            {
-                // EMSCRIPTEN uses this function to set title
-                // We override it no it will be no-op
-                _emscripten_set_window_title = () => {};
-                document.title = game.name;
-            }
+
+            document.title = game.name;
         })().catch((e) => {
             setErrorState(e);
         });
