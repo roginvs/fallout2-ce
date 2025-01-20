@@ -16,5 +16,29 @@
             "type": "image/png"
         }
     ],
+    "screenshots": [
+        {
+            "src": "nevada-hires-ru.png",
+            "sizes": "1920x1080",
+            "type": "image/png",
+            "form_factor": "wide"
+        },
+        {
+            "src": "sonora-hires-ru.png",
+            "sizes": "1920x1080",
+            "type": "image/png",
+            "form_factor": "wide"
+        },
+        {
+            "src": "nevada-640x480-ru.png",
+            "sizes": "1433x1066",
+            "type": "image/png"
+        },
+        {
+            "src": "sonora-640x480-ru.png",
+            "sizes": "1434x1080",
+            "type": "image/png"
+        }
+    ],
     "orientation": "landscape-primary"
 }
