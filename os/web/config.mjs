@@ -51,7 +51,7 @@ export const configuration = {
             filesVersion: "1",
         },
         {
-            name: "Fallout: Sonora English 1.14 (+ DLC)",
+            name: "Fallout: Sonora English 1.14 (+ DLC) by Cambragol 1.03",
             folder: "Fallout_Sonora_1_14_dlc_eng",
             lang: "en",
             gameType: "sonora",
@@ -59,7 +59,7 @@ export const configuration = {
                 "https://fallout-nevada.ucoz.ru/index/opisanie_fallout_sonora/0-59",
                 "https://cambragol.github.io/Fallout-Sonora/",
             ],
-            filesVersion: "2",
+            filesVersion: "3",
         },
     ],
     useGzip: true,
