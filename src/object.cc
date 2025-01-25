@@ -1486,6 +1486,9 @@ int objectSetLocation(Object* obj, int tile, int elevation, Rect* rect)
         }
 
         if (elevation != oldElevation) {
+            // SFALL: Remove text floaters after moving to another elevation.
+            textObjectsReset();
+
             mapSetElevation(elevation);
             tileSetCenter(tile, TILE_SET_CENTER_REFRESH_WINDOW | TILE_SET_CENTER_FLAG_IGNORE_SCROLL_RESTRICTIONS);
             if (isInCombat()) {
