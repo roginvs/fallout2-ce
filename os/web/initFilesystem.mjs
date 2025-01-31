@@ -102,13 +102,12 @@ export async function downloadAllGameFiles(folderName, filesVersion) {
             await fetcher(task.name, task.size, task.sha256hash);
         }
     }
+    await Promise.all(new Array(10).fill(0).map(() => worker()));
 
     console.info("Fetching big files");
     for (const bigFile of filesForMainBecauseBig) {
         await fetcher(bigFile.name, bigFile.size, bigFile.sha256hash);
     }
-
-    await Promise.all(new Array(5).fill(0).map(() => worker()));
 
     setStatusText(null);
 }
