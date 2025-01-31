@@ -89,11 +89,6 @@ export async function downloadAllGameFiles(folderName, filesVersion) {
                 a.size - b.size,
         );
 
-    console.info("Fetching big files");
-    for (const bigFile of filesForMainBecauseBig) {
-        await fetcher(bigFile.name, bigFile.size, bigFile.sha256hash);
-    }
-
     console.info(`Fetching small files`);
     let availableTaskIndex = 0;
     async function worker() {
@@ -106,6 +101,11 @@ export async function downloadAllGameFiles(folderName, filesVersion) {
             availableTaskIndex++;
             await fetcher(task.name, task.size, task.sha256hash);
         }
+    }
+
+    console.info("Fetching big files");
+    for (const bigFile of filesForMainBecauseBig) {
+        await fetcher(bigFile.name, bigFile.size, bigFile.sha256hash);
     }
 
     await Promise.all(new Array(5).fill(0).map(() => worker()));
