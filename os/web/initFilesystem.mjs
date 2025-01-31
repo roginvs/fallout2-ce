@@ -85,8 +85,8 @@ export async function downloadAllGameFiles(folderName, filesVersion) {
         .filter((f) => f.size >= WORKERS_SIZE_THRESHOLD)
         .sort(
             (a, b) =>
-                // We want biggest files first to facilitate memory allocations
-                b.size - a.size,
+                // Let's start with smallest files first because they are more likely to be used
+                a.size - b.size,
         );
 
     console.info("Fetching big files");
