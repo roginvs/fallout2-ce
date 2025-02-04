@@ -31,6 +31,16 @@ export const configuration = {
             filesVersion: "1",
         },
         {
+            name: "Fallout: Sonora 1.15 (+ DLC)",
+            folder: "Fallout_Sonora_1_15_dlc",
+            lang: "ru",
+            gameType: "sonora",
+            links: [
+                "https://fallout-nevada.ucoz.ru/index/opisanie_fallout_sonora/0-59",
+            ],
+            filesVersion: "1",
+        },
+        {
             name: "Fallout: Sonora 1.13 (+ DLC)",
             folder: "Fallout_Sonora_1_13_dlc",
             lang: "ru",
