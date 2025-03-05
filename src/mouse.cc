@@ -411,8 +411,8 @@ void _mouse_info()
                 if (!touch_get_pan_mode() && gesture.numberOfTouches == 1) {
                     _mouse_simulate_input(gesture.x - prevx, gesture.y - prevy, 0);
                 } else if (touch_get_pan_mode() || gesture.numberOfTouches == 2) {
-                    gMouseWheelX = (prevx - gesture.x) / 8;
-                    gMouseWheelY = (gesture.y - prevy) / 8;
+                    gMouseWheelX = (prevx - gesture.x) / 2;
+                    gMouseWheelY = (gesture.y - prevy) / 2;
 
                     if (gMouseWheelX != 0 || gMouseWheelY != 0) {
                         gMouseEvent |= MOUSE_EVENT_WHEEL;
