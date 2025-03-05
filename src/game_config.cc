@@ -204,6 +204,7 @@ bool gameConfigInit(bool isMapper, int argc, char** argv)
 #if defined(__EMSCRIPTEN__)
 // clang-format off
 EM_ASYNC_JS(void, do_save_idbfs_gameconfig, (), {
+    // await write_idbfs();
     await new Promise((resolve, reject) => FS.syncfs(err => err ? reject(err) : resolve()))
 });
 // clang-format on

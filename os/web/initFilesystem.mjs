@@ -170,16 +170,30 @@ export async function initFilesystem(
 
     FS.chdir("/" + folderName);
 
+    const savegameNodeMount = FS.lookupPath("/" + folderName + "/data/SAVEGAME")
+        .node.mount;
+
     await new Promise((resolve) => {
         // The FS.syncfs do not understand nested mounts so we need to find mount node directly
-        IDBFS.syncfs(
-            FS.lookupPath("/" + folderName + "/data/SAVEGAME").node.mount,
-            true,
-            () => {
-                resolve(null);
-            },
-        );
+        IDBFS.syncfs(savegameNodeMount, true, () => {
+            resolve(null);
+        });
     });
+
+    // This function is called from C code
+    /** @type {any} */ (window).write_idbfs = async () => {
+        console.info("Writing IDBFS");
+        await new Promise((resolve, reject) => {
+            IDBFS.syncfs(savegameNodeMount, false, (/** @type {any} */ err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(null);
+                }
+            });
+        });
+        console.info("IDBFS saved");
+    };
 
     {
         const originalSyncfs = IDBFS.syncfs;

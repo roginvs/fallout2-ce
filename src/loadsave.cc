@@ -1538,7 +1538,10 @@ static int lsgWindowFree(int windowType)
 #if defined(__EMSCRIPTEN__)
 // clang-format off
 EM_ASYNC_JS(void, do_save_idbfs_loadsave, (), {
-    await new Promise((resolve, reject) => FS.syncfs(err => err ? reject(err) : resolve()))
+    // We have to call special function because of special mount point which is over the root
+    // Calling FS.syncfs() will not work in this case
+    await write_idbfs();
+    // await new Promise((resolve, reject) => FS.syncfs(err => err ? reject(err) : resolve()))
 });
 // clang-format on
 #endif
