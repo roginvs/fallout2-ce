@@ -59,6 +59,9 @@
 #include "window_manager.h"
 #include "word_wrap.h"
 #include "worldmap.h"
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
 
 namespace fallout {
 
@@ -445,6 +448,8 @@ int lsgSaveGame(int mode)
         debugPrint("\nLOADSAVE: ** Error loading save game screen data! **\n");
         return -1;
     }
+
+    touch_set_touchscreen_mode(mode == LOAD_SAVE_MODE_NORMAL);
 
     if (_GetSlotList() == -1) {
         windowRefresh(gLoadSaveWindow);
@@ -963,6 +968,8 @@ int lsgLoadGame(int mode)
         return -1;
     }
 
+    touch_set_touchscreen_mode(windowType == LOAD_SAVE_WINDOW_TYPE_LOAD_GAME || windowType == LOAD_SAVE_WINDOW_TYPE_LOAD_GAME_FROM_MAIN_MENU);
+
     if (_GetSlotList() == -1) {
         gameMouseSetCursor(MOUSE_CURSOR_ARROW);
         windowRefresh(gLoadSaveWindow);
@@ -1226,8 +1233,6 @@ int lsgLoadGame(int mode)
                 _dbleclkcntr = 24;
                 doubleClickSlot = -1;
             }
-
-            delay_ms(1000 / 24 - (getTicks() - time));
         }
 
         if (rc == 1) {
@@ -1525,9 +1530,18 @@ static int lsgWindowFree(int windowType)
 
     colorCycleEnable();
     gameMouseSetCursor(MOUSE_CURSOR_ARROW);
+    touch_set_touchscreen_mode(false);
 
     return 0;
 }
+
+#if defined(__EMSCRIPTEN__)
+// clang-format off
+EM_ASYNC_JS(void, do_save_idbfs_loadsave, (), {
+    await new Promise((resolve, reject) => FS.syncfs(err => err ? reject(err) : resolve()))
+});
+// clang-format on
+#endif
 
 // 0x47D88C
 static int lsgPerformSaveGame()
@@ -1679,39 +1693,8 @@ static int lsgPerformSaveGame()
     snprintf(_gmpath, sizeof(_gmpath), "%s\\%s%.2d\\", "SAVEGAME", "SLOT", _slot_cursor + 1);
     MapDirErase(_gmpath, "BAK");
 
-#ifdef EMSCRIPTEN
-    {
-        // Due to IDBFS implementation we need to call "fsync" to actually save files into indexeddb.
-        // If we do not call "fsync" here then all changes in IDBFS will be lost after page reload
-        snprintf(_gmpath, sizeof(_gmpath), "%s\\%s%.2d\\", "SAVEGAME", "SLOT", _slot_cursor + 1);
-        strcat(_gmpath, "SAVE.DAT");
-
-        _flptr = fileOpen(_gmpath, "rb");
-
-        // Maybe do "goto err" pattern?
-
-        if (_flptr == NULL) {
-            _RestoreSave();
-            _partyMemberUnPrepSave();
-            backgroundSoundResume();
-            return -1;
-        }
-        int fd = fileno(_flptr->file);
-        if (fd < 0) {
-            _RestoreSave();
-            _partyMemberUnPrepSave();
-            backgroundSoundResume();
-            return -1;
-        }
-        int fsync_result = fsync(fd);
-        if (fsync_result < 0) {
-            _RestoreSave();
-            _partyMemberUnPrepSave();
-            backgroundSoundResume();
-            return -1;
-        }
-        fileClose(_flptr);
-    }
+#if defined(__EMSCRIPTEN__)
+    do_save_idbfs_loadsave();
 #endif
 
     gLoadSaveMessageListItem.num = 140;

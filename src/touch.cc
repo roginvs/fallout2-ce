@@ -37,6 +37,9 @@ static Touch touches[MAX_TOUCHES];
 static Gesture currentGesture;
 static std::stack<Gesture> gestureEventsQueue;
 
+static bool gUseTouchscreenMode = false;
+static bool gUsePanMode = false;
+
 static int find_touch(SDL_FingerID fingerId)
 {
     for (int index = 0; index < MAX_TOUCHES; index++) {
@@ -273,9 +276,11 @@ void touch_process_gesture()
                 gestureEventsQueue.push(currentGesture);
             }
 
-            mouseHideCursor();
-            _mouse_set_position(currentCentroid.x, currentCentroid.y);
-            mouseShowCursor();
+            if (gUseTouchscreenMode) {
+                mouseHideCursor();
+                _mouse_set_position(currentCentroid.x, currentCentroid.y);
+                mouseShowCursor();
+            }
         }
     }
 }
@@ -292,4 +297,21 @@ bool touch_get_gesture(Gesture* gesture)
     return true;
 }
 
+void touch_set_touchscreen_mode(const bool value)
+{
+    gUseTouchscreenMode = value;
+    // I want touchscreen mode to be always enabled.
+    //                                  Vasilii
+    gUseTouchscreenMode = true;
+}
+
+void touch_set_pan_mode(const bool value)
+{
+    gUsePanMode = value;
+}
+
+bool touch_get_pan_mode()
+{
+    return gUsePanMode;
+}
 } // namespace fallout

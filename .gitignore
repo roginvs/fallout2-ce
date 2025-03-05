@@ -9,6 +9,7 @@
 *.user
 *.userosscache
 *.sln.docstates
+.DS_Store
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -394,3 +395,4 @@ FodyWeavers.xsd
 
 # versioning header
 src/platform/git_version.h
+CMakeUserPresets.json

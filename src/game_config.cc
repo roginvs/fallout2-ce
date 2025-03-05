@@ -8,6 +8,10 @@
 #include "main.h"
 #include "platform_compat.h"
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
+
 namespace fallout {
 
 static void gameConfigResolvePath(const char* section, const char* key);
@@ -197,6 +201,14 @@ bool gameConfigInit(bool isMapper, int argc, char** argv)
     return true;
 }
 
+#if defined(__EMSCRIPTEN__)
+// clang-format off
+EM_ASYNC_JS(void, do_save_idbfs_gameconfig, (), {
+    await new Promise((resolve, reject) => FS.syncfs(err => err ? reject(err) : resolve()))
+});
+// clang-format on
+#endif
+
 // Saves game config into `fallout2.cfg`.
 //
 // 0x444C14
@@ -209,6 +221,10 @@ bool gameConfigSave()
     if (!configWrite(&gGameConfig, gGameConfigFilePath, false)) {
         return false;
     }
+
+#if defined(__EMSCRIPTEN__)
+    do_save_idbfs_gameconfig();
+#endif
 
     return true;
 }

@@ -175,10 +175,6 @@ int _GNW95_init_window(int width, int height, bool fullscreen, int scale)
     if (gSdlWindow == nullptr) {
         SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 
-        if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-            return -1;
-        }
-
 #ifndef EMSCRIPTEN
         Uint32 windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI;
 #else

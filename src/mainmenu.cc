@@ -279,6 +279,7 @@ void mainMenuWindowHide(bool animate)
     }
 
     windowHide(gMainMenuWindow);
+    touch_set_touchscreen_mode(false);
 
     gMainMenuWindowHidden = true;
 }
@@ -295,6 +296,7 @@ void mainMenuWindowUnhide(bool animate)
     }
 
     windowShow(gMainMenuWindow);
+    touch_set_touchscreen_mode(true);
 
     if (animate) {
         colorPaletteLoad("color.pal");
