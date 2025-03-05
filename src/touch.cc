@@ -308,6 +308,9 @@ void touch_set_touchscreen_mode(const bool value)
 void touch_set_pan_mode(const bool value)
 {
     gUsePanMode = value;
+    // I want this to always be false because I do not understand what it does.
+    //                                  Vasilii
+    gUsePanMode = false;
 }
 
 bool touch_get_pan_mode()
