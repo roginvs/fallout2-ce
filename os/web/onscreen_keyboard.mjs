@@ -1,11 +1,139 @@
 // @ts-check
 
+const key_data = [
+    { type: "keydown", code: "KeyQ", key: "q", keyCode: 81, which: 81 },
+    { type: "keyup", code: "KeyQ", key: "q", keyCode: 81, which: 81 },
+    { type: "keydown", code: "KeyW", key: "w", keyCode: 87, which: 87 },
+    { type: "keyup", code: "KeyW", key: "w", keyCode: 87, which: 87 },
+    { type: "keydown", code: "KeyE", key: "e", keyCode: 69, which: 69 },
+    { type: "keyup", code: "KeyE", key: "e", keyCode: 69, which: 69 },
+    { type: "keydown", code: "KeyR", key: "r", keyCode: 82, which: 82 },
+    { type: "keyup", code: "KeyR", key: "r", keyCode: 82, which: 82 },
+    { type: "keydown", code: "KeyT", key: "t", keyCode: 84, which: 84 },
+    { type: "keyup", code: "KeyT", key: "t", keyCode: 84, which: 84 },
+    { type: "keydown", code: "KeyY", key: "y", keyCode: 89, which: 89 },
+    { type: "keyup", code: "KeyY", key: "y", keyCode: 89, which: 89 },
+    { type: "keydown", code: "KeyU", key: "u", keyCode: 85, which: 85 },
+    { type: "keyup", code: "KeyU", key: "u", keyCode: 85, which: 85 },
+    { type: "keydown", code: "KeyI", key: "i", keyCode: 73, which: 73 },
+    { type: "keyup", code: "KeyI", key: "i", keyCode: 73, which: 73 },
+    { type: "keydown", code: "KeyO", key: "o", keyCode: 79, which: 79 },
+    { type: "keyup", code: "KeyO", key: "o", keyCode: 79, which: 79 },
+    { type: "keydown", code: "KeyP", key: "p", keyCode: 80, which: 80 },
+    { type: "keyup", code: "KeyP", key: "p", keyCode: 80, which: 80 },
+    { type: "keydown", code: "KeyA", key: "a", keyCode: 65, which: 65 },
+    { type: "keyup", code: "KeyA", key: "a", keyCode: 65, which: 65 },
+    { type: "keydown", code: "KeyS", key: "s", keyCode: 83, which: 83 },
+    { type: "keyup", code: "KeyS", key: "s", keyCode: 83, which: 83 },
+    { type: "keydown", code: "KeyD", key: "d", keyCode: 68, which: 68 },
+    { type: "keyup", code: "KeyD", key: "d", keyCode: 68, which: 68 },
+    { type: "keydown", code: "KeyF", key: "f", keyCode: 70, which: 70 },
+    { type: "keyup", code: "KeyF", key: "f", keyCode: 70, which: 70 },
+    { type: "keydown", code: "KeyG", key: "g", keyCode: 71, which: 71 },
+    { type: "keyup", code: "KeyG", key: "g", keyCode: 71, which: 71 },
+    { type: "keydown", code: "KeyH", key: "h", keyCode: 72, which: 72 },
+    { type: "keyup", code: "KeyH", key: "h", keyCode: 72, which: 72 },
+    { type: "keydown", code: "KeyJ", key: "j", keyCode: 74, which: 74 },
+    { type: "keyup", code: "KeyJ", key: "j", keyCode: 74, which: 74 },
+    { type: "keydown", code: "KeyK", key: "k", keyCode: 75, which: 75 },
+    { type: "keyup", code: "KeyK", key: "k", keyCode: 75, which: 75 },
+    { type: "keydown", code: "KeyL", key: "l", keyCode: 76, which: 76 },
+    { type: "keyup", code: "KeyL", key: "l", keyCode: 76, which: 76 },
+    { type: "keydown", code: "KeyZ", key: "z", keyCode: 90, which: 90 },
+    { type: "keyup", code: "KeyZ", key: "z", keyCode: 90, which: 90 },
+    { type: "keydown", code: "KeyX", key: "x", keyCode: 88, which: 88 },
+    { type: "keyup", code: "KeyX", key: "x", keyCode: 88, which: 88 },
+    { type: "keydown", code: "KeyC", key: "c", keyCode: 67, which: 67 },
+    { type: "keyup", code: "KeyC", key: "c", keyCode: 67, which: 67 },
+    { type: "keydown", code: "KeyV", key: "v", keyCode: 86, which: 86 },
+    { type: "keyup", code: "KeyV", key: "v", keyCode: 86, which: 86 },
+    { type: "keydown", code: "KeyB", key: "b", keyCode: 66, which: 66 },
+    { type: "keyup", code: "KeyB", key: "b", keyCode: 66, which: 66 },
+    { type: "keydown", code: "KeyN", key: "n", keyCode: 78, which: 78 },
+    { type: "keyup", code: "KeyN", key: "n", keyCode: 78, which: 78 },
+    { type: "keydown", code: "KeyM", key: "m", keyCode: 77, which: 77 },
+    { type: "keyup", code: "KeyM", key: "m", keyCode: 77, which: 77 },
+    { type: "keydown", code: "Comma", key: ",", keyCode: 188, which: 188 },
+    { type: "keyup", code: "Comma", key: ",", keyCode: 188, which: 188 },
+    { type: "keydown", code: "Period", key: ".", keyCode: 190, which: 190 },
+    { type: "keyup", code: "Period", key: ".", keyCode: 190, which: 190 },
+    {
+        type: "keydown",
+        code: "Backspace",
+        key: "Backspace",
+        keyCode: 8,
+        which: 8,
+    },
+    {
+        type: "keyup",
+        code: "Backspace",
+        key: "Backspace",
+        keyCode: 8,
+        which: 8,
+    },
+    { type: "keydown", code: "Space", key: " ", keyCode: 32, which: 32 },
+    { type: "keyup", code: "Space", key: " ", keyCode: 32, which: 32 },
+    { type: "keydown", code: "Enter", key: "Enter", keyCode: 13, which: 13 },
+    { type: "keyup", code: "Enter", key: "Enter", keyCode: 13, which: 13 },
+    {
+        type: "keydown",
+        code: "ShiftLeft",
+        key: "Shift",
+        keyCode: 16,
+        which: 16,
+    },
+    { type: "keyup", code: "ShiftLeft", key: "Shift", keyCode: 16, which: 16 },
+    {
+        type: "keydown",
+        code: "ShiftRight",
+        key: "Shift",
+        keyCode: 16,
+        which: 16,
+    },
+    { type: "keyup", code: "ShiftRight", key: "Shift", keyCode: 16, which: 16 },
+];
+
+if (false) {
+    /** @type {{code?: string, key?: string, keyCode?:number, which?: number, type: string }[]} */
+    const key_data = [];
+    /** @type {any} */ (window).key_data = key_data;
+    window.addEventListener("keydown", (e) => {
+        key_data.push({
+            type: "keydown",
+            code: e.code,
+            key: e.key,
+            keyCode: e.keyCode,
+            which: e.which,
+        });
+    });
+    window.addEventListener("keyup", (e) => {
+        key_data.push({
+            type: "keyup",
+            code: e.code,
+            key: e.key,
+            keyCode: e.keyCode,
+            which: e.which,
+        });
+    });
+}
+
 /**
  * @param {number} keyCode
- * @param {"keyup"|"keydown"} eventName
  */
-function _sendKeyEvent(keyCode, eventName) {
-    const fakeEvent = new KeyboardEvent(eventName, {
+function _ensureKeyData(keyCode) {
+    if (!key_data.find((e) => e.keyCode === keyCode && e.type === "keydown")) {
+        throw new Error(`Keydown not found for keyCode ${keyCode}`);
+    }
+    if (!key_data.find((e) => e.keyCode === keyCode && e.type === "keyup")) {
+        throw new Error(`Keydown not found for keyCode ${keyCode}`);
+    }
+}
+
+/**
+ * @param {(typeof key_data)[number]} keyEvent
+ */
+function _sendKeyEvent(keyEvent) {
+    const fakeEvent = new KeyboardEvent(keyEvent.type, {
         ctrlKey: false,
         shiftKey: false,
         altKey: false,
@@ -14,21 +142,33 @@ function _sendKeyEvent(keyCode, eventName) {
         bubbles: true,
         cancelable: true,
 
-        // SDL do not cares about those two
-        code: undefined,
-        key: undefined,
-        keyCode: keyCode,
-        which: keyCode,
+        code: keyEvent.code,
+        key: keyEvent.key,
+        keyCode: keyEvent.keyCode,
+        which: keyEvent.which,
     });
+
     window.dispatchEvent(fakeEvent);
 }
 
 /**
- * @param {number} keyCode
+ * @param {string} key
  */
-function _sendKey(keyCode) {
-    _sendKeyEvent(keyCode, "keydown");
-    _sendKeyEvent(keyCode, "keyup");
+function createSendKeyFunction(key) {
+    const keyDownData = key_data.find(
+        (e) => e.key === key && e.type === "keydown",
+    );
+    if (!keyDownData) {
+        throw new Error(`Keydown not found for key ${key}`);
+    }
+    const keyUpData = key_data.find((e) => e.key === key && e.type === "keyup");
+    if (!keyUpData) {
+        throw new Error(`Keyup not found for key ${key}`);
+    }
+    return () => {
+        _sendKeyEvent(keyDownData);
+        _sendKeyEvent(keyUpData);
+    };
 }
 
 // window.addEventListener("keydown", (e) =>
@@ -90,13 +230,42 @@ function _addKeyCallback(parentEl, kText, callback) {
  *
  * @param {HTMLElement} parentEl
  * @param {string} kText
- * @param {number} keyCode
+ * @param {string} key
  */
-function _addKey(parentEl, kText, keyCode) {
-    return _addKeyCallback(parentEl, kText, () => _sendKey(keyCode));
+function _addKey(parentEl, kText, key) {
+    return _addKeyCallback(parentEl, kText, createSendKeyFunction(key));
 }
 
 let _keyboardShiftPressed = false;
+
+const shiftDownEvent = key_data.find(
+    (x) => x.key === "Shift" && x.type === "keydown",
+);
+const shiftUpEvent = key_data.find(
+    (x) => x.key === "Shift" && x.type === "keyup",
+);
+
+/**
+ *
+ * @param {boolean} [isExiting]
+ */
+function toggle_shift(isExiting) {
+    if (!shiftUpEvent || !shiftDownEvent) {
+        throw new Error("Shift key events not found");
+    }
+    if (isExiting && _keyboardShiftPressed) {
+        _keyboardShiftPressed = false;
+        _sendKeyEvent(shiftUpEvent);
+        return;
+    }
+    if (_keyboardShiftPressed) {
+        _keyboardShiftPressed = false;
+        _sendKeyEvent(shiftUpEvent);
+    } else {
+        _keyboardShiftPressed = true;
+        _sendKeyEvent(shiftDownEvent);
+    }
+}
 
 /**
  *
@@ -106,13 +275,8 @@ function _addShiftKey(parentEl) {
     const _keyboardShiftClassName = "keyboard_shift_button";
 
     const el = _addKeyCallback(parentEl, "shift", () => {
-        if (_keyboardShiftPressed) {
-            _keyboardShiftPressed = false;
-            _sendKeyEvent(16, "keyup");
-        } else {
-            _keyboardShiftPressed = true;
-            _sendKeyEvent(16, "keydown");
-        }
+        toggle_shift();
+
         document
             .querySelectorAll("." + _keyboardShiftClassName)
             .forEach((elem) => {
@@ -156,28 +320,32 @@ function _createKeyboardElement() {
         }
 
         const keysRows = /** @type {const} */ ([
-            ["QWERTYUIOP".split(""), [81, 87, 69, 82, 84, 89, 85, 73, 79, 80]],
-            ["ASDFGHJKL".split(""), [65, 83, 68, 70, 71, 72, 74, 75, 76]],
-            ["ZXCVBNM,.".split(""), [90, 88, 67, 86, 66, 78, 77, 188, 190]],
+            "QWERTYUIOP".split(""),
+            "ASDFGHJKL".split(""),
+            "ZXCVBNM,.".split(""),
         ]);
         const keyRow = keysRows[rowId];
 
         if (keyRow) {
-            for (let i = 0; i < keyRow[0].length; i++) {
-                _addKey(rowDiv, keyRow[0][i], keyRow[1][i]);
+            for (let i = 0; i < keyRow.length; i++) {
+                _addKey(rowDiv, keyRow[i], keyRow[i].toLowerCase());
             }
         }
 
         if (rowId === 0) {
-            _addKey(rowDiv, "<-", 8).style.width = `${_BUTTON_SIZE * 1.2}px`;
+            _addKey(rowDiv, "<-", "Backspace").style.width = `${
+                _BUTTON_SIZE * 1.2
+            }px`;
         } else if (rowId === 1) {
-            _addKey(rowDiv, "enter", 13).style.width = `${
+            _addKey(rowDiv, "enter", "Enter").style.width = `${
                 _BUTTON_SIZE * 1.6
             }px`;
         } else if (rowId === 2) {
             _addShiftKey(rowDiv).style.width = `${_BUTTON_SIZE * 1.4}px`;
         } else if (rowId === 3) {
-            _addKey(rowDiv, "&nbsp;", 32).style.width = `${_BUTTON_SIZE * 5}px`;
+            _addKey(rowDiv, "&nbsp;", " ").style.width = `${
+                _BUTTON_SIZE * 5
+            }px`;
         }
 
         div.appendChild(rowDiv);
@@ -236,6 +404,7 @@ function startTextInput() {
 }
 function stopTextInput() {
     _removeKeyboardElement();
+    toggle_shift(true);
 }
 
 // WASM build calls those functions
