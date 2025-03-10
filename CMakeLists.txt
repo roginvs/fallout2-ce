@@ -24,6 +24,8 @@ if(EMSCRIPTEN)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/web)
 endif()
 
+option(FALLOUT_VENDORED "Use vendored third-party libraries" ON)
+
 if(ANDROID)
     add_library(${EXECUTABLE_NAME} SHARED)
 else()
@@ -204,8 +206,6 @@ target_sources(${EXECUTABLE_NAME} PUBLIC
     "src/scripts.h"
     "src/select_file_list.cc"
     "src/select_file_list.h"
-    "src/selfrun.cc"
-    "src/selfrun.h"
     "src/skill_defs.h"
     "src/skill.cc"
     "src/skill.h"
@@ -237,8 +237,6 @@ target_sources(${EXECUTABLE_NAME} PUBLIC
     "src/trait_defs.h"
     "src/trait.cc"
     "src/trait.h"
-    "src/vcr.cc"
-    "src/vcr.h"
     "src/version.cc"
     "src/version.h"
     "src/widget.cc"
@@ -290,8 +288,6 @@ target_sources(${EXECUTABLE_NAME} PUBLIC
     "src/sfall_metarules.h"
     "src/sfall_opcodes.cc"
     "src/sfall_opcodes.h"
-    "src/delay.cc"
-    "src/delay.h"
     "src/sfall_arrays.cc"
     "src/sfall_arrays.h"
     "src/touch.cc"
@@ -374,24 +370,90 @@ endif()
 add_subdirectory("third_party/fpattern")
 target_link_libraries(${EXECUTABLE_NAME} fpattern::fpattern)
 
-if(NOT EMSCRIPTEN)
-    if((NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux") AND (NOT ${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD") AND (NOT ${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD"))
+if((NOT ${CMAKE_SYSTEM_NAME} MATCHES "Emscripten"))
+    if(FALLOUT_VENDORED)
         add_subdirectory("third_party/zlib")
         add_subdirectory("third_party/sdl2")
     else()
         find_package(ZLIB)
         find_package(SDL2)
     endif()
-    
-    target_link_libraries(${EXECUTABLE_NAME} ${ZLIB_LIBRARIES})
-    target_include_directories(${EXECUTABLE_NAME} PRIVATE ${ZLIB_INCLUDE_DIRS})
-    
-    target_link_libraries(${EXECUTABLE_NAME} ${SDL2_LIBRARIES})
-    target_include_directories(${EXECUTABLE_NAME} PRIVATE ${SDL2_INCLUDE_DIRS})
 else()
-    # For faster cmake just use build-in from emscripten, they are fine
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -sUSE_SDL=2 -sUSE_ZLIB=1")
+    set( CMAKE_C_FLAGS                      "${CMAKE_C_FLAGS} \
+                                            --use-port=sdl2 \
+                                            --use-port=sdl2_mixer \
+                                            --use-port=zlib" )
+    set( CMAKE_CXX_FLAGS                    "${CMAKE_CXX_FLAGS} \
+                                            --use-port=sdl2 \
+                                            --use-port=sdl2_mixer \
+                                            --use-port=zlib" )
+
+    set( CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g")
+    set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+
+    set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O1 -g2 -gsource-map")
+    set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O1 -g2 -gsource-map")
+
+    target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sASYNCIFY" )
+    target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sASYNCIFY_STACK_SIZE=20480" )
+    target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sASYNCIFY_IMPORTS=__syscall_openat")
+    # target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sENVIRONMENT=web" )
+    target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sALLOW_MEMORY_GROWTH" )
+    target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sINITIAL_MEMORY=300MB" )
+    target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sNO_DISABLE_EXCEPTION_CATCHING" )
+    target_link_options( ${EXECUTABLE_NAME} PRIVATE "-lidbfs.js" )
+    target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sCASE_INSENSITIVE_FS" )
+    # target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sMODULARIZE" )
+    # target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sEXPORTED_RUNTIME_METHODS=callMain,addRunDependency,removeRunDependency" )
+    # target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sEXPORT_ALL" )
+    # target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sEXPORT_NAME=fallout2ce" )
+    # target_link_options( ${EXECUTABLE_NAME} PRIVATE "$<$<CONFIG:DEBUG>:-g>" )
+    target_link_options(${EXECUTABLE_NAME} PRIVATE -sEXIT_RUNTIME=1)
+
+
+
+    # TODO: Change it to copy when files are updated!
+    file(GLOB WEB_STATIC
+       "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.js"
+       "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.mjs"
+       "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.css"
+       "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.html"
+       "${CMAKE_CURRENT_SOURCE_DIR}/os/web/manifest.json"
+       "${CMAKE_CURRENT_SOURCE_DIR}/os/web/nevada-*.png"
+       "${CMAKE_CURRENT_SOURCE_DIR}/os/web/sonora-*.png"
+    )
+    file(COPY ${WEB_STATIC} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+   
+    # Update service worker with current date
+    set(SERVICE_WORKER_FILE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/index.sw.js")
+    file(READ ${SERVICE_WORKER_FILE_PATH} SERVICE_WORKER_FILE_CONTENT)
+    string(TIMESTAMP CURRENT_DATE_TIME "%Y-%m-%d %H:%M:%S")
+    string(REPLACE "@BUILD_DATE_TIME@" "${CURRENT_DATE_TIME}" SERVICE_WORKER_FILE_CONTENT "${SERVICE_WORKER_FILE_CONTENT}")
+    file(WRITE ${SERVICE_WORKER_FILE_PATH} "${SERVICE_WORKER_FILE_CONTENT}")
+
+
+    file(COPY os/windows/fallout2-ce.ico DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+    file(COPY os/ios/AppIcon.xcassets/AppIcon.appiconset/AppIcon.png DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+    add_compile_definitions(_DEBUG=1)
+
+    if(DEFINED ENV{SOURCE_MAP_BASE})
+        target_link_options(${EXECUTABLE_NAME} PRIVATE --source-map-base $ENV{SOURCE_MAP_BASE})
+    else()
+        message(WARNING
+         "\n"
+         "SOURCE_MAP_BASE is not defined, source map will be generated with default base \n"
+         "Which means it might not work correctly \n"
+        )
+    endif()
+
 endif()
+
+target_link_libraries(${EXECUTABLE_NAME} ${ZLIB_LIBRARIES})
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ${ZLIB_INCLUDE_DIRS})
+
+target_link_libraries(${EXECUTABLE_NAME} ${SDL2_LIBRARIES})
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ${SDL2_INCLUDE_DIRS})
 
 if(APPLE)
     if(IOS)
@@ -410,94 +472,4 @@ if(APPLE)
     endif()
 
     include(CPack)
-elseif(EMSCRIPTEN)
-    target_link_options(${EXECUTABLE_NAME} PRIVATE -sASYNCIFY -sASYNCIFY_STACK_SIZE=5000000)
-    target_link_options(${EXECUTABLE_NAME} PRIVATE -sASYNCIFY_IMPORTS=__syscall_openat,wasi_snapshot_preview1.fd_sync)
-
-    target_link_options(${EXECUTABLE_NAME} PRIVATE -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=300MB)
-
-    target_link_options(${EXECUTABLE_NAME} PRIVATE -sCASE_INSENSITIVE_FS=1 -lidbfs.js)
-
-    target_link_options(${EXECUTABLE_NAME} PRIVATE -sEXIT_RUNTIME=1)
-
-    # TODO: Change it to copy when files are updated!
-    file(GLOB WEB_STATIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.js"
-        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.mjs"
-        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.css"
-        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/*.html"
-        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/manifest.json"
-        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/nevada-*.png"
-        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/sonora-*.png"
-    )
-    file(COPY ${WEB_STATIC} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-    
-    # Update service worker with current date
-    set(SERVICE_WORKER_FILE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/index.sw.js")
-    file(READ ${SERVICE_WORKER_FILE_PATH} SERVICE_WORKER_FILE_CONTENT)
-    string(TIMESTAMP CURRENT_DATE_TIME "%Y-%m-%d %H:%M:%S")
-    string(REPLACE "@BUILD_DATE_TIME@" "${CURRENT_DATE_TIME}" SERVICE_WORKER_FILE_CONTENT "${SERVICE_WORKER_FILE_CONTENT}")
-    file(WRITE ${SERVICE_WORKER_FILE_PATH} "${SERVICE_WORKER_FILE_CONTENT}")
-
-
-    file(COPY os/windows/fallout2-ce.ico DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-    file(COPY os/ios/AppIcon.xcassets/AppIcon.appiconset/AppIcon.png DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-
-    if(NOT CMAKE_BUILD_TYPE)
-        set(CMAKE_BUILD_TYPE Release)
-    endif()
-
-    if(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
-        message("Build type is ${CMAKE_BUILD_TYPE}, adding debug configuration")
-
-        # Do not forget to install extension
-        # https://developer.chrome.com/blog/wasm-debugging-2020/
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g")
-
-        target_link_options(${EXECUTABLE_NAME} PRIVATE -sASSERTIONS=2)
-        target_link_options(${EXECUTABLE_NAME} PRIVATE -sDEMANGLE_SUPPORT=1)
-
-        add_compile_definitions(_DEBUG=1)
-    else()
-        message("Build type is Release")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
-        ## By default do the most aggressive optimization
-        # set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -Wall -O3")
-
-        # Or to have a release build with debug info
-        # set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -Wall -O2 -g2")
-
-        # Sometimes undefined behaviour causes the game to crash
-        # So, if something is not clear then try to build with -O1 optimization
-        add_compile_definitions(_DEBUG=1)
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall -g2 -gsource-map -O1")
-
-        # Using source-map for better debugging
-        target_link_options(${EXECUTABLE_NAME} PRIVATE -O1 -g2)
-        target_link_options(${EXECUTABLE_NAME} PRIVATE -gsource-map)
-        if(DEFINED ENV{SOURCE_MAP_BASE})
-            target_link_options(${EXECUTABLE_NAME} PRIVATE --source-map-base $ENV{SOURCE_MAP_BASE})
-        else()
-            message(WARNING
-                "\n"
-                "SOURCE_MAP_BASE is not defined, source map will be generated with default base \n"
-                "Which means it might not work correctly \n"
-            )
-        endif()
-        # And also generate separate DWARF files for better debugging
-        # This is not working unfortunately
-        #target_link_options(${EXECUTABLE_NAME} PRIVATE -gseparate-dwarf)
-        #target_link_options(${EXECUTABLE_NAME} PRIVATE -sSEPARATE_DWARF_URL=http://localhost:8080/test)
-
-        # Trying to understand why it crashes sometimes
-        target_link_options(${EXECUTABLE_NAME} PRIVATE -sASSERTIONS=1)
-        # target_link_options(${EXECUTABLE_NAME} PRIVATE -sSAFE_HEAP=2) # This is very CPU consuming
-        target_link_options(${EXECUTABLE_NAME} PRIVATE -sSTACK_OVERFLOW_CHECK=1)
-        target_link_options(${EXECUTABLE_NAME} PRIVATE -sSTACK_SIZE=1048576)
-    endif()
-else()
-    if(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
-        add_compile_definitions(_DEBUG=1)
-    endif()
 endif()

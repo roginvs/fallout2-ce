@@ -3,6 +3,7 @@
 
 #include "game_vars.h"
 #include "message.h"
+#include "touch.h"
 
 namespace fallout {
 

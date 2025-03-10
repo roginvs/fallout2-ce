@@ -21,6 +21,7 @@
 #include "scripts.h"
 #include "sfall_config.h"
 #include "svga.h"
+#include "touch.h"
 #include "window_manager.h"
 
 namespace fallout {
@@ -347,6 +348,7 @@ int elevatorSelectLevel(int elevator, int* mapPtr, int* elevationPtr, int* tileP
     }
 
     const ElevatorDescription* elevatorDescription = gElevatorDescriptions[elevator];
+    touch_set_touchscreen_mode(true);
 
     int index;
     for (index = 0; index < ELEVATOR_LEVEL_MAX; index++) {
@@ -465,6 +467,7 @@ int elevatorSelectLevel(int elevator, int* mapPtr, int* elevationPtr, int* tileP
     }
 
     elevatorWindowFree();
+    touch_set_touchscreen_mode(false);
 
     if (keyCode != KEY_ESCAPE) {
         const ElevatorDescription* description = &(elevatorDescription[keyCode]);
