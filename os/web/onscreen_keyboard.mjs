@@ -1,10 +1,146 @@
 // @ts-check
 
+const key_data = [
+    { type: "keydown", code: "KeyQ", key: "q", keyCode: 81, which: 81 },
+    { type: "keyup", code: "KeyQ", key: "q", keyCode: 81, which: 81 },
+    { type: "keydown", code: "KeyW", key: "w", keyCode: 87, which: 87 },
+    { type: "keyup", code: "KeyW", key: "w", keyCode: 87, which: 87 },
+    { type: "keydown", code: "KeyE", key: "e", keyCode: 69, which: 69 },
+    { type: "keyup", code: "KeyE", key: "e", keyCode: 69, which: 69 },
+    { type: "keydown", code: "KeyR", key: "r", keyCode: 82, which: 82 },
+    { type: "keyup", code: "KeyR", key: "r", keyCode: 82, which: 82 },
+    { type: "keydown", code: "KeyT", key: "t", keyCode: 84, which: 84 },
+    { type: "keyup", code: "KeyT", key: "t", keyCode: 84, which: 84 },
+    { type: "keydown", code: "KeyY", key: "y", keyCode: 89, which: 89 },
+    { type: "keyup", code: "KeyY", key: "y", keyCode: 89, which: 89 },
+    { type: "keydown", code: "KeyU", key: "u", keyCode: 85, which: 85 },
+    { type: "keyup", code: "KeyU", key: "u", keyCode: 85, which: 85 },
+    { type: "keydown", code: "KeyI", key: "i", keyCode: 73, which: 73 },
+    { type: "keyup", code: "KeyI", key: "i", keyCode: 73, which: 73 },
+    { type: "keydown", code: "KeyO", key: "o", keyCode: 79, which: 79 },
+    { type: "keyup", code: "KeyO", key: "o", keyCode: 79, which: 79 },
+    { type: "keydown", code: "KeyP", key: "p", keyCode: 80, which: 80 },
+    { type: "keyup", code: "KeyP", key: "p", keyCode: 80, which: 80 },
+    { type: "keydown", code: "KeyA", key: "a", keyCode: 65, which: 65 },
+    { type: "keyup", code: "KeyA", key: "a", keyCode: 65, which: 65 },
+    { type: "keydown", code: "KeyS", key: "s", keyCode: 83, which: 83 },
+    { type: "keyup", code: "KeyS", key: "s", keyCode: 83, which: 83 },
+    { type: "keydown", code: "KeyD", key: "d", keyCode: 68, which: 68 },
+    { type: "keyup", code: "KeyD", key: "d", keyCode: 68, which: 68 },
+    { type: "keydown", code: "KeyF", key: "f", keyCode: 70, which: 70 },
+    { type: "keyup", code: "KeyF", key: "f", keyCode: 70, which: 70 },
+    { type: "keydown", code: "KeyG", key: "g", keyCode: 71, which: 71 },
+    { type: "keyup", code: "KeyG", key: "g", keyCode: 71, which: 71 },
+    { type: "keydown", code: "KeyH", key: "h", keyCode: 72, which: 72 },
+    { type: "keyup", code: "KeyH", key: "h", keyCode: 72, which: 72 },
+    { type: "keydown", code: "KeyJ", key: "j", keyCode: 74, which: 74 },
+    { type: "keyup", code: "KeyJ", key: "j", keyCode: 74, which: 74 },
+    { type: "keydown", code: "KeyK", key: "k", keyCode: 75, which: 75 },
+    { type: "keyup", code: "KeyK", key: "k", keyCode: 75, which: 75 },
+    { type: "keydown", code: "KeyL", key: "l", keyCode: 76, which: 76 },
+    { type: "keyup", code: "KeyL", key: "l", keyCode: 76, which: 76 },
+    { type: "keydown", code: "KeyZ", key: "z", keyCode: 90, which: 90 },
+    { type: "keyup", code: "KeyZ", key: "z", keyCode: 90, which: 90 },
+    { type: "keydown", code: "KeyX", key: "x", keyCode: 88, which: 88 },
+    { type: "keyup", code: "KeyX", key: "x", keyCode: 88, which: 88 },
+    { type: "keydown", code: "KeyC", key: "c", keyCode: 67, which: 67 },
+    { type: "keyup", code: "KeyC", key: "c", keyCode: 67, which: 67 },
+    { type: "keydown", code: "KeyV", key: "v", keyCode: 86, which: 86 },
+    { type: "keyup", code: "KeyV", key: "v", keyCode: 86, which: 86 },
+    { type: "keydown", code: "KeyB", key: "b", keyCode: 66, which: 66 },
+    { type: "keyup", code: "KeyB", key: "b", keyCode: 66, which: 66 },
+    { type: "keydown", code: "KeyN", key: "n", keyCode: 78, which: 78 },
+    { type: "keyup", code: "KeyN", key: "n", keyCode: 78, which: 78 },
+    { type: "keydown", code: "KeyM", key: "m", keyCode: 77, which: 77 },
+    { type: "keyup", code: "KeyM", key: "m", keyCode: 77, which: 77 },
+    { type: "keydown", code: "Comma", key: ",", keyCode: 188, which: 188 },
+    { type: "keyup", code: "Comma", key: ",", keyCode: 188, which: 188 },
+    { type: "keydown", code: "Period", key: ".", keyCode: 190, which: 190 },
+    { type: "keyup", code: "Period", key: ".", keyCode: 190, which: 190 },
+    {
+        type: "keydown",
+        code: "Backspace",
+        key: "Backspace",
+        keyCode: 8,
+        which: 8,
+    },
+    {
+        type: "keyup",
+        code: "Backspace",
+        key: "Backspace",
+        keyCode: 8,
+        which: 8,
+    },
+    { type: "keydown", code: "Space", key: " ", keyCode: 32, which: 32 },
+    { type: "keyup", code: "Space", key: " ", keyCode: 32, which: 32 },
+    { type: "keydown", code: "Enter", key: "Enter", keyCode: 13, which: 13 },
+    { type: "keyup", code: "Enter", key: "Enter", keyCode: 13, which: 13 },
+    {
+        type: "keydown",
+        code: "ShiftLeft",
+        key: "Shift",
+        keyCode: 16,
+        which: 16,
+    },
+    { type: "keyup", code: "ShiftLeft", key: "Shift", keyCode: 16, which: 16 },
+    {
+        type: "keydown",
+        code: "ShiftRight",
+        key: "Shift",
+        keyCode: 16,
+        which: 16,
+    },
+    { type: "keyup", code: "ShiftRight", key: "Shift", keyCode: 16, which: 16 },
+];
+
+if (false) {
+    /** @type {{code?: string, key?: string, keyCode?:number, which?: number, type: string }[]} */
+    const key_data = [];
+    /** @type {any} */ (window).key_data = key_data;
+    window.addEventListener("keydown", (e) => {
+        key_data.push({
+            type: "keydown",
+            code: e.code,
+            key: e.key,
+            keyCode: e.keyCode,
+            which: e.which,
+        });
+    });
+    window.addEventListener("keyup", (e) => {
+        key_data.push({
+            type: "keyup",
+            code: e.code,
+            key: e.key,
+            keyCode: e.keyCode,
+            which: e.which,
+        });
+    });
+}
+
+/**
+ * @param {number} keyCode
+ */
+function _ensureKeyData(keyCode) {
+    if (!key_data.find((e) => e.keyCode === keyCode && e.type === "keydown")) {
+        throw new Error(`Keydown not found for keyCode ${keyCode}`);
+    }
+    if (!key_data.find((e) => e.keyCode === keyCode && e.type === "keyup")) {
+        throw new Error(`Keydown not found for keyCode ${keyCode}`);
+    }
+}
+
 /**
  * @param {number} keyCode
  * @param {"keyup"|"keydown"} eventName
  */
 function _sendKeyEvent(keyCode, eventName) {
+    const eventData = key_data.find(
+        (e) => e.keyCode === keyCode && e.type === eventName
+    );
+    if (!eventData) {
+        console.error("Key event not found", keyCode, eventName);
+        return;
+    }
     const fakeEvent = new KeyboardEvent(eventName, {
         ctrlKey: false,
         shiftKey: false,
@@ -14,12 +150,12 @@ function _sendKeyEvent(keyCode, eventName) {
         bubbles: true,
         cancelable: true,
 
-        // SDL do not cares about those two
-        code: undefined,
-        key: undefined,
-        keyCode: keyCode,
-        which: keyCode,
+        code: eventData.code,
+        key: eventData.key,
+        keyCode: eventData.keyCode,
+        which: eventData.which,
     });
+
     window.dispatchEvent(fakeEvent);
 }
 
@@ -93,6 +229,7 @@ function _addKeyCallback(parentEl, kText, callback) {
  * @param {number} keyCode
  */
 function _addKey(parentEl, kText, keyCode) {
+    _ensureKeyData(keyCode);
     return _addKeyCallback(parentEl, kText, () => _sendKey(keyCode));
 }
 
@@ -122,6 +259,8 @@ function toggle_shift(isExiting) {
  * @param {HTMLElement} parentEl
  */
 function _addShiftKey(parentEl) {
+    _ensureKeyData(16);
+
     const _keyboardShiftClassName = "keyboard_shift_button";
 
     const el = _addKeyCallback(parentEl, "shift", () => {
