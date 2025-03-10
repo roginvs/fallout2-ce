@@ -130,18 +130,10 @@ function _ensureKeyData(keyCode) {
 }
 
 /**
- * @param {number} keyCode
- * @param {"keyup"|"keydown"} eventName
+ * @param {(typeof key_data)[number]} keyEvent
  */
-function _sendKeyEvent(keyCode, eventName) {
-    const eventData = key_data.find(
-        (e) => e.keyCode === keyCode && e.type === eventName
-    );
-    if (!eventData) {
-        console.error("Key event not found", keyCode, eventName);
-        return;
-    }
-    const fakeEvent = new KeyboardEvent(eventName, {
+function _sendKeyEvent(keyEvent) {
+    const fakeEvent = new KeyboardEvent(keyEvent.type, {
         ctrlKey: false,
         shiftKey: false,
         altKey: false,
@@ -150,21 +142,33 @@ function _sendKeyEvent(keyCode, eventName) {
         bubbles: true,
         cancelable: true,
 
-        code: eventData.code,
-        key: eventData.key,
-        keyCode: eventData.keyCode,
-        which: eventData.which,
+        code: keyEvent.code,
+        key: keyEvent.key,
+        keyCode: keyEvent.keyCode,
+        which: keyEvent.which,
     });
 
     window.dispatchEvent(fakeEvent);
 }
 
 /**
- * @param {number} keyCode
+ * @param {string} key
  */
-function _sendKey(keyCode) {
-    _sendKeyEvent(keyCode, "keydown");
-    _sendKeyEvent(keyCode, "keyup");
+function createSendKeyFunction(key) {
+    const keyDownData = key_data.find(
+        (e) => e.key === key && e.type === "keydown"
+    );
+    if (!keyDownData) {
+        throw new Error(`Keydown not found for key ${key}`);
+    }
+    const keyUpData = key_data.find((e) => e.key === key && e.type === "keyup");
+    if (!keyUpData) {
+        throw new Error(`Keyup not found for key ${key}`);
+    }
+    return () => {
+        _sendKeyEvent(keyDownData);
+        _sendKeyEvent(keyUpData);
+    };
 }
 
 // window.addEventListener("keydown", (e) =>
@@ -226,31 +230,40 @@ function _addKeyCallback(parentEl, kText, callback) {
  *
  * @param {HTMLElement} parentEl
  * @param {string} kText
- * @param {number} keyCode
+ * @param {string} key
  */
-function _addKey(parentEl, kText, keyCode) {
-    _ensureKeyData(keyCode);
-    return _addKeyCallback(parentEl, kText, () => _sendKey(keyCode));
+function _addKey(parentEl, kText, key) {
+    return _addKeyCallback(parentEl, kText, createSendKeyFunction(key));
 }
 
 let _keyboardShiftPressed = false;
+
+const shiftDownEvent = key_data.find(
+    (x) => x.key === "Shift" && x.type === "keydown"
+);
+const shiftUpEvent = key_data.find(
+    (x) => x.key === "Shift" && x.type === "keyup"
+);
 
 /**
  *
  * @param {boolean} [isExiting]
  */
 function toggle_shift(isExiting) {
+    if (!shiftUpEvent || !shiftDownEvent) {
+        throw new Error("Shift key events not found");
+    }
     if (isExiting && _keyboardShiftPressed) {
         _keyboardShiftPressed = false;
-        _sendKeyEvent(16, "keyup");
+        _sendKeyEvent(shiftUpEvent);
         return;
     }
     if (_keyboardShiftPressed) {
         _keyboardShiftPressed = false;
-        _sendKeyEvent(16, "keyup");
+        _sendKeyEvent(shiftUpEvent);
     } else {
         _keyboardShiftPressed = true;
-        _sendKeyEvent(16, "keydown");
+        _sendKeyEvent(shiftDownEvent);
     }
 }
 
@@ -259,8 +272,6 @@ function toggle_shift(isExiting) {
  * @param {HTMLElement} parentEl
  */
 function _addShiftKey(parentEl) {
-    _ensureKeyData(16);
-
     const _keyboardShiftClassName = "keyboard_shift_button";
 
     const el = _addKeyCallback(parentEl, "shift", () => {
@@ -309,28 +320,32 @@ function _createKeyboardElement() {
         }
 
         const keysRows = /** @type {const} */ ([
-            ["QWERTYUIOP".split(""), [81, 87, 69, 82, 84, 89, 85, 73, 79, 80]],
-            ["ASDFGHJKL".split(""), [65, 83, 68, 70, 71, 72, 74, 75, 76]],
-            ["ZXCVBNM,.".split(""), [90, 88, 67, 86, 66, 78, 77, 188, 190]],
+            "QWERTYUIOP".split(""),
+            "ASDFGHJKL".split(""),
+            "ZXCVBNM,.".split(""),
         ]);
         const keyRow = keysRows[rowId];
 
         if (keyRow) {
-            for (let i = 0; i < keyRow[0].length; i++) {
-                _addKey(rowDiv, keyRow[0][i], keyRow[1][i]);
+            for (let i = 0; i < keyRow.length; i++) {
+                _addKey(rowDiv, keyRow[i], keyRow[i].toLowerCase());
             }
         }
 
         if (rowId === 0) {
-            _addKey(rowDiv, "<-", 8).style.width = `${_BUTTON_SIZE * 1.2}px`;
+            _addKey(rowDiv, "<-", "Backspace").style.width = `${
+                _BUTTON_SIZE * 1.2
+            }px`;
         } else if (rowId === 1) {
-            _addKey(rowDiv, "enter", 13).style.width = `${
+            _addKey(rowDiv, "enter", "Enter").style.width = `${
                 _BUTTON_SIZE * 1.6
             }px`;
         } else if (rowId === 2) {
             _addShiftKey(rowDiv).style.width = `${_BUTTON_SIZE * 1.4}px`;
         } else if (rowId === 3) {
-            _addKey(rowDiv, "&nbsp;", 32).style.width = `${_BUTTON_SIZE * 5}px`;
+            _addKey(rowDiv, "&nbsp;", " ").style.width = `${
+                _BUTTON_SIZE * 5
+            }px`;
         }
 
         div.appendChild(rowDiv);
