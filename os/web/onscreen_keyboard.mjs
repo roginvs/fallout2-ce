@@ -156,7 +156,7 @@ function _sendKeyEvent(keyEvent) {
  */
 function createSendKeyFunction(key) {
     const keyDownData = key_data.find(
-        (e) => e.key === key && e.type === "keydown"
+        (e) => e.key === key && e.type === "keydown",
     );
     if (!keyDownData) {
         throw new Error(`Keydown not found for key ${key}`);
@@ -239,10 +239,10 @@ function _addKey(parentEl, kText, key) {
 let _keyboardShiftPressed = false;
 
 const shiftDownEvent = key_data.find(
-    (x) => x.key === "Shift" && x.type === "keydown"
+    (x) => x.key === "Shift" && x.type === "keydown",
 );
 const shiftUpEvent = key_data.find(
-    (x) => x.key === "Shift" && x.type === "keyup"
+    (x) => x.key === "Shift" && x.type === "keyup",
 );
 
 /**
