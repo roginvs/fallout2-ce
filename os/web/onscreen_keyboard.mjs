@@ -100,19 +100,33 @@ let _keyboardShiftPressed = false;
 
 /**
  *
+ * @param {boolean} [isExiting]
+ */
+function toggle_shift(isExiting) {
+    if (isExiting && _keyboardShiftPressed) {
+        _keyboardShiftPressed = false;
+        _sendKeyEvent(16, "keyup");
+        return;
+    }
+    if (_keyboardShiftPressed) {
+        _keyboardShiftPressed = false;
+        _sendKeyEvent(16, "keyup");
+    } else {
+        _keyboardShiftPressed = true;
+        _sendKeyEvent(16, "keydown");
+    }
+}
+
+/**
+ *
  * @param {HTMLElement} parentEl
  */
 function _addShiftKey(parentEl) {
     const _keyboardShiftClassName = "keyboard_shift_button";
 
     const el = _addKeyCallback(parentEl, "shift", () => {
-        if (_keyboardShiftPressed) {
-            _keyboardShiftPressed = false;
-            _sendKeyEvent(16, "keyup");
-        } else {
-            _keyboardShiftPressed = true;
-            _sendKeyEvent(16, "keydown");
-        }
+        toggle_shift();
+
         document
             .querySelectorAll("." + _keyboardShiftClassName)
             .forEach((elem) => {
@@ -236,6 +250,7 @@ function startTextInput() {
 }
 function stopTextInput() {
     _removeKeyboardElement();
+    toggle_shift(true);
 }
 
 // WASM build calls those functions
