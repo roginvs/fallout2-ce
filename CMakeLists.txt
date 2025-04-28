@@ -274,6 +274,8 @@ target_sources(${EXECUTABLE_NAME} PUBLIC
     "src/settings.h"
     "src/sfall_config.cc"
     "src/sfall_config.h"
+    "src/sfall_ext.cc"
+    "src/sfall_ext.h"
     "src/sfall_global_vars.cc"
     "src/sfall_global_vars.h"
     "src/sfall_global_scripts.cc"
@@ -367,9 +369,6 @@ if(APPLE)
     set(MACOSX_BUNDLE_BUNDLE_VERSION "1.3.0")
 endif()
 
-add_subdirectory("third_party/fpattern")
-target_link_libraries(${EXECUTABLE_NAME} fpattern::fpattern)
-
 if((NOT ${CMAKE_SYSTEM_NAME} MATCHES "Emscripten"))
     if(FALLOUT_VENDORED)
         add_subdirectory("third_party/zlib")
@@ -386,7 +385,9 @@ else()
     set( CMAKE_CXX_FLAGS                    "${CMAKE_CXX_FLAGS} \
                                             --use-port=sdl2 \
                                             --use-port=sdl2_mixer \
-                                            --use-port=zlib" )
+                                            --use-port=zlib \
+                                            -std=c++17" )
+
 
     set( CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g")
     set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
@@ -394,8 +395,6 @@ else()
     set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O1 -g2 -gsource-map")
     set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O1 -g2 -gsource-map")
 
-    target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sASYNCIFY" )
-    target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sASYNCIFY_STACK_SIZE=20480" )
     target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sASYNCIFY_IMPORTS=__syscall_openat")
     # target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sENVIRONMENT=web" )
     target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sALLOW_MEMORY_GROWTH" )
@@ -447,7 +446,26 @@ else()
         )
     endif()
 
+    if(OPTION_WASM_64)
+        target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sMEMORY64" )
+        set( CMAKE_C_FLAGS                      "${CMAKE_C_FLAGS} -sMEMORY64" )
+        set( CMAKE_CXX_FLAGS                    "${CMAKE_CXX_FLAGS} -sMEMORY64" )
+        add_compile_options( -sMEMORY64 )
+    endif()
+
+    if(OPTION_WASM_JSPI)
+        target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sJSPI" )
+    else()
+        target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sASYNCIFY" )
+        target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sASYNCIFY_STACK_SIZE=20480" )
+    endif()
+
+    target_link_options( ${EXECUTABLE_NAME} PRIVATE "$<$<CONFIG:DEBUG>:-g>" )
 endif()
+
+
+add_subdirectory("third_party/fpattern")
+target_link_libraries(${EXECUTABLE_NAME} fpattern::fpattern)
 
 target_link_libraries(${EXECUTABLE_NAME} ${ZLIB_LIBRARIES})
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ${ZLIB_INCLUDE_DIRS})

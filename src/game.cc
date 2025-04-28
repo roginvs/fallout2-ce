@@ -53,6 +53,7 @@
 #include "settings.h"
 #include "sfall_arrays.h"
 #include "sfall_config.h"
+#include "sfall_ext.h"
 #include "sfall_global_scripts.h"
 #include "sfall_global_vars.h"
 #include "sfall_ini.h"
@@ -1369,7 +1370,7 @@ static int gameDbInit()
     char* path_file_name_template = nullptr;
     configGetString(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_PATCH_FILE, &path_file_name_template);
     if (path_file_name_template == nullptr || *path_file_name_template == '\0') {
-        path_file_name_template = "patch%03d.dat";
+        path_file_name_template = (char*)"patch%03d.dat";
     }
 
     for (patch_index = 0; patch_index < 1000; patch_index++) {
@@ -1387,6 +1388,8 @@ static int gameDbInit()
 #endif
         }
     }
+
+    sfallLoadMods();
 
     if (compat_access("f2_res.dat", 0) == 0) {
         dbOpen("f2_res.dat", 0, nullptr, 1);

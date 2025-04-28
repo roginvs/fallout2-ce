@@ -268,6 +268,11 @@ static char* programGetCurrentProcedureName(Program* program)
     if (gInterpreterCurrentProgram) {
         longjmp(gInterpreterCurrentProgram->env, 1);
     }
+#ifdef _WIN32
+    __assume(0);
+#else
+    __builtin_unreachable();
+#endif
 }
 
 // 0x467290

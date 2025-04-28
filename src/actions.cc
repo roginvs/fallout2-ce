@@ -463,7 +463,7 @@ void _show_damage_to_object(Object* defender, int damage, int flags, Object* wea
 
     if ((flags & DAM_DEAD) != 0) {
         // TODO: Get rid of casts.
-        animationRegisterCallbackForced(defender, (void*)anim, (AnimationCallback*)_show_death, -1);
+        animationRegisterCallbackForced(defender, (void*)(uintptr_t)anim, (AnimationCallback*)_show_death, -1);
     }
 }
 
@@ -1030,7 +1030,9 @@ int _action_climb_ladder(Object* a1, Object* a2)
     reg_anim_begin(animationRequestOptions);
 
     int tile = tileGetTileInDirection(a2->tile, ROTATION_SE, 1);
-    if (actionPoints != -1 || objectGetDistanceBetween(a1, a2) < 5) {
+    int walkDistance = 5;
+    configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_USE_WALK_DISTANCE, &walkDistance);
+    if (actionPoints != -1 || objectGetDistanceBetween(a1, a2) < walkDistance) {
         animationRegisterMoveToTile(a1, tile, a2->elevation, actionPoints, 0);
     } else {
         animationRegisterRunToTile(a1, tile, a2->elevation, actionPoints, 0);
@@ -1097,7 +1099,9 @@ int _action_use_an_item_on_object(Object* user, Object* targetObj, Object* item)
 
         reg_anim_begin(animationRequestOptions);
 
-        if (actionPoints != -1 || objectGetDistanceBetween(user, targetObj) < 5) {
+        int walkDistance = 5;
+        configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_USE_WALK_DISTANCE, &walkDistance);
+        if (actionPoints != -1 || objectGetDistanceBetween(user, targetObj) < walkDistance) {
             animationRegisterMoveToObject(user, targetObj, actionPoints, 0);
         } else {
             animationRegisterRunToObject(user, targetObj, -1, 0);
@@ -1167,12 +1171,15 @@ int actionPickUp(Object* critter, Object* item)
         }
     }
 
+    int walkDistance = 5;
+    configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_USE_WALK_DISTANCE, &walkDistance);
+
     if (isInCombat()) {
         reg_anim_begin(ANIMATION_REQUEST_RESERVED);
         animationRegisterMoveToObject(critter, item, critter->data.critter.combat.ap, 0);
     } else {
         reg_anim_begin(critter == gDude ? ANIMATION_REQUEST_RESERVED : ANIMATION_REQUEST_UNRESERVED);
-        if (objectGetDistanceBetween(critter, item) >= 5) {
+        if (objectGetDistanceBetween(critter, item) >= walkDistance) {
             animationRegisterRunToObject(critter, item, -1, 0);
         } else {
             animationRegisterMoveToObject(critter, item, -1, 0);
@@ -1272,13 +1279,16 @@ int _action_loot_container(Object* critter, Object* container)
         }
     }
 
+    int walkDistance = 5;
+    configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_USE_WALK_DISTANCE, &walkDistance);
+
     if (isInCombat()) {
         reg_anim_begin(ANIMATION_REQUEST_RESERVED);
         animationRegisterMoveToObject(critter, container, critter->data.critter.combat.ap, 0);
     } else {
         reg_anim_begin(critter == gDude ? ANIMATION_REQUEST_RESERVED : ANIMATION_REQUEST_UNRESERVED);
 
-        if (objectGetDistanceBetween(critter, container) < 5) {
+        if (objectGetDistanceBetween(critter, container) < walkDistance) {
             animationRegisterMoveToObject(critter, container, -1, 0);
         } else {
             animationRegisterRunToObject(critter, container, -1, 0);
@@ -1476,13 +1486,16 @@ int actionUseSkill(Object* user, Object* target, int skill)
         }
     }
 
+    int walkDistance = 5;
+    configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_USE_WALK_DISTANCE, &walkDistance);
+
     if (isInCombat()) {
         reg_anim_begin(ANIMATION_REQUEST_RESERVED);
         animationRegisterMoveToObject(performer, target, performer->data.critter.combat.ap, 0);
     } else {
         reg_anim_begin(user == gDude ? ANIMATION_REQUEST_RESERVED : ANIMATION_REQUEST_UNRESERVED);
         if (target != gDude) {
-            if (objectGetDistanceBetween(performer, target) >= 5) {
+            if (objectGetDistanceBetween(performer, target) >= walkDistance) {
                 animationRegisterRunToObject(performer, target, -1, 0);
             } else {
                 animationRegisterMoveToObject(performer, target, -1, 0);
@@ -1504,7 +1517,7 @@ int actionUseSkill(Object* user, Object* target, int skill)
 
     animationRegisterAnimate(performer, anim, -1);
     // TODO: Get rid of casts.
-    animationRegisterCallback3(performer, target, (void*)skill, (AnimationCallback3*)_obj_use_skill_on, -1);
+    animationRegisterCallback3(performer, target, (void*)(uintptr_t)skill, (AnimationCallback3*)_obj_use_skill_on, -1);
     return reg_anim_end();
 }
 
