@@ -22,11 +22,14 @@ export function tarReadFile(tar) {
 
     const sizeBuf = header.subarray(
         124,
-        Math.min(124 + 12, header.indexOf(0, 124)),
+        Math.max(0, Math.min(124 + 12, header.indexOf(0, 124))),
     );
-    let fileSize = 0;
-    for (let i = 0; i < sizeBuf.length; i++) {
-        fileSize = fileSize + (sizeBuf[i] - 48) * 8 ** (sizeBuf.length - i - 1);
+    const sizeStr = String.fromCharCode(...sizeBuf)
+        .trim()
+        .replace(/\0/g, "");
+    const fileSize = parseInt(sizeStr, 8);
+    if (isNaN(fileSize)) {
+        throw new Error(`Invalid file size field: "${sizeStr}"`);
     }
 
     const isFile = header[156] === 0 || header[156] === 48;
