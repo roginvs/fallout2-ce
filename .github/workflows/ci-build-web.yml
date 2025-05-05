@@ -44,8 +44,7 @@ jobs:
         if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         uses: actions/checkout@v4
         with:
-          repository: ololoken/fallout2-ce-ems
-          ref: 0764f9fdd0abf27bd9b0d3997ca0a8e61f380058
+          repository: fallout2-ce/fallout2-ce-ems
           path: fallout2-ce-ems
 
       - name: Set deployment path
@@ -69,10 +68,13 @@ jobs:
           npm install
           cp ../build/fallout2-ce.js src/assets/fallout2ce
           cp ../build/fallout2-ce.wasm src/assets/fallout2ce
-          sed -i 's/Starting wasm module/Starting wasm module ${{github.event.pull_request.head.sha || github.sha }}/' src/pages/Launcher.tsx
+          export F2_WEB_INFO=Web=$(git rev-parse HEAD)
+          echo "F2_WEB_INFO=$F2_WEB_INFO"
+          echo "F2_GAME_VERSION=$F2_GAME_VERSION"
           npm run build
         env:
           SITE_BASE:  ${{ steps.set-path.outputs.SITE_BASE }}
+          F2_GAME_VERSION: Game=${{github.event.pull_request.head.sha || github.sha }}
 
       - name: Install rsync (required for the next step)
         if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
