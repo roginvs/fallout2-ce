@@ -298,7 +298,7 @@ MessageListItem gPipboyMessageListItem;
 // pipboy.msg
 //
 // 0x664348
-MessageList gPipboyMessageList;
+MessageList gPipboyMessageList = { 0, nullptr };
 
 // 0x664350
 STRUCT_664350 _sortlist[24];
@@ -488,6 +488,26 @@ int pipboyOpen(int intent)
     return 0;
 }
 
+int pipboyMessageListInit()
+{
+    if (gPipboyMessageList.entries != nullptr) {
+        messageListFree(&gPipboyMessageList);
+    }
+
+    if (!messageListInit(&gPipboyMessageList)) {
+        return -1;
+    }
+
+    char path[COMPAT_MAX_PATH];
+    snprintf(path, sizeof(path), "%s%s", asc_5186C8, "pipboy.msg");
+
+    if (!(messageListLoad(&gPipboyMessageList, path))) {
+        return -1;
+    }
+
+    return 0;
+}
+
 // 0x497228
 static int pipboyWindowInit(int intent)
 {
@@ -519,14 +539,7 @@ static int pipboyWindowInit(int intent)
         return -1;
     }
 
-    if (!messageListInit(&gPipboyMessageList)) {
-        return -1;
-    }
-
-    char path[COMPAT_MAX_PATH];
-    snprintf(path, sizeof(path), "%s%s", asc_5186C8, "pipboy.msg");
-
-    if (!(messageListLoad(&gPipboyMessageList, path))) {
+    if (pipboyMessageListInit() == -1) {
         return -1;
     }
 
