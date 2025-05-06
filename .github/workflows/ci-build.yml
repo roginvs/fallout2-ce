@@ -215,6 +215,10 @@ jobs:
         run: |
           mv out/build/linux-${{ matrix.arch }}-debug/fallout2-ce out/build/linux-${{ matrix.arch }}-debug/fallout2-ce-linux-${{ matrix.arch }}
 
+      - name: Run unit tests
+        run: |
+          ./build/run_tests
+
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
