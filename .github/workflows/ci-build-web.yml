@@ -20,6 +20,11 @@ jobs:
       - name: EXPERIMENT REMOVE ME
         if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)
         run: |
+            if [[ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]]; then
+              echo "SSH_PRIVATE_KEY is empty"
+            else
+              echo "SSH_PRIVATE_KEY is NOT empty"
+            fi
             mkdir -p ~/.ssh
             echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
             stat ~/.ssh/id_rsa
