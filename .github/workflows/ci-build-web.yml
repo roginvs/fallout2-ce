@@ -93,7 +93,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Deploy PR preview from other repository
+      - name: Deploy PR preview (forked repository)
         if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)
         run: |
             mkdir -p ~/.ssh
@@ -102,7 +102,7 @@ jobs:
             ssh-keyscan fallout-nevada.ru >> ~/.ssh/known_hosts
             rsync -avz fallout2-ce-ems/dist/ "preview@fallout-nevada.ru:${{ steps.set-path.outputs.DEST_DIR }}"
 
-      - name: Comment preview URL on PR (other branch)
+      - name: Comment preview URL on PR (forked repository)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |
           gh pr comment ${{ github.event.pull_request.number }} \
