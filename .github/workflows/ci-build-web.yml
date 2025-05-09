@@ -34,13 +34,11 @@ jobs:
           cd ..
 
       - name: Add node
-        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         uses: actions/setup-node@v2
         with:
           node-version: '22'
 
       - name: Checkout web interface
-        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         uses: actions/checkout@v4
         with:
           repository: fallout2-ce/fallout2-ce-ems
@@ -48,7 +46,6 @@ jobs:
           path: fallout2-ce-ems
 
       - name: Set deployment path
-        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         id: set-path
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -62,7 +59,6 @@ jobs:
           cat $GITHUB_OUTPUT
 
       - name: Build web interface
-        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         run: |
           cd fallout2-ce-ems
           npm install
@@ -77,11 +73,10 @@ jobs:
           F2_GAME_VERSION: Game=${{github.event.pull_request.head.sha || github.sha }}
 
       - name: Install rsync (required for the next step)
-        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         run: |
           sudo apt-get update && sudo apt-get install -y rsync
 
-      - name: Deploy PR preview or main site
+      - name: Deploy PR preview from this repo or deploy main site
         if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         uses: JamesIves/github-pages-deploy-action@v4
         with:
@@ -90,10 +85,27 @@ jobs:
           target-folder: ${{ steps.set-path.outputs.DEST_DIR }}
           clean: false
 
-      - name: Comment preview URL on PR
+      - name: Comment preview URL on PR (this repository)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: |
           gh pr comment ${{ github.event.pull_request.number }} \
             --body "🚀 WebAssembly PR Preview for ${{github.event.pull_request.head.sha || github.sha }} is available at: https://${{ github.repository_owner }}.github.io/fallout2-ce/PR-${{ github.event.pull_request.number }}/"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy PR preview from other repository
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)
+        run: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan fallout-nevada.ru >> ~/.ssh/known_hosts
+            rsync -avz fallout2-ce-ems/dist/ "preview@fallout-nevada.ru:${{ steps.set-path.outputs.DEST_DIR }}"
+
+      - name: Comment preview URL on PR (other branch)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "🚀 WebAssembly PR Preview for ${{github.event.pull_request.head.sha || github.sha }} is available at: https://preview.fallout-nevada.ru/${{ steps.set-path.outputs.SITE_BASE }}/"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
