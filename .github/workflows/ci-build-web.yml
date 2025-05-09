@@ -98,6 +98,7 @@ jobs:
         run: |
             mkdir -p ~/.ssh
             echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+            stat ~/.ssh/id_rsa
             chmod 600 ~/.ssh/id_rsa
             ssh-keyscan fallout-nevada.ru >> ~/.ssh/known_hosts
             rsync -avz fallout2-ce-ems/dist/ "preview@fallout-nevada.ru:${{ steps.set-path.outputs.DEST_DIR }}"
