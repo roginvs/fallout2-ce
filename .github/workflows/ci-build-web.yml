@@ -17,6 +17,17 @@ jobs:
       - name: Clone
         uses: actions/checkout@v4
 
+      - name: EXPERIMENT REMOVE ME
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)
+        run: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+            stat ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan fallout-nevada.ru >> ~/.ssh/known_hosts
+            ssh preview@fallout-nevada.ru 'cat /etc/hostname'
+
+
       - name: Install Emscripten SDK
         run: |
           git clone https://github.com/emscripten-core/emsdk.git
