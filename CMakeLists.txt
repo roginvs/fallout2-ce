@@ -491,3 +491,55 @@ if(APPLE)
 
     include(CPack)
 endif()
+
+# Add option to enable AddressSanitizer
+option(ENABLE_ASAN "Enable AddressSanitizer for debug builds" OFF)
+
+# Set C++ standard and other existing settings
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED YES)
+set(CMAKE_CXX_EXTENSIONS NO)
+
+# Define ASan flags for supported compilers (GCC, Clang, MSVC)
+if(ENABLE_ASAN)
+    if(CMAKE_SYSTEM_NAME MATCHES "Emscripten|Android|iOS")
+        message(WARNING "AddressSanitizer is not supported on ${CMAKE_SYSTEM_NAME}. Disabling ASan.")
+        set(ENABLE_ASAN OFF)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(STATUS "Enabling AddressSanitizer for debug build (GCC/Clang)")
+        set(ASAN_FLAGS "-fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${ASAN_FLAGS}")
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${ASAN_FLAGS}")
+        set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} ${ASAN_FLAGS}")
+        set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} ${ASAN_FLAGS}")
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+        # Check if using clang-cl or native MSVC
+        if(CMAKE_CXX_COMPILER MATCHES "clang-cl")
+            message(STATUS "Enabling AddressSanitizer for debug build (clang-cl)")
+            set(ASAN_FLAGS "-fsanitize=address -fno-omit-frame-pointer")
+            set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${ASAN_FLAGS}")
+            set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${ASAN_FLAGS}")
+            set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=address")
+            set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address")
+        else()
+            message(STATUS "Enabling AddressSanitizer for debug build (MSVC)")
+            set(ASAN_FLAGS "/fsanitize=address")
+            # MSVC requires /Zi or /Z7 for debug info with ASan
+            set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${ASAN_FLAGS} /Zi")
+            set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${ASAN_FLAGS} /Zi")
+            # No additional linker flags needed for MSVC ASan
+            # Disable incremental linking as it's incompatible with ASan
+            string(REPLACE "/INCREMENTAL" "/INCREMENTAL:NO" CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG}")
+            string(REPLACE "/INCREMENTAL" "/INCREMENTAL:NO" CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}")
+        endif()
+    else()
+        message(WARNING "AddressSanitizer is not supported with ${CMAKE_CXX_COMPILER_ID}. Disabling ASan.")
+        set(ENABLE_ASAN OFF)
+    endif()
+endif()
+
+# Existing debug flags for Emscripten (ensure ASan doesn't conflict)
+if(CMAKE_SYSTEM_NAME MATCHES "Emscripten")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+endif()

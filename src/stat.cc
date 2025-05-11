@@ -186,7 +186,6 @@ int critterGetStat(Object* critter, int stat)
         debugPrint("Warning: critterGetStat: Not a critter pid=%x stat=%i!\n", critter->pid, stat);
         return 0;
     }
-
     int value;
     if (stat >= 0 && stat < SAVEABLE_STAT_COUNT) {
         value = critterGetBaseStatWithTraitModifier(critter, stat);
