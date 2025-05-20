@@ -7,6 +7,7 @@
 #include "db.h"
 #include "memory.h"
 #include "platform_compat.h"
+#include "settings.h"
 
 namespace fallout {
 
