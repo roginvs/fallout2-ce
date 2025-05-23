@@ -5607,12 +5607,12 @@ static int wmDrawCursorStopped()
     for (int i = 0; i < trailDotCount; i++) {
         int x = trailDots[i].x;
         int y = trailDots[i].y;
-        if (x >= wmWorldOffsetX && x < wmWorldOffsetX + scaledViewWidth
-         && y >= wmWorldOffsetY && y < wmWorldOffsetY + scaledViewHeight)
+        if (x >= wmWorldOffsetX && x < wmWorldOffsetX + WM_VIEW_WIDTH
+         && y >= wmWorldOffsetY && y < wmWorldOffsetY + WM_VIEW_HEIGHT)
         {
             unsigned char* dst = wmBkWinBuf
-                + scaledWidth * (scaledViewY - wmWorldOffsetY + y)
-                + (scaledViewX - wmWorldOffsetX + x);
+                + WM_WINDOW_WIDTH * (WM_VIEW_Y - wmWorldOffsetY + y)
+                + (WM_VIEW_X - wmWorldOffsetX + x);
             *dst = 136;  // bright-red palette index? - not matching perfectly, what palette is being used?
         }
     }
