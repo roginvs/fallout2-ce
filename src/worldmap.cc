@@ -5579,11 +5579,11 @@ static int wmDrawCursorStopped()
 
             // Decide whether to drop on this step, based on terrain (difficulty)
             bool shouldDrop;
-            if (difficulty >= 3) {
+            if (difficulty >= 4) {
                 shouldDrop = (patternCounter % 4) != 0;  // Drop 3 out of every 4 steps --- used?
-            } else if (difficulty >= 2) {
+            } else if (difficulty == 3) {
                 shouldDrop = (patternCounter % 3) != 0;  // Drop 2 out of every 3
-            } else if (difficulty >= 1) {
+            } else if (difficulty == 2) {
                 shouldDrop = (patternCounter % 2) == 0;  // Drop every other step
             } else {
                 shouldDrop = (patternCounter % 3) == 0;  // Drop only once every 3 steps
