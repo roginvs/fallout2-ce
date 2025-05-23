@@ -2076,34 +2076,51 @@ static void _display_body(int fid, int inventoryWindowType)
             unsigned char* windowBuffer = windowGetBuffer(gInventoryWindow);
             int windowPitch = windowGetWidth(gInventoryWindow);
 
+            FrmImage backgroundFrmImage;
+            int Fid = 114;
+            int sourceXOffset = 0;
+
             if (index == 1) {
                 if (inventoryWindowType == INVENTORY_WINDOW_TYPE_LOOT) {
                     rect.left = 426;
                     rect.top = 39;
+                    Fid = 114;
+                    sourceXOffset = 538;
                 } else {
-                    rect.left = 297;
+                    rect.left = 297; //???
                     rect.top = 37;
+                    Fid = 48;
+                    sourceXOffset = 229;
                 }
             } else {
                 if (inventoryWindowType == INVENTORY_WINDOW_TYPE_LOOT) {
                     rect.left = 48;
                     rect.top = 39;
+                    Fid = 114;
+                    sourceXOffset = 0;
+                } else if (inventoryWindowType == INVENTORY_WINDOW_TYPE_USE_ITEM_ON) {
+                    rect.left = 176;
+                    rect.top = 37;
+                    Fid = 113;
+                    sourceXOffset = 292;
                 } else {
                     rect.left = 176;
                     rect.top = 37;
+                    Fid = 48;
+                    sourceXOffset = 0;
                 }
             }
+            
+            int backgroundFid = buildFid(OBJ_TYPE_INTERFACE, Fid, 0, 0, 0);
 
             rect.right = rect.left + INVENTORY_BODY_VIEW_WIDTH - 1;
             rect.bottom = rect.top + INVENTORY_BODY_VIEW_HEIGHT - 1;
-
-            FrmImage backgroundFrmImage;
-            int backgroundFid = buildFid(OBJ_TYPE_INTERFACE, 114, 0, 0, 0);
+            
             if (backgroundFrmImage.lock(backgroundFid)) {
-                blitBufferToBuffer(backgroundFrmImage.getData() + INVENTORY_LOOT_WINDOW_WIDTH * rect.top + rect.left,
+                blitBufferToBuffer(backgroundFrmImage.getData() + backgroundFrmImage.getWidth() * rect.top + rect.left + sourceXOffset,
                     INVENTORY_BODY_VIEW_WIDTH,
                     INVENTORY_BODY_VIEW_HEIGHT,
-                    INVENTORY_LOOT_WINDOW_WIDTH,
+                    backgroundFrmImage.getWidth(),
                     windowBuffer + windowPitch * rect.top + rect.left,
                     windowPitch);
             }
