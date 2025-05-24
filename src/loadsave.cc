@@ -359,8 +359,6 @@ void _InitLoadSave()
     if (quickSaveSlots > 0 && quickSaveSlots <= saveLoadTotalSlots) {
         autoQuickSaveSlots = true;
     }
-
-    pipboyMessageListInit();
 }
 
 // 0x47B85C
@@ -460,6 +458,8 @@ int lsgSaveGame(int mode)
         debugPrint("\nLOADSAVE: ** Error loading save game screen data! **\n");
         return -1;
     }
+
+    pipboyMessageListInit();
 
     if (_GetSlotList() == -1) {
         windowRefresh(gLoadSaveWindow);
@@ -941,6 +941,8 @@ int lsgSaveGame(int mode)
 
     lsgWindowFree(LOAD_SAVE_WINDOW_TYPE_SAVE_GAME);
 
+    pipboyMessageListFree();
+
     tileWindowRefresh();
 
     if (mode == LOAD_SAVE_MODE_QUICK) {
@@ -1082,6 +1084,8 @@ int lsgLoadGame(int mode)
         debugPrint("\nLOADSAVE: ** Error loading save game screen data! **\n");
         return -1;
     }
+
+    pipboyMessageListInit();
 
     if (_GetSlotList() == -1) {
         gameMouseSetCursor(MOUSE_CURSOR_ARROW);
@@ -1471,6 +1475,8 @@ int lsgLoadGame(int mode)
     lsgWindowFree(mode == LOAD_SAVE_MODE_FROM_MAIN_MENU
             ? LOAD_SAVE_WINDOW_TYPE_LOAD_GAME_FROM_MAIN_MENU
             : LOAD_SAVE_WINDOW_TYPE_LOAD_GAME);
+
+    pipboyMessageListFree();
 
     if (mode == LOAD_SAVE_MODE_QUICK) {
         if (rc == 1) {
@@ -2307,9 +2313,11 @@ static void _ShowSlotList(int windowType)
         int inactiveColor = _colorTable[8804];
 
         {
-            MessageListItem messageListItemBack;
-            messageListItemBack.num = 201; // Back
-            messageListGetItem(&gPipboyMessageList, &messageListItemBack);
+            MessageListItem messageListItemBack = { 201, 0, nullptr, nullptr };
+            if (!messageListGetItem(&gPipboyMessageList, &messageListItemBack)) {
+                debugPrint("Error: Couldn't find LoadSave Message!");
+                messageListItemBack.text = "BACK";
+            }
             fontDrawText(
                 gLoadSaveWindowBuffer + LS_WINDOW_WIDTH * (y + 0) + 95,
                 messageListItemBack.text,
@@ -2318,9 +2326,11 @@ static void _ShowSlotList(int windowType)
                 _currentSlotPage > 0 ? activeColor : inactiveColor);
         }
         {
-            MessageListItem messageListItemMore;
-            messageListItemMore.num = 200; // More
-            messageListGetItem(&gPipboyMessageList, &messageListItemMore);
+            MessageListItem messageListItemMore = { 200, 0, nullptr, nullptr };
+            if (!messageListGetItem(&gPipboyMessageList, &messageListItemMore)) {
+                debugPrint("Error: Couldn't find LoadSave Message!");
+                messageListItemMore.text = "MORE";
+            }
             fontDrawText(gLoadSaveWindowBuffer + LS_WINDOW_WIDTH * (y + 0) + 210,
                 messageListItemMore.text,
                 LS_WINDOW_WIDTH,

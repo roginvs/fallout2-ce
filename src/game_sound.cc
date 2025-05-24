@@ -21,6 +21,7 @@
 #include "queue.h"
 #include "random.h"
 #include "settings.h"
+#include "sfall_config.h"
 #include "sound_effects_cache.h"
 #include "stat.h"
 #include "svga.h"
@@ -745,9 +746,17 @@ int backgroundSoundLoad(const char* fileName, int a2, int a3, int a4)
 }
 
 // 0x450A08
-int _gsound_background_play_level_music(const char* a1, int a2)
+int _gsound_background_play_level_music(const char* fileName, int a2)
 {
-    return backgroundSoundLoad(a1, a2, 14, 16);
+    int gaplessMusic = 0;
+    configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_GAPLESS_MUSIC, &gaplessMusic);
+    if (gaplessMusic) {
+        if (!strcmp(fileName, gBackgroundSoundFileName)) {
+            return 0;
+        }
+    }
+
+    return backgroundSoundLoad(fileName, a2, 14, 16);
 }
 
 // 0x450AB4
