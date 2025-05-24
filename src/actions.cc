@@ -1359,7 +1359,7 @@ int actionUseSkill(Object* user, Object* target, int skill)
         }
 
         break;
-    case SKILL_STEAL:
+        case SKILL_STEAL:
         if (isInCombat()) {
             // NOTE: Uninline.
             return _action_use_skill_in_combat_error(user);
