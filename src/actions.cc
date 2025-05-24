@@ -1334,9 +1334,9 @@ static int _action_use_skill_in_combat_error(Object* critter)
 
 // skill_use
 // 0x41255C
-int 
+int
 
-actionUseSkill(Object* user, 
+actionUseSkill(Object* user,
     Object* target, int skill)
 {
     switch (skill) {
