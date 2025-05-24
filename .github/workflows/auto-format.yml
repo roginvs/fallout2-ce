@@ -1,23 +1,21 @@
 name: Auto Format with Clang
 
 on: 
-  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize]
   push:
-    branches:
-      - main
-  
-permissions:
-  contents: write
+    branches: [main]
 
 jobs:
   format:
     runs-on: ubuntu-latest
-
+    if: github.actor != 'github-actions[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        # with:
-        #    ref: ${{ github.head_ref }}
+        with:
+          ref: ${{ github.head_ref || github.ref_name  }}
+          token: ${{ secrets.PAT_FOR_ACTIONS }}
 
       - name: Run clang-format via Docker
         run: |
