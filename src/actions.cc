@@ -1354,7 +1354,7 @@ int actionUseSkill(Object* user, Object* target, int skill)
             return _action_use_skill_in_combat_error(user);
         }
 
-        if (PID_TYPE(      target->pid     ) != OBJ_TYPE_ITEM && PID_TYPE(target->pid) != OBJ_TYPE_SCENERY) {
+        if (PID_TYPE(target->pid) != OBJ_TYPE_ITEM && PID_TYPE(target->pid) != OBJ_TYPE_SCENERY) {
             return -1;
         }
 
