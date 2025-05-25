@@ -206,10 +206,10 @@ int windowGetFont()
 }
 
 // 0x4B6128
-int windowSetFont(int a1)
+int windowSetFont(int font)
 {
-    gWidgetFont = a1;
-    fontSetCurrent(a1);
+    gWidgetFont = font;
+    fontSetCurrent(font);
     return 1;
 }
 
@@ -232,9 +232,9 @@ int windowGetTextFlags()
 }
 
 // 0x4B6168
-int windowSetTextFlags(int a1)
+int windowSetTextFlags(int flags)
 {
-    gWidgetTextFlags = a1;
+    gWidgetTextFlags = flags;
     return 1;
 }
 
@@ -1038,7 +1038,7 @@ void _windowPrintBuf(int win, char* string, int stringLength, int width, int max
 }
 
 // 0x4B8638
-char** _windowWordWrap(char* string, int maxLength, int a3, int* substringListLengthPtr)
+char** _windowWordWrap(char* string, int maxLength, int indent, int* substringListLengthPtr)
 {
     if (string == nullptr) {
         *substringListLengthPtr = 0;
@@ -1050,15 +1050,15 @@ char** _windowWordWrap(char* string, int maxLength, int a3, int* substringListLe
 
     char* start = string;
     char* pch = string;
-    int v1 = a3;
+    int width = indent;
     while (*pch != '\0') {
-        v1 += fontGetCharacterWidth(*pch & 0xFF);
-        if (*pch != '\n' && v1 <= maxLength) {
-            v1 += fontGetLetterSpacing();
+        width += fontGetCharacterWidth(*pch & 0xFF);
+        if (*pch != '\n' && width <= maxLength) {
+            width += fontGetLetterSpacing();
             pch++;
         } else {
-            while (v1 > maxLength) {
-                v1 -= fontGetCharacterWidth(*pch);
+            while (width > maxLength) {
+                width -= fontGetCharacterWidth(*pch);
                 pch--;
             }
 
@@ -1084,7 +1084,7 @@ char** _windowWordWrap(char* string, int maxLength, int a3, int* substringListLe
                 pch++;
             }
 
-            v1 = 0;
+            width = 0;
             start = pch;
             substringListLength++;
         }
@@ -1127,7 +1127,7 @@ void _windowFreeWordList(char** substringList, int substringListLength)
 // Renders multiline string in the specified bounding box.
 //
 // 0x4B8854
-void _windowWrapLineWithSpacing(int win, char* string, int width, int height, int x, int y, int flags, int textAlignment, int a9)
+void _windowWrapLineWithSpacing(int win, char* string, int width, int height, int x, int y, int flags, int textAlignment, int spacing)
 {
     if (string == nullptr) {
         return;
@@ -1137,7 +1137,7 @@ void _windowWrapLineWithSpacing(int win, char* string, int width, int height, in
     char** substringList = _windowWordWrap(string, width, 0, &substringListLength);
 
     for (int index = 0; index < substringListLength; index++) {
-        int v1 = y + index * (a9 + fontGetLineHeight());
+        int v1 = y + index * (spacing + fontGetLineHeight());
         _windowPrintBuf(win, substringList[index], strlen(substringList[index]), width, height + y, x, v1, flags, textAlignment);
     }
 
@@ -1181,13 +1181,13 @@ bool _windowFormatMessage(char* string, int x, int y, int width, int height, int
 }
 
 // 0x4B8A60
-bool _windowPrint(char* string, int a2, int x, int y, int a5)
+bool _windowPrint(char* string, int width, int x, int y, int color)
 {
     ManagedWindow* managedWindow = &(gManagedWindows[gCurrentManagedWindowIndex]);
     x = (int)(x * managedWindow->field_54);
     y = (int)(y * managedWindow->field_58);
 
-    windowDrawText(managedWindow->window, string, a2, x, y, a5);
+    windowDrawText(managedWindow->window, string, width, x, y, color);
 
     return true;
 }
@@ -1335,7 +1335,7 @@ void _removeProgramReferences_3(Program* program)
 }
 
 // 0x4B9190
-void _initWindow(int resolution, int a2)
+void _initWindow(int resolution, int flags)
 {
     char err[COMPAT_MAX_PATH];
     int rc;
@@ -1358,7 +1358,7 @@ void _initWindow(int resolution, int a2)
         gManagedWindows[i].window = -1;
     }
 
-    rc = windowManagerInit(_gfx_init[resolution], directDrawFree, a2);
+    rc = windowManagerInit(_gfx_init[resolution], directDrawFree, flags);
     if (rc != WINDOW_MANAGER_OK) {
         switch (rc) {
         case WINDOW_MANAGER_ERR_INITIALIZING_VIDEO_MODE:

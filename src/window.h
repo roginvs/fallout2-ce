@@ -37,10 +37,10 @@ typedef enum ManagedButtonRightMouseEvent {
 } ManagedButtonRightMouseEvent;
 
 int windowGetFont();
-int windowSetFont(int a1);
+int windowSetFont(int font);
 void windowResetTextAttributes();
 int windowGetTextFlags();
-int windowSetTextFlags(int a1);
+int windowSetTextFlags(int flags);
 unsigned char windowGetTextColor();
 unsigned char windowGetHighlightColor();
 int windowSetTextColor(float r, float g, float b);
@@ -80,13 +80,13 @@ unsigned char* _windowGetBuffer();
 int _pushWindow(const char* windowName);
 int _popWindow();
 void _windowPrintBuf(int win, char* string, int stringLength, int width, int maxY, int x, int y, int flags, int textAlignment);
-char** _windowWordWrap(char* string, int maxLength, int a3, int* substringListLengthPtr);
+char** _windowWordWrap(char* string, int maxLength, int indent, int* substringListLengthPtr);
 void _windowFreeWordList(char** substringList, int substringListLength);
-void _windowWrapLineWithSpacing(int win, char* string, int width, int height, int x, int y, int flags, int textAlignment, int a9);
+void _windowWrapLineWithSpacing(int win, char* string, int width, int height, int x, int y, int flags, int textAlignment, int spacing);
 void _windowWrapLine(int win, char* string, int width, int height, int x, int y, int flags, int textAlignment);
 bool _windowPrintRect(char* string, int a2, int textAlignment);
 bool _windowFormatMessage(char* string, int x, int y, int width, int height, int textAlignment);
-bool _windowPrint(char* string, int a2, int x, int y, int a5);
+bool _windowPrint(char* string, int width, int x, int y, int color);
 void _displayInWindow(unsigned char* data, int width, int height, int pitch);
 void _displayFile(char* fileName);
 void _displayFileRaw(char* fileName);
@@ -95,7 +95,7 @@ bool _windowDisplayBuf(unsigned char* src, int srcWidth, int srcHeight, int dest
 int _windowGetXres();
 int _windowGetYres();
 void _removeProgramReferences_3(Program* program);
-void _initWindow(int resolution, int a2);
+void _initWindow(int resolution, int flags);
 void _windowClose();
 bool _windowDeleteButton(const char* buttonName);
 bool _windowSetButtonFlag(const char* buttonName, int value);
