@@ -3241,12 +3241,12 @@ int _gdialog_barter_create_win()
     backgroundFrmImage.unlock();
 
     // TRADE
-    _gdialog_buttons[0] = buttonCreate(gGameDialogWindow, 41, 163, 14, 14, -1, -1, -1, KEY_LOWERCASE_M, _redButtonNormalFrmImage.getData(), _redButtonPressedFrmImage.getData(), nullptr, BUTTON_FLAG_TRANSPARENT);
+    _gdialog_buttons[0] = buttonCreate(gGameDialogWindow, 40, 162, 14, 14, -1, -1, -1, KEY_LOWERCASE_M, _redButtonNormalFrmImage.getData(), _redButtonPressedFrmImage.getData(), nullptr, BUTTON_FLAG_TRANSPARENT);
     if (_gdialog_buttons[0] != -1) {
         buttonSetCallbacks(_gdialog_buttons[0], _gsound_med_butt_press, _gsound_med_butt_release);
 
         // TALK
-        _gdialog_buttons[1] = buttonCreate(gGameDialogWindow, 584, 162, 14, 14, -1, -1, -1, KEY_LOWERCASE_T, _redButtonNormalFrmImage.getData(), _redButtonPressedFrmImage.getData(), nullptr, BUTTON_FLAG_TRANSPARENT);
+        _gdialog_buttons[1] = buttonCreate(gGameDialogWindow, 583, 161, 14, 14, -1, -1, -1, KEY_LOWERCASE_T, _redButtonNormalFrmImage.getData(), _redButtonPressedFrmImage.getData(), nullptr, BUTTON_FLAG_TRANSPARENT);
         if (_gdialog_buttons[1] != -1) {
             buttonSetCallbacks(_gdialog_buttons[1], _gsound_med_butt_press, _gsound_med_butt_release);
 
@@ -4143,7 +4143,6 @@ int _gdCustomSelect(int a1)
         buttonSetCallbacks(btn2, _gsound_red_butt_press, _gsound_red_butt_release);
     }
 
-    
     fontSetCurrent(103);
 
     MessageListItem messageListItem;
@@ -4186,7 +4185,7 @@ int _gdCustomSelect(int a1)
                 STRUCT_5189E4* ptr = &(_custom_settings[a1][value]);
                 _custom_current_selected[a1] = value;
                 _gdCustomUpdateSetting(a1, ptr->value);
-                if (keyCode != 500){
+                if (keyCode != 500) {
                     soundPlayFile("ib1p1xx1");
                 }
                 done = true;
@@ -4364,7 +4363,7 @@ int _gdialog_window_create()
 
             // BARTER/TRADE - button moved here to set above background window
             _gdialog_buttons[0] = buttonCreate(gGameDialogWindow, 593, 41, 14, 14, -1, -1, -1, -1, _redButtonNormalFrmImage.getData(), _redButtonPressedFrmImage.getData(), nullptr, BUTTON_FLAG_TRANSPARENT);
-            
+
             if (_dialogue_just_started) {
                 windowRefresh(gGameDialogBackgroundWindow);
                 _gdialog_scroll_subwin(gGameDialogWindow, true, backgroundFrmData, windowBuf, nullptr, _dialogue_subwin_len, true);
