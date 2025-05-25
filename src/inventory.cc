@@ -2110,12 +2110,12 @@ static void _display_body(int fid, int inventoryWindowType)
                     sourceXOffset = 0;
                 }
             }
-            
+
             int backgroundFid = buildFid(OBJ_TYPE_INTERFACE, Fid, 0, 0, 0);
 
             rect.right = rect.left + INVENTORY_BODY_VIEW_WIDTH - 1;
             rect.bottom = rect.top + INVENTORY_BODY_VIEW_HEIGHT - 1;
-            
+
             if (backgroundFrmImage.lock(backgroundFid)) {
                 blitBufferToBuffer(backgroundFrmImage.getData() + backgroundFrmImage.getWidth() * rect.top + rect.left + sourceXOffset,
                     INVENTORY_BODY_VIEW_WIDTH,
