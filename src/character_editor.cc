@@ -61,13 +61,13 @@ namespace fallout {
 #define TAG_SKILLS_BUTTON_Y 26
 #define TAG_SKILLS_BUTTON_CODE 536
 
-#define PRINT_BTN_X 363
+#define PRINT_BTN_X 364
 #define PRINT_BTN_Y 454
 
-#define DONE_BTN_X 475
+#define DONE_BTN_X 476
 #define DONE_BTN_Y 454
 
-#define CANCEL_BTN_X 571
+#define CANCEL_BTN_X 572
 #define CANCEL_BTN_Y 454
 
 #define NAME_BTN_CODE 517
