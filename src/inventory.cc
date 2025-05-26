@@ -2080,7 +2080,7 @@ static void _display_body(int fid, int inventoryWindowType)
             int Fid = 114;
             int sourceXOffset = 0;
 
-if (index == 1) {
+            if (index == 1) {
                 if (inventoryWindowType == INVENTORY_WINDOW_TYPE_LOOT) {
                     rect.left = 426; // loot right cha window (or container)
                     rect.top = 39;
