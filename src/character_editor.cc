@@ -61,13 +61,13 @@ namespace fallout {
 #define TAG_SKILLS_BUTTON_Y 26
 #define TAG_SKILLS_BUTTON_CODE 536
 
-#define PRINT_BTN_X 364
+#define PRINT_BTN_X 363
 #define PRINT_BTN_Y 454
 
-#define DONE_BTN_X 476
+#define DONE_BTN_X 475
 #define DONE_BTN_Y 454
 
-#define CANCEL_BTN_X 572
+#define CANCEL_BTN_X 571
 #define CANCEL_BTN_Y 454
 
 #define NAME_BTN_CODE 517
@@ -1769,7 +1769,7 @@ static int characterEditorWindowInit()
 
     btn = buttonCreate(
         gCharacterEditorWindow,
-        343,
+        344, // one pixel right shift to align with background
         454,
         _editorFrmImages[EDITOR_GRAPHIC_LITTLE_RED_BUTTON_UP].getWidth(),
         _editorFrmImages[EDITOR_GRAPHIC_LITTLE_RED_BUTTON_UP].getHeight(),
@@ -1787,7 +1787,7 @@ static int characterEditorWindowInit()
 
     btn = buttonCreate(
         gCharacterEditorWindow,
-        552,
+        553, // one pixel right shift to align with background
         454,
         _editorFrmImages[EDITOR_GRAPHIC_LITTLE_RED_BUTTON_UP].getWidth(),
         _editorFrmImages[EDITOR_GRAPHIC_LITTLE_RED_BUTTON_UP].getHeight(),
@@ -1805,7 +1805,7 @@ static int characterEditorWindowInit()
 
     btn = buttonCreate(
         gCharacterEditorWindow,
-        455,
+        456, // one pixel right shift to align with background
         454,
         _editorFrmImages[23].getWidth(),
         _editorFrmImages[23].getHeight(),
