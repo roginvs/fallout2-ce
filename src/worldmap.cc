@@ -832,7 +832,8 @@ static inline bool cityIsValid(int city)
     return city >= 0 && city < wmMaxAreaNum;
 }
 
-bool isWorldMapActive() {
+bool isWorldMapActive()
+{
     return inWorldMap;
 }
 
