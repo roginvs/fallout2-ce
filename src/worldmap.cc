@@ -559,6 +559,8 @@ static void wmFadeIn();
 static void wmFadeReset();
 static void wmBlinkRndEncounterIcon(bool special);
 
+static bool inWorldMap = false;
+
 // 0x4BC860
 static const int _can_rest_here[ELEVATION_COUNT] = {
     MAP_CAN_REST_ELEVATION_0,
@@ -830,6 +832,10 @@ static inline bool cityIsValid(int city)
     return city >= 0 && city < wmMaxAreaNum;
 }
 
+bool isWorldMapActive() {
+    return inWorldMap;
+}
+
 // 0x4BC890
 static void wmSetFlags(int* flagsPtr, int flag, int value)
 {
@@ -1045,6 +1051,7 @@ void wmWorldMap_exit()
 
     messageListRepositorySetStandardMessageList(STANDARD_MESSAGE_LIST_WORLDMAP, nullptr);
     messageListFree(&wmMsgFile);
+    inWorldMap = false;
 }
 
 // 0x4BCEF8
@@ -2594,6 +2601,7 @@ static int wmMapSlotInit(MapInfo* map)
 // 0x4BF4BC
 static int wmMapInit()
 {
+    inWorldMap = true;
     char* str;
     int num;
     MapInfo* maps;
