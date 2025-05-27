@@ -1052,7 +1052,6 @@ void wmWorldMap_exit()
 
     messageListRepositorySetStandardMessageList(STANDARD_MESSAGE_LIST_WORLDMAP, nullptr);
     messageListFree(&wmMsgFile);
-    inWorldMap = false;
 }
 
 // 0x4BCEF8
@@ -2602,7 +2601,6 @@ static int wmMapSlotInit(MapInfo* map)
 // 0x4BF4BC
 static int wmMapInit()
 {
-    inWorldMap = true;
     char* str;
     int num;
     MapInfo* maps;
@@ -2987,6 +2985,8 @@ static int wmWorldMapFunc(int a1)
 
     wmFadeOut();
 
+    inWorldMap = true;
+
     if (wmInterfaceInit() == -1) {
         wmInterfaceExit();
         wmFadeReset();
@@ -3289,6 +3289,8 @@ static int wmWorldMapFunc(int a1)
     }
 
     wmFadeIn();
+
+    inWorldMap = false;
 
     return rc;
 }
