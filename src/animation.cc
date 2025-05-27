@@ -3046,6 +3046,10 @@ void _dude_fidget()
         return;
     }
 
+    if (isWorldMapActive()) {
+        return;
+    }
+
     if (isInCombat()) {
         return;
     }
