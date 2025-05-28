@@ -5551,7 +5551,7 @@ static int wmDrawCursorStopped()
 
     static bool wasWalking = false;
     static uint32_t lastTrailDropTick = 0;
-    const int baseCooldown = 25;    // base time between potential dot drops
+    const int baseCooldown = 25; // base time between potential dot drops
     static int trailDotCount = 0;
     static TrailDot trailDots[MAX_TRAIL_LENGTH];
     static int patternCounter = 0;
@@ -5580,13 +5580,13 @@ static int wmDrawCursorStopped()
             // Decide whether to drop on this step, based on terrain (difficulty)
             bool shouldDrop;
             if (difficulty >= 4) {
-                shouldDrop = (patternCounter % 4) != 0;  // Drop 3 out of every 4 steps --- used?
+                shouldDrop = (patternCounter % 4) != 0; // Drop 3 out of every 4 steps --- used?
             } else if (difficulty == 3) {
-                shouldDrop = (patternCounter % 3) != 0;  // Drop 2 out of every 3
+                shouldDrop = (patternCounter % 3) != 0; // Drop 2 out of every 3
             } else if (difficulty == 2) {
-                shouldDrop = (patternCounter % 2) == 0;  // Drop every other step
+                shouldDrop = (patternCounter % 2) == 0; // Drop every other step
             } else {
-                shouldDrop = (patternCounter % 3) == 0;  // Drop only once every 3 steps
+                shouldDrop = (patternCounter % 3) == 0; // Drop only once every 3 steps
             }
 
             if (shouldDrop) {
@@ -5608,12 +5608,11 @@ static int wmDrawCursorStopped()
         int x = trailDots[i].x;
         int y = trailDots[i].y;
         if (x >= wmWorldOffsetX && x < wmWorldOffsetX + WM_VIEW_WIDTH
-         && y >= wmWorldOffsetY && y < wmWorldOffsetY + WM_VIEW_HEIGHT)
-        {
+            && y >= wmWorldOffsetY && y < wmWorldOffsetY + WM_VIEW_HEIGHT) {
             unsigned char* dst = wmBkWinBuf
                 + WM_WINDOW_WIDTH * (WM_VIEW_Y - wmWorldOffsetY + y)
                 + (WM_VIEW_X - wmWorldOffsetX + x);
-            *dst = 136;  // bright-red palette index? - not matching perfectly, what palette is being used?
+            *dst = 136; // bright-red palette index? - not matching perfectly, what palette is being used?
         }
     }
 
