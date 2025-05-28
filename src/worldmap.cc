@@ -831,6 +831,7 @@ static FrmImage _townFrmImage;
 static bool wmFaded = false;
 static int wmForceEncounterMapId = -1;
 static unsigned int wmForceEncounterFlags = 0;
+static int worldmapTrailMarkers;
 
 static inline bool cityIsValid(int city)
 {
@@ -879,7 +880,9 @@ int wmWorldMap_init()
 
     // SFALL
     gTownMapHotkeysFix = true;
+    worldmapTrailMarkers = 0;
     configGetBool(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_TOWN_MAP_HOTKEYS_FIX_KEY, &gTownMapHotkeysFix);
+    configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_WORLDMAP_TRAIL_MARKERS, &worldmapTrailMarkers);
 
     // CE: City size fids should be initialized during startup. They are used
     // during |wmTeleportToArea| to calculate worldmap position when jumping
@@ -5549,6 +5552,7 @@ static int wmDrawCursorStopped()
 
     // Dotted Trail logic
 
+    if (worldmapTrailMarkers) {
     static bool wasWalking = false;
     static uint32_t lastTrailDropTick = 0;
     const int baseCooldown = 25; // base time between potential dot drops
@@ -5614,6 +5618,7 @@ static int wmDrawCursorStopped()
                 + (WM_VIEW_X - wmWorldOffsetX + x);
             *dst = 136; // bright-red palette index? - not matching perfectly, what palette is being used?
         }
+    }
     }
 
     return 0;
