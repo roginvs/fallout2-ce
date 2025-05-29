@@ -559,8 +559,6 @@ static void wmFadeIn();
 static void wmFadeReset();
 static void wmBlinkRndEncounterIcon(bool special);
 
-static bool inWorldMap = false;
-
 // 0x4BC860
 static const int _can_rest_here[ELEVATION_COUNT] = {
     MAP_CAN_REST_ELEVATION_0,
@@ -830,11 +828,6 @@ static unsigned int wmForceEncounterFlags = 0;
 static inline bool cityIsValid(int city)
 {
     return city >= 0 && city < wmMaxAreaNum;
-}
-
-bool isWorldMapActive()
-{
-    return inWorldMap;
 }
 
 // 0x4BC890
@@ -2985,8 +2978,6 @@ static int wmWorldMapFunc(int a1)
 
     wmFadeOut();
 
-    inWorldMap = true;
-
     if (wmInterfaceInit() == -1) {
         wmInterfaceExit();
         wmFadeReset();
@@ -3289,8 +3280,6 @@ static int wmWorldMapFunc(int a1)
     }
 
     wmFadeIn();
-
-    inWorldMap = false;
 
     return rc;
 }
