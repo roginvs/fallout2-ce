@@ -1378,7 +1378,7 @@ static bool _setup_inventory(int inventoryWindowType)
                         41,
                         -1,
                         -1,
-                        KEY_UPPERCASE_A,
+                        2502,
                         -1,
                         _inventoryFrmImages[8].getData(),
                         _inventoryFrmImages[9].getData(),
@@ -4255,8 +4255,11 @@ int inventoryOpenLooting(Object* looter, Object* target)
             break;
         }
 
-        if (keyCode == KEY_UPPERCASE_A || keyCode == KEY_LOWERCASE_A) {
+        if (keyCode == 2502 || keyCode == KEY_LOWERCASE_A) {
             if (!_gIsSteal) {
+                if (keyCode == KEY_LOWERCASE_A) {
+                    soundPlayFile("ib1p1xx1");
+                }
                 int maxCarryWeight = critterGetStat(looter, STAT_CARRY_WEIGHT);
                 int currentWeight = objectGetInventoryWeight(looter);
                 int newInventoryWeight = objectGetInventoryWeight(target);
@@ -5622,6 +5625,9 @@ static int inventoryQuantitySelect(int inventoryWindowType, Object* item, int ma
             break;
 
         } else if (keyCode == 5000 || keyCode == KEY_LOWERCASE_A) {
+            if (keyCode == KEY_LOWERCASE_A) {
+                soundPlayFile("ib1p1xx1");
+            }
             isTyping = false;
             value = max;
             _draw_amount(value, inventoryWindowType);
