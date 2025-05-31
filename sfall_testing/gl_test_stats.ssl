@@ -1,0 +1,68 @@
+#include "define_lite.h"
+
+variable test_suite_errors := 0;
+
+procedure test_stat(variable stat_id) begin
+    display_msg("Stat " + stat_id + " = " +
+       get_pc_base_stat(stat_id) + " + " +
+       get_pc_extra_stat(stat_id));
+
+    if (get_pc_base_stat(stat_id) == 0) then begin
+        display_msg("FAIL: Not interesting stat, base stat is zero");
+        test_suite_errors++;
+        return;
+    end
+    
+    variable old_base_stat := get_pc_base_stat(stat_id);
+    variable old_extra_stat := get_pc_extra_stat(stat_id);
+
+    set_pc_base_stat(stat_id, old_base_stat + 2);
+    set_pc_extra_stat(stat_id, old_extra_stat + 4);
+    display_msg("Stat after update " + stat_id + " = " +
+       get_pc_base_stat(stat_id) + " + " +
+       get_pc_extra_stat(stat_id));
+    if (stat_id > STAT_lu) then begin
+        if (get_pc_base_stat(stat_id) != old_base_stat) then begin
+            display_msg("FAIL: Base stat was updated while it shouldn't");
+            test_suite_errors++;
+            return;
+        end
+    end else begin
+        if (get_pc_base_stat(stat_id) != old_base_stat + 2) then begin
+            display_msg("FAIL: Base stat not updated correctly");
+            test_suite_errors++;
+            return;
+        end
+    end
+    
+    set_pc_base_stat(stat_id, old_base_stat);
+    set_pc_extra_stat(stat_id, old_extra_stat);
+    display_msg("Stat after reset " + stat_id + " = " +
+       get_pc_base_stat(stat_id) + " + " +
+       get_pc_extra_stat(stat_id));
+    if (get_pc_base_stat(stat_id) != old_base_stat) then begin
+        display_msg("FAIL: Base stat not reset correctly");
+        test_suite_errors++;
+        return;
+    end
+    if (get_pc_extra_stat(stat_id) != old_extra_stat) then begin
+        display_msg("FAIL: Extra stat not reset correctly");
+        test_suite_errors++;
+        return;
+    end
+end
+
+procedure start begin
+    display_msg("===== stats test =====");
+    test_suite_errors := 0;
+
+    call test_stat(STAT_max_hit_points);
+
+    call test_stat(STAT_lu);
+
+    display_msg("Done " + test_suite_errors + " errors");
+   
+    
+    // set_pc_base_stat(STAT_lu, 10);
+    // set_pc_extra_stat(STAT_max_hit_points, 500);
+end
