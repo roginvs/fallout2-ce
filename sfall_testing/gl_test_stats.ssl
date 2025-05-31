@@ -145,6 +145,16 @@ procedure start begin
     end
 
 
+    if 
+      get_critter_base_stat(dude_obj, STAT_lu) == 
+          get_critter_base_stat(closest_critter, STAT_lu)
+      and
+      get_critter_extra_stat(dude_obj, STAT_max_hit_points) ==
+          get_critter_extra_stat(closest_critter, STAT_max_hit_points) then begin
+        display_msg("FAIL: Very sus eq values for dude and closest critter");
+        test_suite_errors++;
+    end
+
     display_msg("Done " + test_suite_errors + " errors");
     if (test_suite_errors == 0) then begin
         float_msg(dude_obj, "Stats tests passed!", FLOAT_MSG_GREEN);
@@ -152,6 +162,7 @@ procedure start begin
         float_msg(dude_obj, "Stats " + test_suite_errors + " tests failed", FLOAT_MSG_RED);
     end
 
+    
 
     // set_pc_base_stat(STAT_lu, 10);
     // set_pc_extra_stat(STAT_max_hit_points, 500);
