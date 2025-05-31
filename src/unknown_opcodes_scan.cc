@@ -109,7 +109,7 @@ void check_file(std::string fName)
         if (static_string_len == -1) {
             static_string_len = -4;
         }
-        printf("File %s identifiers_pos=%x static_strings_pos=%x static_string_len=%i\n", fName.c_str(), identifiers_pos, static_strings_pos, static_string_len);
+        // printf("File %s identifiers_pos=%x static_strings_pos=%x static_string_len=%i\n", fName.c_str(), identifiers_pos, static_strings_pos, static_string_len);
         if (static_string_len > 0) {
             auto pos = static_strings_pos + 4;
             while (pos < static_strings_pos + 4 + static_string_len) {
@@ -188,8 +188,8 @@ void checkScriptsOpcodes()
 
     checked_files = 0;
 
-    // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/");
-    scan_in_folder("/home/vasilii/fallout2-ce/sfall_testing/");
+    scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/");
+    // scan_in_folder("/home/vasilii/fallout2-ce/sfall_testing/");
 
     if (unknown_opcodes.size() == 0 && sus_strings.size() == 0) {
         printf("Everything is ok, all opcodes are known and no sus strings. Checked %i files\n", checked_files);
@@ -206,9 +206,9 @@ void checkScriptsOpcodes()
                         return info.opcode == (opcode & 0x3FF);
                     });
 
-                printf("%s (0x%x):\n",
+                printf("%s (0x%x - 0x%x - %i):\n",
                     sfallName != std::end(opcodeInfoArray) ? sfallName->name.c_str() : "unknown",
-                    opcode);
+                    opcode, opcode & 0x3FF, opcode & 0x3FF);
                 for (auto fName : iter.second) {
                     printf("  - %s\n", fName.c_str());
                 }
