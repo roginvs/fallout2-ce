@@ -1044,6 +1044,10 @@ void sfallOpcodesInit()
     interpreterRegisterOpcode(0x815B, opSetPcBonusStat);
     interpreterRegisterOpcode(0x815C, op_get_pc_base_stat);
     interpreterRegisterOpcode(0x815D, opGetPcBonusStat);
+    interpreterRegisterOpcode(0x815E, op_set_critter_base_stat);
+    interpreterRegisterOpcode(0x815F, op_set_critter_extra_stat);
+    interpreterRegisterOpcode(0x8160, op_get_critter_base_stat);
+    interpreterRegisterOpcode(0x8161, op_get_critter_extra_stat);
     interpreterRegisterOpcode(0x8162, op_tap_key);
     interpreterRegisterOpcode(0x8163, op_get_year);
     interpreterRegisterOpcode(0x8164, op_game_loaded);
