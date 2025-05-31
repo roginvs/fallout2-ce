@@ -1,8 +1,9 @@
 #include "define_lite.h"
+#include "sfall.h"
 
 variable test_suite_errors := 0;
 
-procedure test_stat(variable stat_id) begin
+procedure test_stat_pc(variable stat_id) begin
     display_msg("Stat " + stat_id + " = " +
        get_pc_base_stat(stat_id) + " + " +
        get_pc_extra_stat(stat_id));
@@ -52,13 +53,97 @@ procedure test_stat(variable stat_id) begin
     end
 end
 
+procedure test_stat_critter(variable critter, variable stat_id) begin
+    display_msg("Stat " + stat_id + " = " +
+       get_critter_base_stat(critter, stat_id) + " + " +
+       get_critter_extra_stat(critter, stat_id));
+
+    if (get_critter_base_stat(critter, stat_id) == 0) then begin
+        display_msg("FAIL: Not interesting stat, base stat is zero");
+        test_suite_errors++;
+        return;
+    end
+    
+    variable old_base_stat := get_critter_base_stat(critter, stat_id);
+    variable old_extra_stat := get_critter_extra_stat(critter, stat_id);
+
+    set_critter_base_stat(critter, stat_id, old_base_stat + 2);
+    set_critter_extra_stat(critter, stat_id, old_extra_stat + 4);
+    display_msg("Stat after update " + stat_id + " = " +
+       get_critter_base_stat(critter, stat_id) + " + " +
+       get_critter_extra_stat(critter, stat_id));
+    if (stat_id > STAT_lu) then begin
+        if (get_critter_base_stat(critter, stat_id) != old_base_stat) then begin
+            display_msg("FAIL: Base stat was updated while it shouldn't");
+            test_suite_errors++;
+            return;
+        end
+    end else begin
+        if (get_critter_base_stat(critter, stat_id) != old_base_stat + 2) then begin
+            display_msg("FAIL: Base stat not updated correctly");
+            test_suite_errors++;
+            return;
+        end
+    end
+    
+    set_critter_base_stat(critter, stat_id, old_base_stat);
+    set_critter_extra_stat(critter, stat_id, old_extra_stat);
+    display_msg("Stat after reset " + stat_id + " = " +
+       get_critter_base_stat(critter, stat_id) + " + " +
+       get_critter_extra_stat(critter, stat_id));
+    if (get_critter_base_stat(critter, stat_id) != old_base_stat) then begin
+        display_msg("FAIL: Base stat not reset correctly");
+        test_suite_errors++;
+        return;
+    end
+    if (get_critter_extra_stat(critter, stat_id) != old_extra_stat) then begin
+        display_msg("FAIL: Extra stat not reset correctly");
+        test_suite_errors++;
+        return;
+    end
+end
+
 procedure start begin
     display_msg("===== stats test =====");
     test_suite_errors := 0;
 
-    call test_stat(STAT_max_hit_points);
+    call test_stat_pc(STAT_max_hit_points);
 
-    call test_stat(STAT_lu);
+    call test_stat_pc(STAT_lu);
+    
+
+    variable critter;
+    variable closest_critter := dude_obj;
+    foreach critter in list_as_array(LIST_CRITTERS) begin
+        if (is_critter_dead(critter)) then begin
+            continue;
+        end
+        if tile_distance(dude_tile, tile_num(critter)) == 0 then begin
+            continue;
+        end
+        if (tile_distance(dude_tile, tile_num(critter)) <
+              tile_distance(dude_tile, tile_num(closest_critter))) or
+            (closest_critter == dude_obj)
+            then begin
+            closest_critter := critter;
+        end
+    end
+    
+    // display_msg("Closest " + obj_name(closest_critter) + " distance: " + 
+     //   tile_distance(dude_tile, tile_num(closest_critter)));
+
+    call test_stat_critter(dude_obj, STAT_max_hit_points);
+    call test_stat_critter(dude_obj, STAT_lu);
+
+    if closest_critter != dude_obj then begin
+        display_msg("Testing stats for " + obj_name(closest_critter));
+        call test_stat_critter(closest_critter, STAT_max_hit_points);
+        call test_stat_critter(closest_critter, STAT_lu);
+    end else begin
+        display_msg("FAIL: No other critters found to test stats");
+        test_suite_errors++;
+    end
+
 
     display_msg("Done " + test_suite_errors + " errors");
     if (test_suite_errors == 0) then begin
@@ -66,7 +151,7 @@ procedure start begin
     end else begin
         float_msg(dude_obj, "Stats " + test_suite_errors + " tests failed", FLOAT_MSG_RED);
     end
-    
+
 
     // set_pc_base_stat(STAT_lu, 10);
     // set_pc_extra_stat(STAT_max_hit_points, 500);
