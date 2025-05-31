@@ -1,15 +1,20 @@
 #include "unknown_opcodes_scan.h"
 #include "interpreter.h"
 #include "platform_compat.h"
+#include "sfall_metarules.h"
+#include "unknown_opcodes_scan_sfall.h"
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
 #include <map>
 #include <set>
 #include <stdio.h>
+#include <string.h>
 #include <string>
 
 std::map<fallout::opcode_t, std::set<std::string>> unknown_opcodes;
+std::map<std::string, std::set<std::string>> sus_strings;
+
 int checked_files = 0;
 
 void check_data(
@@ -67,6 +72,15 @@ void check_data(
     }
 };
 
+void print_hex(const std::string& str)
+{
+    for (unsigned char c : str) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0')
+                  << static_cast<int>(c) << ' ';
+    }
+    std::cout << '\n';
+}
+
 void check_file(std::string fName)
 {
     fallout::File* stream = fallout::fileOpen(fName.c_str(), "rb");
@@ -84,6 +98,7 @@ void check_file(std::string fName)
     fileRead(data, 1, fileSize, stream);
     fileClose(stream);
 
+    auto script_strings = std::vector<std::string> {};
     {
 
         check_data(fName, data, 0, 0x2A, 0);
@@ -94,11 +109,47 @@ void check_file(std::string fName)
         if (static_string_len == -1) {
             static_string_len = -4;
         }
-        auto code_pos = static_strings_pos + static_string_len + 4 + 4;
+        printf("File %s identifiers_pos=%x static_strings_pos=%x static_string_len=%i\n", fName.c_str(), identifiers_pos, static_strings_pos, static_string_len);
+        if (static_string_len > 0) {
+            auto pos = static_strings_pos + 4;
+            while (pos < static_strings_pos + 4 + static_string_len) {
+                auto str_len = fallout::stackReadInt16(data, pos);
+                pos += 2;
+                auto str = &data[pos];
+                auto str_len_actual = strlen((char*)str);
+                if (str_len_actual <= str_len) {
+                    script_strings.push_back(std::string((char*)str, str_len_actual));
+                }
+                pos += str_len;
+            }
+        }
+        auto code_pos = static_strings_pos + 4 + static_string_len + 4;
 
         // printf("File %s identifiers_pos=%x static_strings_pos=%x code_pos=%x\n", fName.c_str(), identifiers_pos,static_strings_pos, code_pos);
 
         check_data(fName, data, code_pos, fileSize, static_strings_pos);
+    }
+    for (auto script_str : script_strings) {
+        if (
+            std::find(
+                std::begin(sfall_metarules),
+                std::end(sfall_metarules),
+                script_str)
+            != std::end(sfall_metarules)) {
+            // That looks like a sFall metarule
+            if (
+                std::find_if(
+                    fallout::kMetarules, fallout::kMetarules + fallout::kMetarulesCount,
+                    [&script_str](auto rule) {
+                        return std::string(rule.name) == script_str;
+                    })
+                == fallout::kMetarules + fallout::kMetarulesCount) {
+                printf("WARNING: Found sFall metarule %s in file %s, but it is not defined in kMetarules\n",
+                    script_str.c_str(), fName.c_str());
+                // sus_strings[s].insert(fName);
+            }
+        }
+        // std::cout << "Script string: " << script_str << std::endl;
     }
 
     free(data);
@@ -129,9 +180,12 @@ void scan_in_folder(std::string dirPath)
 void checkScriptsOpcodes()
 {
     unknown_opcodes.clear();
+    sus_strings.clear();
+
     checked_files = 0;
 
-    scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/");
+    // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/");
+    scan_in_folder("/home/vasilii/fallout2-ce/sfall_testing/");
 
     if (unknown_opcodes.size() == 0) {
         printf("Everything is ok, all opcodes are known. Checked %i files\n", checked_files);
@@ -146,4 +200,5 @@ void checkScriptsOpcodes()
     }
     printf("Done\n");
 
+    exit(0);
 }

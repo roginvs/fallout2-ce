@@ -57,6 +57,7 @@ const MetaruleInfo kMetarules[] = {
     { "show_window", mf_show_window, 0, 1 },
     { "tile_refresh_display", mf_tile_refresh_display, 0, 0 },
 };
+const std::size_t kMetarulesCount = sizeof(kMetarules) / sizeof(kMetarules[0]);
 
 constexpr int kMetarulesMax = sizeof(kMetarules) / sizeof(kMetarules[0]);
 

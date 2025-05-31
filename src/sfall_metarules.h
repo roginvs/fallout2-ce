@@ -15,8 +15,8 @@ typedef struct MetaruleInfo {
     int maxArgs;
 } MetaruleInfo;
 
-
 extern const MetaruleInfo kMetarules[];
+extern const std::size_t kMetarulesCount;
 
 void sfall_metarule(Program* program, int args);
 
