@@ -18,16 +18,6 @@
 
 namespace fallout {
 
-typedef void(MetaruleHandler)(Program* program, int args);
-
-// Simplified cousin of `SfallMetarule` from Sfall.
-typedef struct MetaruleInfo {
-    const char* name;
-    MetaruleHandler* handler;
-    int minArgs;
-    int maxArgs;
-} MetaruleInfo;
-
 static void mf_car_gas_amount(Program* program, int args);
 static void mf_combat_data(Program* program, int args);
 static void mf_critter_inven_obj2(Program* program, int args);
@@ -47,7 +37,7 @@ static void mf_set_outline(Program* program, int args);
 static void mf_show_window(Program* program, int args);
 static void mf_tile_refresh_display(Program* program, int args);
 
-constexpr MetaruleInfo kMetarules[] = {
+const MetaruleInfo kMetarules[] = {
     { "car_gas_amount", mf_car_gas_amount, 0, 0 },
     { "combat_data", mf_combat_data, 0, 0 },
     { "critter_inven_obj2", mf_critter_inven_obj2, 2, 2 },
