@@ -20,7 +20,7 @@ void scan_in_folder(std::string dirPath) {
     } else if (dirEntry.is_regular_file()) {
       std::string file_ext = dirEntry.path().extension().string();
       std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
-      if (file_ext == "int") {
+      if (file_ext == ".int") {
         std::cout << "Scanning file: " << dirEntry.path() << std::endl;
       } else {
         std::cout << "Skipping file with unsupported extension: " << dirEntry.path() << std::endl;        
