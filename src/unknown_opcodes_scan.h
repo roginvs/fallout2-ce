@@ -1,0 +1,8 @@
+#ifndef CHECK_SCRIPTS_OPCODES_SCAN_H
+#define CHECK_SCRIPTS_OPCODES_SCAN_H
+
+void checkScriptsOpcodes();
+
+
+
+#endif /* CHECK_SCRIPTS_OPCODES_SCAN_H */

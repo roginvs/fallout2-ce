@@ -290,6 +290,7 @@ target_sources(${EXECUTABLE_NAME} PUBLIC
     "src/sfall_arrays.h"
     "src/touch.cc"
     "src/touch.h"
+    "src/unknown_opcodes_scan.cc"
 )
 
 if(IOS)
