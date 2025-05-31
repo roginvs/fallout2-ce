@@ -3,6 +3,4 @@
 
 void checkScriptsOpcodes();
 
-
-
 #endif /* CHECK_SCRIPTS_OPCODES_SCAN_H */
