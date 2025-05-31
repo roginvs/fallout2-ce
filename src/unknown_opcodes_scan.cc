@@ -10,6 +10,7 @@
 #include <string>
 
 std::map<fallout::opcode_t, std::set<std::string>> unknown_opcodes;
+int checked_files = 0;
 
 void check_data(
     std::string fName,
@@ -74,6 +75,8 @@ void check_file(std::string fName)
         exit(1);
     }
 
+    checked_files++;
+
     int fileSize = fallout::fileGetSize(stream);
     // TODO: Use smart ptr
     auto data = (unsigned char*)malloc(fileSize);
@@ -103,7 +106,7 @@ void check_file(std::string fName)
 
 void scan_in_folder(std::string dirPath)
 {
-    std::cout << "Scanning folder: " << dirPath << std::endl;
+    // std::cout << "Scanning folder: " << dirPath << std::endl;
     for (auto dirEntry : std::filesystem::directory_iterator(dirPath)) {
         if (dirEntry.is_directory()) {
             scan_in_folder(dirEntry.path().string());
@@ -112,10 +115,10 @@ void scan_in_folder(std::string dirPath)
             std::string file_ext = dirEntry.path().extension().string();
             std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
             if (file_ext == ".int") {
-                std::cout << "Scanning file: " << dirEntry.path() << std::endl;
+                // std::cout << "Scanning file: " << dirEntry.path() << std::endl;
                 check_file(dirEntry.path());
             } else {
-                std::cout << "Skipping file with unsupported extension: " << dirEntry.path() << std::endl;
+                // std::cout << "Skipping file with unsupported extension: " << dirEntry.path() << std::endl;
             }
         } else {
             std::cout << "Skipping non-regular file: " << dirEntry.path() << std::endl;
@@ -126,5 +129,21 @@ void scan_in_folder(std::string dirPath)
 void checkScriptsOpcodes()
 {
     unknown_opcodes.clear();
-    scan_in_folder("/home/vasilii/sslc");
+    checked_files = 0;
+
+    scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/");
+
+    if (unknown_opcodes.size() == 0) {
+        printf("Everything is ok, all opcodes are known. Checked %i files\n", checked_files);
+    } else {
+        printf("Checked %i files. Unknown opcodes in files:\n", checked_files);
+        for (auto iter : unknown_opcodes) {
+            printf("%x:\n", iter.first);
+            for (auto fName : iter.second) {
+                printf("  - %s\n", fName.c_str());
+            }
+        }
+    }
+    printf("Done\n");
+
 }
