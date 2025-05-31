@@ -39,6 +39,8 @@ void check_data(
             set.insert(fName);
         };
 
+        // printf("DEBUG: pos=0x%lx opcode=0x%x (%x) handler=%s\n", i, opcode, opcodeIndex, handler ? "yes": "no=======================");
+
         if (opcode >= 0x8276 && opcode <= 0x827C) {
             auto paramsCount = opcode - 0x8276;
             /*
@@ -189,6 +191,7 @@ void checkScriptsOpcodes()
     checked_files = 0;
 
     scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/");
+    // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/tmp/verytmp/");
     // scan_in_folder("/home/vasilii/fallout2-ce/sfall_testing/");
 
     if (unknown_opcodes.size() == 0 && sus_strings.size() == 0) {
@@ -206,8 +209,9 @@ void checkScriptsOpcodes()
                         return info.opcode == (opcode & 0x3FF);
                     });
 
+                // https://github.com/sfall-team/sfall/blob/master/sfall/Modules/Scripting/Opcodes.cpp
                 printf("%s (0x%x - 0x%x - %i):\n",
-                    sfallName != std::end(opcodeInfoArray) ? sfallName->name.c_str() : "unknown",
+                    sfallName != std::end(opcodeInfoArray) ? sfallName->name.c_str() : "(check Opcodes.cpp)",
                     opcode, opcode & 0x3FF, opcode & 0x3FF);
                 for (auto fName : iter.second) {
                     printf("  - %s\n", fName.c_str());
