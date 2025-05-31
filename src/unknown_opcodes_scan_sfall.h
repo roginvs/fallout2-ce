@@ -111,7 +111,7 @@ static const std::string sfall_metarules[] = {
 
 struct SfallOpcodeInfo {
     fallout::opcode_t opcode;
-    const char* name;
+    std::string name;
 };
 
 static struct SfallOpcodeInfo opcodeInfoArray[] = {

@@ -198,7 +198,17 @@ void checkScriptsOpcodes()
         if (unknown_opcodes.size() > 0) {
             printf("Unknown opcodes in files:\n", checked_files);
             for (auto iter : unknown_opcodes) {
-                printf("%x:\n", iter.first);
+                auto& opcode = iter.first;
+                auto sfallName = std::find_if(
+                    std::begin(opcodeInfoArray),
+                    std::end(opcodeInfoArray),
+                    [&opcode](const SfallOpcodeInfo& info) {
+                        return info.opcode == (opcode & 0x3FF);
+                    });
+
+                printf("%s (0x%x):\n",
+                    sfallName != std::end(opcodeInfoArray) ? sfallName->name.c_str() : "unknown",
+                    opcode);
                 for (auto fName : iter.second) {
                     printf("  - %s\n", fName.c_str());
                 }
