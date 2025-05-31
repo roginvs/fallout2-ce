@@ -79,6 +79,17 @@ static void op_set_pc_base_stat(Program* program)
     critterSetBaseStat(gDude, stat, value);
 }
 
+static void op_set_critter_base_stat(Program* program)
+{
+    // CE: Implementation is different. Sfall changes value directly on the
+    // dude's proto, without calling |critterSetBaseStat|. This function has
+    // important call to update derived stats, which is not present in Sfall.
+    int value = programStackPopInteger(program);
+    int stat = programStackPopInteger(program);
+    Object* obj = static_cast<Object*>(programStackPopPointer(program));
+    critterSetBaseStat(obj, stat, value);
+}
+
 // set_pc_extra_stat
 static void opSetPcBonusStat(Program* program)
 {
@@ -88,6 +99,17 @@ static void opSetPcBonusStat(Program* program)
     int value = programStackPopInteger(program);
     int stat = programStackPopInteger(program);
     critterSetBonusStat(gDude, stat, value);
+}
+
+static void op_set_critter_extra_stat(Program* program)
+{
+    // CE: Implementation is different. Sfall changes value directly on the
+    // dude's proto, without calling |critterSetBonusStat|. This function has
+    // important call to update derived stats, which is not present in Sfall.
+    int value = programStackPopInteger(program);
+    int stat = programStackPopInteger(program);
+    Object* obj = static_cast<Object*>(programStackPopPointer(program));
+    critterSetBonusStat(obj, stat, value);
 }
 
 // get_pc_base_stat
@@ -100,11 +122,29 @@ static void op_get_pc_base_stat(Program* program)
     programStackPushInteger(program, critterGetBaseStat(gDude, stat));
 }
 
+static void op_get_critter_base_stat(Program* program)
+{
+    // CE: Implementation is different. Sfall obtains value directly from
+    // dude's proto. This can have unforeseen consequences when dealing with
+    // current stats.
+    int stat = programStackPopInteger(program);
+    Object* obj = static_cast<Object*>(programStackPopPointer(program));
+    programStackPushInteger(program, critterGetBaseStat(obj, stat));
+}
+
 // get_pc_extra_stat
 static void opGetPcBonusStat(Program* program)
 {
     int stat = programStackPopInteger(program);
     int value = critterGetBonusStat(gDude, stat);
+    programStackPushInteger(program, value);
+}
+
+static void op_get_critter_extra_stat(Program* program)
+{
+    int stat = programStackPopInteger(program);
+    Object* obj = static_cast<Object*>(programStackPopPointer(program));
+    int value = critterGetBonusStat(obj, stat);
     programStackPushInteger(program, value);
 }
 
