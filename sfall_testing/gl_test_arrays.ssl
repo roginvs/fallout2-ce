@@ -195,7 +195,7 @@ end
 
 
 
-procedure map_enter_p_proc begin
+procedure start begin
    display_msg("Starting tests");
    call array_test_suite();
 end
