@@ -61,8 +61,13 @@ procedure start begin
     call test_stat(STAT_lu);
 
     display_msg("Done " + test_suite_errors + " errors");
-   
+    if (test_suite_errors == 0) then begin
+        float_msg(dude_obj, "Stats tests passed!", FLOAT_MSG_GREEN);
+    end else begin
+        float_msg(dude_obj, "Stats " + test_suite_errors + " tests failed", FLOAT_MSG_RED);
+    end
     
+
     // set_pc_base_stat(STAT_lu, 10);
     // set_pc_extra_stat(STAT_max_hit_points, 500);
 end
