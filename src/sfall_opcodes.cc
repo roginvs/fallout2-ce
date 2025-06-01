@@ -1055,6 +1055,18 @@ static void op_sfall_func6(Program* program)
     sfall_metarule(program, 6);
 }
 
+// sfall_func6
+static void op_sfall_func7(Program* program)
+{
+    sfall_metarule(program, 7);
+}
+
+// sfall_func6
+static void op_sfall_func8(Program* program)
+{
+    sfall_metarule(program, 8);
+}
+
 // div (/)
 static void op_div(Program* program)
 {
@@ -1075,6 +1087,13 @@ static void op_div(Program* program)
         // Unsigned divison.
         programStackPushInteger(program, static_cast<unsigned int>(dividendValue.integerValue) / static_cast<unsigned int>(divisorValue.integerValue));
     }
+}
+
+static void op_sprintf(Program* program)
+{
+  // TODO : Add the same for mf_string_format (metarule), move this code into metarules?
+  //   metarule can support from 2-8 arguments
+  
 }
 
 void sfallOpcodesInit()
@@ -1165,6 +1184,8 @@ void sfallOpcodesInit()
     interpreterRegisterOpcode(0x827A, op_sfall_func4);
     interpreterRegisterOpcode(0x827B, op_sfall_func5);
     interpreterRegisterOpcode(0x827C, op_sfall_func6);
+    interpreterRegisterOpcode(0x8280, op_sfall_func7);
+    interpreterRegisterOpcode(0x8281, op_sfall_func8);
     interpreterRegisterOpcode(0x827F, op_div);
 }
 

@@ -257,7 +257,7 @@ void mf_tile_refresh_display(Program* program, int args)
 
 void sfall_metarule(Program* program, int args)
 {
-    static ProgramValue values[6];
+    static ProgramValue values[8];
 
     for (int index = 0; index < args; index++) {
         values[index] = programStackPopValue(program);
