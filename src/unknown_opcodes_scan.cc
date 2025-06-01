@@ -169,9 +169,10 @@ void scan_in_folder(std::string dirPath)
             scan_in_folder(dirEntry.path().string());
             continue;
         } else if (dirEntry.is_regular_file()) {
-            std::string file_ext = dirEntry.path().extension().string();
-            std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
-            if (file_ext == ".int") {
+            std::string filePath = dirEntry.path().string();
+            std::transform(filePath.begin(), filePath.end(), filePath.begin(), ::tolower);
+            if (
+                filePath.rfind(".int.expected") == filePath.size() - 13 || filePath.rfind(".int") == filePath.size() - 4) {
                 // std::cout << "Scanning file: " << dirEntry.path() << std::endl;
                 check_file(dirEntry.path());
             } else {
@@ -206,7 +207,8 @@ void checkScriptsOpcodes()
 
     checked_files = 0;
 
-    scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/");
+    //scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project");
+    scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/scripts_src");
     // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/tmp/verytmp/");
     // scan_in_folder("/home/vasilii/fallout2-ce/sfall_testing/");
 
