@@ -12,15 +12,13 @@ procedure start begin
 
     call assertEquals("sprintf empty string", sprintf("", 123), "");
 
-    call assertEquals("sprintf number string", sprintf("Hello%d!", 123), "Hello123!");
+    call assertEquals("sprintf number string", sprintf("Hello %d !", 123), "Hello 123 !");
 
     call assertEquals("sprintf ascii code", sprintf("Hello %c !", 123), "Hello { !");
 
-    // This gives weird results in sFall
-    // call assertEquals("sprintf float string", sprintf("Hello%d!", 3.4), "Hello"+3.4+"!");
+    call assertEquals("sprintf float string", sprintf("Hello %f !", 3.4), "Hello 3.400000 !");
 
-    // This is not a float!
-    call assertEquals("sprintf float string", sprintf("Hello%d!", 10/4), "Hello2!");
+    call assertEquals("sprintf float string", sprintf("Hello %d !", 10/4), "Hello 2 !");
 
     call assertEquals("sprintf two strings", sprintf("Hello %s %s", "World"), "Hello World World");
 
