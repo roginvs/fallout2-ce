@@ -13,7 +13,9 @@ procedure start begin
 
     call assertEquals("sprintf empty string", sprintf("", 123), "");
 
-    call assertEquals("sprintf number string", sprintf("Hello %d !", 123), "Hello 123 !");
+    call assertEquals("sprintf number string", sprintf("%d", 123), "123");
+
+    call assertEquals("sprintf number inside string", sprintf("Hello %d !", 123), "Hello 123 !");
 
     call assertEquals("sprintf ascii code", sprintf("Hello %c !", 123), "Hello { !");
 
