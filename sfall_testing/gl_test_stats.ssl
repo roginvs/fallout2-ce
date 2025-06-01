@@ -1,7 +1,7 @@
 #include "define_lite.h"
 #include "sfall.h"
+#include "test_utils.ssl"
 
-variable test_suite_errors := 0;
 
 procedure test_stat_pc(variable stat_id) begin
     display_msg("Stat " + stat_id + " = " +
@@ -155,13 +155,8 @@ procedure start begin
         test_suite_errors++;
     end
 
-    display_msg("Done " + test_suite_errors + " errors");
-    if (test_suite_errors == 0) then begin
-        float_msg(dude_obj, "Stats tests passed!", FLOAT_MSG_GREEN);
-    end else begin
-        float_msg(dude_obj, "Stats " + test_suite_errors + " tests failed", FLOAT_MSG_RED);
-    end
 
+    call report_test_results("Stats");
     
 
     // set_pc_base_stat(STAT_lu, 10);
