@@ -8,11 +8,8 @@ procedure test_stat_pc(variable stat_id) begin
        get_pc_base_stat(stat_id) + " + " +
        get_pc_extra_stat(stat_id));
 
-    if (get_pc_base_stat(stat_id) == 0) then begin
-        display_msg("FAIL: Not interesting stat, base stat is zero");
-        test_suite_errors++;
-        return;
-    end
+
+    call assertNotEquals("Not interesting stat, base stat is zero", get_pc_base_stat(stat_id), 0);
     
     variable old_base_stat := get_pc_base_stat(stat_id);
     variable old_extra_stat := get_pc_extra_stat(stat_id);
@@ -23,34 +20,25 @@ procedure test_stat_pc(variable stat_id) begin
        get_pc_base_stat(stat_id) + " + " +
        get_pc_extra_stat(stat_id));
     if (stat_id > STAT_lu) then begin
-        if (get_pc_base_stat(stat_id) != old_base_stat) then begin
-            display_msg("FAIL: Base stat was updated while it shouldn't");
-            test_suite_errors++;
-            return;
-        end
+        call assertNotEquals("Base stat was updated while it shouldn't",
+            get_pc_base_stat(stat_id), old_base_stat);
     end else begin
-        if (get_pc_base_stat(stat_id) != old_base_stat + 2) then begin
-            display_msg("FAIL: Base stat not updated correctly");
-            test_suite_errors++;
-            return;
-        end
+        call assertEquals("Base stat updated",
+            get_pc_base_stat(stat_id), old_base_stat + 2);
     end
     
     set_pc_base_stat(stat_id, old_base_stat);
     set_pc_extra_stat(stat_id, old_extra_stat);
+
     display_msg("Stat after reset " + stat_id + " = " +
        get_pc_base_stat(stat_id) + " + " +
        get_pc_extra_stat(stat_id));
-    if (get_pc_base_stat(stat_id) != old_base_stat) then begin
-        display_msg("FAIL: Base stat not reset correctly");
-        test_suite_errors++;
-        return;
-    end
-    if (get_pc_extra_stat(stat_id) != old_extra_stat) then begin
-        display_msg("FAIL: Extra stat not reset correctly");
-        test_suite_errors++;
-        return;
-    end
+    
+    call assertEquals("Base stat reset",
+        get_pc_base_stat(stat_id), old_base_stat);
+ 
+    call assertEquals("Extra stat reset",
+        get_pc_extra_stat(stat_id), old_extra_stat);    
 end
 
 procedure test_stat_critter(variable critter, variable stat_id) begin
@@ -58,11 +46,8 @@ procedure test_stat_critter(variable critter, variable stat_id) begin
        get_critter_base_stat(critter, stat_id) + " + " +
        get_critter_extra_stat(critter, stat_id));
 
-    if (get_critter_base_stat(critter, stat_id) == 0) then begin
-        display_msg("FAIL: Not interesting stat, base stat is zero");
-        test_suite_errors++;
-        return;
-    end
+    call assertNotEquals("Not interesting stat, base stat is zero",
+        get_critter_base_stat(critter, stat_id), 0);
     
     variable old_base_stat := get_critter_base_stat(critter, stat_id);
     variable old_extra_stat := get_critter_extra_stat(critter, stat_id);
@@ -73,17 +58,11 @@ procedure test_stat_critter(variable critter, variable stat_id) begin
        get_critter_base_stat(critter, stat_id) + " + " +
        get_critter_extra_stat(critter, stat_id));
     if (stat_id > STAT_lu) then begin
-        if (get_critter_base_stat(critter, stat_id) != old_base_stat) then begin
-            display_msg("FAIL: Base stat was updated while it shouldn't");
-            test_suite_errors++;
-            return;
-        end
+        call assertNotEquals("Base stat was updated while it shouldn't",
+            get_critter_base_stat(critter, stat_id), old_base_stat);
     end else begin
-        if (get_critter_base_stat(critter, stat_id) != old_base_stat + 2) then begin
-            display_msg("FAIL: Base stat not updated correctly");
-            test_suite_errors++;
-            return;
-        end
+        call assertEquals("Base stat updated",
+            get_critter_base_stat(critter, stat_id), old_base_stat + 2);
     end
     
     set_critter_base_stat(critter, stat_id, old_base_stat);
@@ -91,16 +70,10 @@ procedure test_stat_critter(variable critter, variable stat_id) begin
     display_msg("Stat after reset " + stat_id + " = " +
        get_critter_base_stat(critter, stat_id) + " + " +
        get_critter_extra_stat(critter, stat_id));
-    if (get_critter_base_stat(critter, stat_id) != old_base_stat) then begin
-        display_msg("FAIL: Base stat not reset correctly");
-        test_suite_errors++;
-        return;
-    end
-    if (get_critter_extra_stat(critter, stat_id) != old_extra_stat) then begin
-        display_msg("FAIL: Extra stat not reset correctly");
-        test_suite_errors++;
-        return;
-    end
+    call assertEquals("Base stat reset",
+        get_critter_base_stat(critter, stat_id), old_base_stat);
+    call assertEquals("Extra stat reset",
+        get_critter_extra_stat(critter, stat_id), old_extra_stat);
 end
 
 procedure start begin
