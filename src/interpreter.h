@@ -208,7 +208,7 @@ void programFree(Program* program);
 Program* programCreateByPath(const char* path);
 char* programGetString(Program* program, opcode_t opcode, int offset);
 char* programGetIdentifier(Program* program, int offset);
-int programPushString(Program* program, char* string);
+int programPushString(Program* program, const char* const string);
 void interpreterRegisterOpcodeHandlers();
 void _interpretClose();
 void _interpret(Program* program, int a2);
@@ -225,7 +225,7 @@ void interpreterRegisterOpcode(int opcode, OpcodeHandler* handler);
 void programStackPushValue(Program* program, ProgramValue& programValue);
 void programStackPushInteger(Program* program, int value);
 void programStackPushFloat(Program* program, float value);
-void programStackPushString(Program* program, char* string);
+void programStackPushString(Program* program, const char* const string);
 void programStackPushPointer(Program* program, void* value);
 
 ProgramValue programStackPopValue(Program* program);
