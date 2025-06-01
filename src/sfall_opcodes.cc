@@ -1091,9 +1091,7 @@ static void op_div(Program* program)
 
 static void op_sprintf(Program* program)
 {
-  // TODO : Add the same for mf_string_format (metarule), move this code into metarules?
-  //   metarule can support from 2-8 arguments
-  
+    sprintf_lite(program, 2, "op_sprintf");  
 }
 
 void sfallOpcodesInit()
@@ -1166,6 +1164,7 @@ void sfallOpcodesInit()
     interpreterRegisterOpcode(0x824B, op_tile_under_cursor);
     interpreterRegisterOpcode(0x824E, op_substr);
     interpreterRegisterOpcode(0x824F, op_get_string_length);
+    interpreterRegisterOpcode(0x8250, op_sprintf);
     interpreterRegisterOpcode(0x8253, op_type_of);
     interpreterRegisterOpcode(0x8256, op_get_array_key);
     interpreterRegisterOpcode(0x8257, op_stack_array);
