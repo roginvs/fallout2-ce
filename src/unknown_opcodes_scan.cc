@@ -197,40 +197,29 @@ void checkScriptsOpcodes()
     if (unknown_opcodes.size() == 0 && sus_strings.size() == 0) {
         printf("Everything is ok, all opcodes are known and no sus strings. Checked %i files\n", checked_files);
     } else {
-        printf("Checked %i files.\n", checked_files);
-        if (unknown_opcodes.size() > 0) {
-            printf("Unknown opcodes in files:\n");
-            for (auto iter : unknown_opcodes) {
-                auto& opcode = iter.first;
-                auto sfallName = std::find_if(
-                    std::begin(opcodeInfoArray),
-                    std::end(opcodeInfoArray),
-                    [&opcode](const SfallOpcodeInfo& info) {
-                        return info.opcode == (opcode & 0x3FF);
-                    });
+        printf("Checked %i files and found those:\n", checked_files);
+        for (auto iter : unknown_opcodes) {
+            auto& opcode = iter.first;
+            auto sfallName = std::find_if(
+                std::begin(opcodeInfoArray),
+                std::end(opcodeInfoArray),
+                [&opcode](const SfallOpcodeInfo& info) {
+                    return info.opcode == (opcode & 0x3FF);
+                });
 
-                // https://github.com/sfall-team/sfall/blob/master/sfall/Modules/Scripting/Opcodes.cpp
-                printf("%s (0x%x - 0x%x - %i):\n",
-                    sfallName != std::end(opcodeInfoArray) ? sfallName->name.c_str() : "(check Opcodes.cpp)",
-                    opcode, opcode & 0x3FF, opcode & 0x3FF);
-                for (auto fName : iter.second) {
-                    printf("  - %s\n", fName.c_str());
-                }
+            // https://github.com/sfall-team/sfall/blob/master/sfall/Modules/Scripting/Opcodes.cpp
+            printf("OPCODE %s (0x%x - 0x%x - %i):\n",
+                sfallName != std::end(opcodeInfoArray) ? sfallName->name.c_str() : "(check Opcodes.cpp)",
+                opcode, opcode & 0x3FF, opcode & 0x3FF);
+            for (auto fName : iter.second) {
+                printf("  - %s\n", fName.c_str());
             }
-        } else {
-            printf("No unknown opcodes found.\n");
         }
-
-        if (sus_strings.size() > 0) {
-            printf("Suspected strings in files:\n");
-            for (auto iter : sus_strings) {
-                printf("%s:\n", iter.first.c_str());
-                for (auto fName : iter.second) {
-                    printf("  - %s\n", fName.c_str());
-                }
+        for (auto iter : sus_strings) {
+            printf("METARULE %s:\n", iter.first.c_str());
+            for (auto fName : iter.second) {
+                printf("  - %s\n", fName.c_str());
             }
-        } else {
-            printf("No suspected strings found.\n");
         }
     }
     printf("Done\n");
