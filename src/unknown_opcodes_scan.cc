@@ -199,7 +199,7 @@ void checkScriptsOpcodes()
     } else {
         printf("Checked %i files.\n", checked_files);
         if (unknown_opcodes.size() > 0) {
-            printf("Unknown opcodes in files:\n", checked_files);
+            printf("Unknown opcodes in files:\n");
             for (auto iter : unknown_opcodes) {
                 auto& opcode = iter.first;
                 auto sfallName = std::find_if(
