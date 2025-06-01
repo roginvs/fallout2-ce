@@ -183,6 +183,22 @@ void scan_in_folder(std::string dirPath)
     }
 }
 
+auto get_opcode_name(fallout::opcode_t opcode)
+{
+    auto sfallName = std::find_if(
+        std::begin(opcodeInfoArray),
+        std::end(opcodeInfoArray),
+        [&opcode](const SfallOpcodeInfo& info) {
+            return info.opcode == (opcode & 0x3FF);
+        });
+
+    if (sfallName != std::end(opcodeInfoArray)) {
+        return sfallName->name;
+    } else {
+        return std::string("(check Opcodes.cpp)");
+    }
+}
+
 void checkScriptsOpcodes()
 {
     unknown_opcodes.clear();
@@ -197,19 +213,12 @@ void checkScriptsOpcodes()
     if (unknown_opcodes.size() == 0 && sus_strings.size() == 0) {
         printf("Everything is ok, all opcodes are known and no sus strings. Checked %i files\n", checked_files);
     } else {
-        printf("Checked %i files and found those:\n", checked_files);
+        printf("\n\nChecked %i files and found those:\n", checked_files);
         for (auto iter : unknown_opcodes) {
             auto& opcode = iter.first;
-            auto sfallName = std::find_if(
-                std::begin(opcodeInfoArray),
-                std::end(opcodeInfoArray),
-                [&opcode](const SfallOpcodeInfo& info) {
-                    return info.opcode == (opcode & 0x3FF);
-                });
-
             // https://github.com/sfall-team/sfall/blob/master/sfall/Modules/Scripting/Opcodes.cpp
             printf("OPCODE %s (0x%x - 0x%x - %i):\n",
-                sfallName != std::end(opcodeInfoArray) ? sfallName->name.c_str() : "(check Opcodes.cpp)",
+                get_opcode_name(opcode).c_str(),
                 opcode, opcode & 0x3FF, opcode & 0x3FF);
             for (auto fName : iter.second) {
                 printf("  - %s\n", fName.c_str());
@@ -221,6 +230,32 @@ void checkScriptsOpcodes()
                 printf("  - %s\n", fName.c_str());
             }
         }
+
+        printf("\nSame but per-file:\n");
+        std::map<std::string, std::set<std::string>> files;
+        for (auto iter : unknown_opcodes) {
+            auto& opcode = iter.first;
+            for (auto fName : iter.second) {
+                std::ostringstream oss;
+                oss << "OPCODE " << get_opcode_name(opcode) << " "
+                    << "0x" << std::hex << (opcode & 0x3FF)
+                    << " (0x" << std::hex << opcode << ")";
+
+                files[fName].insert(oss.str());
+            }
+        }
+        for (auto iter : sus_strings) {
+            for (auto fName : iter.second) {
+                files[fName].insert(std::string("METARULE ") + iter.first);
+            }
+        }
+        for (auto iter : files) {
+            printf("%s:\n", iter.first.c_str());
+            for (auto s : iter.second) {
+                printf("  - %s\n", s.c_str());
+            }
+        }
+        // asdasd
     }
     printf("Done\n");
 
