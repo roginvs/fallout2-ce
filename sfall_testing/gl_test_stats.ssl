@@ -103,6 +103,41 @@ procedure test_stat_critter(variable critter, variable stat_id) begin
     end
 end
 
+procedure test_derived_base_stat_critter(variable critter) begin
+    variable old_agility;
+    old_agility := get_critter_base_stat(critter, STAT_ag);
+    if old_agility == 10 then begin
+        display_msg("FAIL: Agility is 10, not able to test");
+        test_suite_errors++;
+        return;
+    end
+
+    if get_critter_base_stat(critter, STAT_max_move_points) == 10 then begin
+        display_msg("FAIL: Action points is 10 while agility is not 10");
+        test_suite_errors++;
+        return;
+    end    
+
+    set_critter_base_stat(critter, STAT_ag, 10);
+
+    if get_critter_base_stat(critter, STAT_max_move_points) != 10 then begin
+        display_msg("FAIL: Action points not updated to 10 " + 
+          "( got " + get_critter_base_stat(critter, STAT_max_move_points) + ")" +
+        " after agility set to 10");        
+        test_suite_errors++;
+        return;
+    end
+
+    set_critter_base_stat(critter, STAT_ag, old_agility);
+    if get_critter_base_stat(critter, STAT_max_move_points) == 10 then begin
+        display_msg("FAIL: Action points is still 10 while agility is not 10");
+        test_suite_errors++;
+        return;
+    end
+
+    display_msg("OK " + obj_name(critter) + " agility & action points test passed");
+end
+
 procedure start begin
     display_msg("===== stats test =====");
     test_suite_errors := 0;
@@ -154,6 +189,10 @@ procedure start begin
         display_msg("FAIL: Very sus eq values for dude and closest critter");
         test_suite_errors++;
     end
+
+
+    call test_derived_base_stat_critter(dude_obj);
+    call test_derived_base_stat_critter(closest_critter);
 
     display_msg("Done " + test_suite_errors + " errors");
     if (test_suite_errors == 0) then begin
