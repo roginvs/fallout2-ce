@@ -34,12 +34,12 @@ compile.exe -q -p -l -O2 -d -s -n -I<sfall_headers_id> <script_name.ssl>
 
 ## Run test script
 
-1. Move compiled `.int` file into game folder as `data/SCRIPTS/gl_<script_name>.int`
+1. Move compiled `.int` file into game folder as `data/scripts/gl_<script_name>.int`
 
 2. Change `ddraw.ini` and add this section:
 ```ini
 [Scripts]
-GlobalScriptPaths=data/SCRIPTS/gl*.int
+GlobalScriptPaths=data/scripts/gl*.int
 ```
 
 (or add new path using comma as separator)
