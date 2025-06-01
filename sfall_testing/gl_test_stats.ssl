@@ -21,7 +21,7 @@ procedure test_stat_pc(variable stat_id) begin
        get_pc_extra_stat(stat_id));
     if (stat_id > STAT_lu) then begin
         call assertNotEquals("Base stat was updated while it shouldn't",
-            get_pc_base_stat(stat_id), old_base_stat);
+            get_pc_base_stat(stat_id), old_base_stat + 2);
     end else begin
         call assertEquals("Base stat updated",
             get_pc_base_stat(stat_id), old_base_stat + 2);
@@ -59,7 +59,7 @@ procedure test_stat_critter(variable critter, variable stat_id) begin
        get_critter_extra_stat(critter, stat_id));
     if (stat_id > STAT_lu) then begin
         call assertNotEquals("Base stat was updated while it shouldn't",
-            get_critter_base_stat(critter, stat_id), old_base_stat);
+            get_critter_base_stat(critter, stat_id), old_base_stat + 2);
     end else begin
         call assertEquals("Base stat updated",
             get_critter_base_stat(critter, stat_id), old_base_stat + 2);
