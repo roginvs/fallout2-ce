@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <string.h>
+#include <memory>
 
 #include "combat.h"
 #include "debug.h"
@@ -290,15 +291,16 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
     }
 
     // parse format to make it safe
-    char* newFmt = new char[newFmtLen + 1];
+    auto newFmt = std::make_unique<char[]>(newFmtLen + 1);
+
     bool conversion = false;
     int j = 0;
     int valIdx = 0;
 
     char out[5120] = { 0 };
-
+    int bufCount = sizeof(out) - 1;
     char* outBuf = out;
-    int bufCount = sizeof(outBuf) - 1;
+    
 
     int numArgs = args; // From 2 to 8
 
@@ -313,7 +315,7 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
                 // escaped % sign, just copy newFmt up to (and including) the leading % sign
                 newFmt[j] = '\0';
                 // strncpy_s(outBuf, bufCount, newFmt, j);
-                strncpy(outBuf, newFmt, std::min(j, bufCount - 1));
+                strncpy(outBuf, newFmt.get(), std::min(j, bufCount - 1));
                 partLen = j;
             } else {
                 // ignore size prefixes
@@ -337,11 +339,11 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
                 newFmt[j++] = c;
                 newFmt[j] = '\0';
                 partLen = arg.isFloat()
-                    ? snprintf(outBuf, bufCount, newFmt, arg.floatValue)
-                    : arg.isInt()    ? snprintf(outBuf, bufCount, newFmt, arg.integerValue)
-                    : arg.isString() ? snprintf(outBuf, bufCount, newFmt,
+                    ? snprintf(outBuf, bufCount, newFmt.get(), arg.floatValue)
+                    : arg.isInt()    ? snprintf(outBuf, bufCount, newFmt.get(), arg.integerValue)
+                    : arg.isString() ? snprintf(outBuf, bufCount, newFmt.get(),
                                            programGetString(program, arg.opcode, arg.integerValue))
-                                     : snprintf(outBuf, bufCount, newFmt, "<UNSUPPORTED TYPE>");
+                                     : snprintf(outBuf, bufCount, newFmt.get(), "<UNSUPPORTED TYPE>");
             }
             outBuf += partLen;
             bufCount -= partLen;
@@ -358,15 +360,14 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
     if (bufCount > 0) {
         newFmt[j] = '\0';
         // strcpy_s(outBuf, bufCount, newFmt);
-        if (strlen(newFmt) < bufCount) {
-            strcpy(outBuf, newFmt);
+        if (strlen(newFmt.get()) < bufCount) {
+            strcpy(outBuf, newFmt.get());
         } else {
-            strncpy(outBuf, newFmt, bufCount - 1);
+            strncpy(outBuf, newFmt.get(), bufCount - 1);
             outBuf[bufCount - 1] = '\0'; // Ensure null-termination
         }
     }
 
-    delete[] newFmt;
 
     programStackPushString(program, out);
 }

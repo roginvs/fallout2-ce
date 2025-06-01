@@ -1091,6 +1091,10 @@ static void op_div(Program* program)
 
 static void op_sprintf(Program* program)
 {
+    auto arg1 = programStackPopValue(program);
+    auto arg2 = programStackPopString(program);
+    programStackPushValue(program, arg1);
+    programStackPushString(program, arg2);
     sprintf_lite(program, 2, "op_sprintf");  
 }
 
