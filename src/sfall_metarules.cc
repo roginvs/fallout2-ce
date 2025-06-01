@@ -1,8 +1,8 @@
 #include "sfall_metarules.h"
 
 #include <algorithm>
-#include <string.h>
 #include <memory>
+#include <string.h>
 
 #include "combat.h"
 #include "debug.h"
@@ -297,10 +297,9 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
     int j = 0;
     int valIdx = 0;
 
-    char out[5120+1] = { 0 };
+    char out[5120 + 1] = { 0 };
     int bufCount = sizeof(out) - 1;
     char* outBuf = out;
-    
 
     int numArgs = args; // From 2 to 8
 
@@ -367,7 +366,6 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
             outBuf[bufCount - 1] = '\0'; // Ensure null-termination
         }
     }
-
 
     programStackPushString(program, out);
 }
