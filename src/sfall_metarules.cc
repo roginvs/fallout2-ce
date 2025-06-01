@@ -297,7 +297,7 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
     int j = 0;
     int valIdx = 0;
 
-    char out[5120] = { 0 };
+    char out[5120+1] = { 0 };
     int bufCount = sizeof(out) - 1;
     char* outBuf = out;
     
