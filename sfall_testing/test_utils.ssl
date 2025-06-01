@@ -4,8 +4,11 @@
 
 variable test_suite_errors := 0;
 variable test_suite_verbose := false;
+variable test_suite_assertions := 0;
 
 procedure assertEquals(variable desc, variable a, variable b) begin
+   test_suite_assertions++;
+
    if (a != b or typeof(a) != typeof(b)) then begin
       display_msg("Assertion failed \""+desc+"\": "+a+" != "+b);
       test_suite_errors ++;
@@ -15,6 +18,8 @@ procedure assertEquals(variable desc, variable a, variable b) begin
 end
 
 procedure assertNotEquals(variable desc, variable a, variable b) begin
+   test_suite_assertions++;
+
    if (a == b) then begin
       display_msg("Assertion failed \""+desc+"\": "+a+" == "+b);
       test_suite_errors ++;
@@ -24,12 +29,16 @@ procedure assertNotEquals(variable desc, variable a, variable b) begin
 end
 
 procedure report_test_results(variable desc) begin
-    display_msg("Done " + test_suite_errors + " errors");
-    if (test_suite_errors == 0) then begin
-        float_msg(dude_obj, "Stats tests passed!", FLOAT_MSG_GREEN);
-    end else begin
-        float_msg(dude_obj, "Stats " + test_suite_errors + " tests failed", FLOAT_MSG_RED);
-    end
+   display_msg("Done " + test_suite_assertions +
+      " assertions with " + test_suite_errors + " errors");
+
+   if (test_suite_errors == 0) then begin
+      float_msg(dude_obj, desc + " tests passed " + 
+         (test_suite_assertions-test_suite_errors) + "/" +test_suite_assertions + "!", FLOAT_MSG_GREEN);        
+   end else begin
+      float_msg(dude_obj, desc + " failed " + test_suite_errors + " tests from " +
+         test_suite_assertions + "!", FLOAT_MSG_RED);        
+   end
 end
 
 #endif
