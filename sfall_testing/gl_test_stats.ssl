@@ -77,7 +77,7 @@ procedure test_stat_critter(variable critter, variable stat_id) begin
 end
 
 procedure start begin
-    display_msg("===== stats test =====");
+    display_msg("Testing stats...");
     test_suite_errors := 0;
 
     call test_stat_pc(STAT_max_hit_points);

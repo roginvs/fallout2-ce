@@ -29,8 +29,10 @@ procedure assertNotEquals(variable desc, variable a, variable b) begin
 end
 
 procedure report_test_results(variable desc) begin
-   display_msg("Done " + test_suite_assertions +
-      " assertions with " + test_suite_errors + " errors");
+   
+   display_msg("DONE " + desc + " " + 
+     (test_suite_assertions-test_suite_errors) + "/" + test_suite_assertions + "");
+   display_msg("================");
 
    if (test_suite_errors == 0) then begin
       float_msg(dude_obj, desc + " tests passed " + 
