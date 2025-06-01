@@ -1,6 +1,6 @@
 #include "define_lite.h"
 #include "sfall.h"
-#include "test_utils.ssl"
+#include "test_utils.h"
 #include "command_lite.h"
 
 procedure test_stat_pc(variable stat_id) begin

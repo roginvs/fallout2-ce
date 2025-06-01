@@ -1,6 +1,7 @@
-#include "define_lite.h"
+#ifndef TEST_UTILS_H
+#define TEST_UTILS_H
 
-#ifndef assertEquals
+#include "define_lite.h"
 
 variable test_suite_errors := 0;
 variable test_suite_verbose := false;
