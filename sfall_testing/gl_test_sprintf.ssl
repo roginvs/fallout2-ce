@@ -51,5 +51,18 @@ procedure start begin
     call assertEquals("string_format7 hello world", string_format7("%s%s%s%s%s %s%s!", "H", "e", "l", "l", "o", "Wo","rld"), "Hello World!");
     call assertEquals("string_format7 auto hello world", string_format("%s%s%s%s%s %s%s!", "H", "e", "l", "l", "o", "Wo","rld"), "Hello World!");
 
+    call assertEquals("formatted string length 1024", strlen(sprintf(REPEAT_1024, 1)), 1024);
+
+    call assertEquals("formatted string length 5119", strlen(
+         string_format7(
+            "%s%s%s%s%s%s%s",
+            REPEAT_1024,
+            REPEAT_1024,
+            REPEAT_1024,
+            REPEAT_1024,
+            REPEAT_1024,
+            REPEAT_1024,
+            REPEAT_1024)), 5119);
+
     call report_test_results("sprintf");
 end
