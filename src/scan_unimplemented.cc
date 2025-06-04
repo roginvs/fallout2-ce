@@ -73,13 +73,23 @@ void check_int_data(
     }
 };
 
-void print_hex(const std::string& str)
+std::string toHexString(unsigned int value, bool prefix = true, bool uppercase = false)
 {
-    for (unsigned char c : str) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0')
-                  << static_cast<int>(c) << ' ';
+    char buffer[20]; // Enough for "0x" + 8 hex digits + null terminator
+
+    if (prefix) {
+        if (uppercase)
+            std::snprintf(buffer, sizeof(buffer), "0X%X", value);
+        else
+            std::snprintf(buffer, sizeof(buffer), "0x%x", value);
+    } else {
+        if (uppercase)
+            std::snprintf(buffer, sizeof(buffer), "%X", value);
+        else
+            std::snprintf(buffer, sizeof(buffer), "%x", value);
     }
-    std::cout << '\n';
+
+    return std::string(buffer);
 }
 
 void check_file_data(unsigned char* data, int fileSize, std::string fName)
@@ -407,12 +417,11 @@ void checkScriptsOpcodes()
         for (auto iter : unknown_opcodes) {
             auto& opcode = iter.first;
             for (auto fName : iter.second) {
-                std::ostringstream oss;
-                oss << "OPCODE " << get_opcode_name(opcode) << " "
-                    << "0x" << std::hex << (opcode & 0x3FF)
-                    << " (0x" << std::hex << opcode << ")";
+                std::string oss = "OPCODE " + get_opcode_name(opcode) + " "
+                    + toHexString(opcode & 0x3FF)
+                    + " (" + toHexString(opcode) + ")";
 
-                files[fName].insert(oss.str());
+                files[fName].insert(oss);
             }
         }
         for (auto iter : sus_strings) {
