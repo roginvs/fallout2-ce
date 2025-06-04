@@ -6,6 +6,7 @@
 #include "unknown_opcodes_scan_sfall.h"
 #include <algorithm>
 #include <filesystem>
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -19,12 +20,11 @@ std::map<std::string, std::set<std::string>> sus_strings;
 
 int checked_files = 0;
 
-void check_data(
+void check_int_data(
     std::string fName,
     unsigned char* data,
     size_t start_pos,
-    size_t end_pos,
-    size_t static_strings_pos)
+    size_t end_pos)
 {
     size_t i = start_pos;
     bool isPreviousPush = false;
@@ -42,28 +42,6 @@ void check_data(
         };
 
         // printf("DEBUG: pos=0x%lx opcode=0x%x (%x) handler=%s\n", i, opcode, opcodeIndex, handler ? "yes": "no=======================");
-
-        if (opcode >= 0x8276 && opcode <= 0x827C) {
-            auto paramsCount = opcode - 0x8276;
-            /*
-            printf("DEBUG: opcode=0x%x params=%i pos=0x%x prevPush=%i\n",
-              opcode, paramsCount, i, isPreviousPush);
-            if (i != start_pos) {
-                if (isPreviousPush) {
-                    printf("  prev push, val=%i\n", stackReadInt32(data, i - 4));
-                    if (static_strings_pos){
-                        printf("    str=%s\n", &data[static_strings_pos + stackReadInt32(data, i - 4)]);
-                    }else{
-                        printf("    <no static strings>\n");
-                    }
-                } else {
-                    printf("  prev not push opcode=0x%x\n", stackReadInt16(data, i - 2));
-                }
-            } else {
-                printf("  ERR: first opcode\n");
-            }
-            */
-        }
 
         i += 2;
 
@@ -89,36 +67,35 @@ void check_file_data(unsigned char* data, int fileSize, std::string fName)
 {
 
     auto script_strings = std::vector<std::string> {};
-    {
 
-        check_data(fName, data, 0, 0x2A, 0);
+    check_int_data(fName, data, 0, 0x2A);
 
-        auto identifiers_pos = 24 * fallout::stackReadInt32(data, 42) + 42 + 4;
-        auto static_strings_pos = identifiers_pos + fallout::stackReadInt32(data, identifiers_pos) + 4 + 4;
-        auto static_string_len = fallout::stackReadInt32(data, static_strings_pos);
-        if (static_string_len == -1) {
-            static_string_len = -4;
-        }
-        // printf("File %s identifiers_pos=%x static_strings_pos=%x static_string_len=%i\n", fName.c_str(), identifiers_pos, static_strings_pos, static_string_len);
-        if (static_string_len > 0) {
-            auto pos = static_strings_pos + 4;
-            while (pos < static_strings_pos + 4 + static_string_len) {
-                auto str_len = fallout::stackReadInt16(data, pos);
-                pos += 2;
-                auto str = &data[pos];
-                auto str_len_actual = strlen((char*)str);
-                if (str_len_actual <= str_len) {
-                    script_strings.push_back(std::string((char*)str, str_len_actual));
-                }
-                pos += str_len;
-            }
-        }
-        auto code_pos = static_strings_pos + 4 + static_string_len + 4;
-
-        // printf("File %s identifiers_pos=%x static_strings_pos=%x code_pos=%x\n", fName.c_str(), identifiers_pos,static_strings_pos, code_pos);
-
-        check_data(fName, data, code_pos, fileSize, static_strings_pos);
+    auto identifiers_pos = 24 * fallout::stackReadInt32(data, 42) + 42 + 4;
+    auto static_strings_pos = identifiers_pos + fallout::stackReadInt32(data, identifiers_pos) + 4 + 4;
+    auto static_string_len = fallout::stackReadInt32(data, static_strings_pos);
+    if (static_string_len == -1) {
+        static_string_len = -4;
     }
+    // printf("File %s identifiers_pos=%x static_strings_pos=%x static_string_len=%i\n", fName.c_str(), identifiers_pos, static_strings_pos, static_string_len);
+    if (static_string_len > 0) {
+        auto pos = static_strings_pos + 4;
+        while (pos < static_strings_pos + 4 + static_string_len) {
+            auto str_len = fallout::stackReadInt16(data, pos);
+            pos += 2;
+            auto str = &data[pos];
+            auto str_len_actual = strlen((char*)str);
+            if (str_len_actual <= str_len) {
+                script_strings.push_back(std::string((char*)str, str_len_actual));
+            }
+            pos += str_len;
+        }
+    }
+    auto code_pos = static_strings_pos + 4 + static_string_len + 4;
+
+    // printf("File %s identifiers_pos=%x static_strings_pos=%x code_pos=%x\n", fName.c_str(), identifiers_pos,static_strings_pos, code_pos);
+
+    check_int_data(fName, data, code_pos, fileSize);
+
     for (auto script_str : script_strings) {
         if (
             std::find(
@@ -187,8 +164,7 @@ void check_database(std::string dbFileName)
 
     fallout::fileClose(stream);
     if (sizeOfFile != sizeInTheFile) {
-        std::cout << "  - File does not look like database: file size: " << 
-           sizeOfFile << ", size in the file: " << sizeInTheFile << std::endl;
+        std::cout << "  - File does not look like database: file size: " << sizeOfFile << ", size in the file: " << sizeInTheFile << std::endl;
         return;
     }
 
@@ -216,8 +192,7 @@ void check_database(std::string dbFileName)
             fallout::dfileClose(dfile);
         }
     }
-     std::cout << "  - checked " << intCount << " scripts in database file"  << std::endl;
-        
+    std::cout << "  - checked " << intCount << " scripts in database file" << std::endl;
 
     fallout::dbaseClose(db);
 }
@@ -270,11 +245,42 @@ void checkScriptsOpcodes()
 
     checked_files = 0;
 
+    std::string folderName = "/data/games/fallout2_gog_restoration";
+
     // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project");
     // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/scripts_src");
-    scan_in_folder("/data/games/fallout2_gog_restoration");
+    scan_in_folder(folderName);
     // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/tmp/verytmp/");
     // scan_in_folder("/home/vasilii/fallout2-ce/sfall_testing/");
+
+    if (false) { // This is folder path stripping, not used now
+        for (auto& [opcode, nameSet] : unknown_opcodes) {
+            std::set<std::string> updatedNames;
+            for (const auto& name : nameSet) {
+                std::string trimmed = name;
+
+                if (trimmed.rfind(folderName, 0) == 0) { // prefix match
+                    trimmed.erase(0, folderName.length());
+                }
+
+                updatedNames.insert(std::move(trimmed));
+            }
+            nameSet = std::move(updatedNames);
+        }
+        for (auto& [opcode, nameSet] : sus_strings) {
+            std::set<std::string> updatedNames;
+            for (const auto& name : nameSet) {
+                std::string trimmed = name;
+
+                if (trimmed.rfind(folderName, 0) == 0) { // prefix match
+                    trimmed.erase(0, folderName.length());
+                }
+
+                updatedNames.insert(std::move(trimmed));
+            }
+            nameSet = std::move(updatedNames);
+        }
+    }
 
     if (unknown_opcodes.size() == 0 && sus_strings.size() == 0) {
         printf("Everything is ok, all opcodes are known and no sus strings. Checked %i files\n", checked_files);
