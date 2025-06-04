@@ -145,6 +145,8 @@ void check_file_data(unsigned char* data, int fileSize, std::string fName)
         }
         // std::cout << "Script string: " << script_str << std::endl;
     }
+
+    checked_files++;
 }
 void check_file_stream(fallout::File* stream, std::string fName)
 {
@@ -185,15 +187,37 @@ void check_database(std::string dbFileName)
 
     fallout::fileClose(stream);
     if (sizeOfFile != sizeInTheFile) {
-        std::cout << "  - File does not look like database, skipping" << std::endl;
-        std::cout << "    File size: " << sizeOfFile << ", size in the file: " << sizeInTheFile << std::endl;
+        std::cout << "  - File does not look like database: file size: " << 
+           sizeOfFile << ", size in the file: " << sizeInTheFile << std::endl;
         return;
     }
 
     auto db = fallout::dbaseOpen(dbFileName.c_str());
+    int intCount = 0;
     for (int i = 0; i < db->entriesLength; i++) {
-        std::cout << "  - Checking entry " << i << ": " << db->entries[i].path << std::endl;
+        auto entryPath = std::string(db->entries[i].path);
+        // std::cout << "  - Checking entry " << i << ": " << entryPath << std::endl;
+
+        std::transform(entryPath.begin(), entryPath.end(), entryPath.begin(), ::tolower);
+        if (entryPath.rfind(".int") == entryPath.size() - 4) {
+            // std::cout << "    - This is script, checking..." << std::endl;
+            fallout::DFile* dfile = fallout::dfileOpen(db, db->entries[i].path, "rb");
+            if (dfile == NULL) {
+                std::cout << "    - Error opening script file, skipping" << std::endl;
+                continue;
+            }
+
+            auto fileSize = fallout::dfileGetSize(dfile);
+            auto data = std::make_unique<unsigned char[]>(fileSize);
+            fallout::dfileRead(data.get(), 1, fileSize, dfile);
+
+            check_file_data(data.get(), fileSize, dbFileName + std::string(" -> ") + db->entries[i].path);
+            intCount++;
+            fallout::dfileClose(dfile);
+        }
     }
+     std::cout << "  - checked " << intCount << " scripts in database file"  << std::endl;
+        
 
     fallout::dbaseClose(db);
 }
