@@ -1,4 +1,5 @@
 #include "unknown_opcodes_scan.h"
+#include "dfile.h"
 #include "interpreter.h"
 #include "platform_compat.h"
 #include "sfall_metarules.h"
@@ -166,6 +167,37 @@ void check_file(std::string fName)
     fileClose(stream);
 };
 
+void check_database(std::string dbFileName)
+{
+    std::cout << "Checking database file: " << dbFileName << std::endl;
+
+    fallout::File* stream = fallout::fileOpen(dbFileName.c_str(), "rb");
+    auto sizeOfFile = fallout::fileGetSize(stream);
+    if (sizeOfFile <= 4) {
+        std::cout << "  - File is too small, skipping" << std::endl;
+        fallout::fileClose(stream);
+        return;
+    }
+    fallout::fileSeek(stream, sizeOfFile - 4, SEEK_SET);
+    unsigned int sizeInTheFile;
+    fallout::fileReadUInt32(stream, &sizeInTheFile);
+    sizeInTheFile = ((sizeInTheFile & 0xFF000000) >> 24) | ((sizeInTheFile & 0xFF0000) >> 8) | ((sizeInTheFile & 0xFF00) << 8) | ((sizeInTheFile & 0xFF) << 24);
+
+    fallout::fileClose(stream);
+    if (sizeOfFile != sizeInTheFile) {
+        std::cout << "  - File does not look like database, skipping" << std::endl;
+        std::cout << "    File size: " << sizeOfFile << ", size in the file: " << sizeInTheFile << std::endl;
+        return;
+    }
+
+    auto db = fallout::dbaseOpen(dbFileName.c_str());
+    for (int i = 0; i < db->entriesLength; i++) {
+        std::cout << "  - Checking entry " << i << ": " << db->entries[i].path << std::endl;
+    }
+
+    fallout::dbaseClose(db);
+}
+
 void scan_in_folder(std::string dirPath)
 {
     // std::cout << "Scanning folder: " << dirPath << std::endl;
@@ -181,7 +213,7 @@ void scan_in_folder(std::string dirPath)
                 // std::cout << "Scanning file: " << dirEntry.path() << std::endl;
                 check_file(dirEntry.path());
             } else if (filePath.rfind(".dat") == filePath.size() - 4) {
-                // asdasd
+                check_database(dirEntry.path());
             } else {
                 // std::cout << "Skipping file with unsupported extension: " << dirEntry.path() << std::endl;
             }
