@@ -4,8 +4,8 @@
 #include "dictionary.h"
 #include "interpreter.h"
 #include "platform_compat.h"
-#include "sfall_metarules.h"
 #include "scan_unimplemented_sfall.h"
+#include "sfall_metarules.h"
 #include <algorithm>
 #include <filesystem>
 #include <iomanip>
@@ -301,9 +301,9 @@ ConfigChecker::ConfigChecker(ConfigMap configDefaults, std::string configFileNam
     for (const auto& [section, entries] : configDefaults) {
         std::map<std::string, std::string> lowerEntries;
         for (const auto& [key, value] : entries) {
-            lowerEntries[to_lower(key)] = value; 
+            lowerEntries[to_lower(key)] = value;
         }
-        defaultsMap[to_lower(section)] = std::move(lowerEntries);   
+        defaultsMap[to_lower(section)] = std::move(lowerEntries);
     }
 }
 

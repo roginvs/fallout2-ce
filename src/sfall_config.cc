@@ -1,9 +1,9 @@
 #include "sfall_config.h"
 
+#include "platform_compat.h"
+#include "scan_unimplemented.h"
 #include <stdio.h>
 #include <string.h>
-#include "scan_unimplemented.h"
-#include "platform_compat.h"
 
 namespace fallout {
 
