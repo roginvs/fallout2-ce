@@ -292,8 +292,19 @@ auto config_to_maps(fallout::Config& config, bool to_lowercase)
 
 ConfigChecker::ConfigChecker(fallout::Config& configDefaults, std::string configFileName)
     : configFileName(configFileName)
+    , defaultsMap(config_to_maps(configDefaults, true))
 {
-    defaultsMap = config_to_maps(configDefaults, true);
+}
+ConfigChecker::ConfigChecker(ConfigMap configDefaults, std::string configFileName)
+    : configFileName(configFileName)
+{
+    for (const auto& [section, entries] : configDefaults) {
+        std::map<std::string, std::string> lowerEntries;
+        for (const auto& [key, value] : entries) {
+            lowerEntries[to_lower(key)] = value; 
+        }
+        defaultsMap[to_lower(section)] = std::move(lowerEntries);   
+    }
 }
 
 void ConfigChecker::check(fallout::Config& readedConfig)
