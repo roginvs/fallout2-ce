@@ -428,5 +428,5 @@ void checkScriptsOpcodes()
     }
     printf("Done\n");
 
-    exit(0);
+    printf("\n\n");
 }
