@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <set>
 #include <stdio.h>
 #include <string.h>
@@ -83,22 +84,8 @@ void print_hex(const std::string& str)
     std::cout << '\n';
 }
 
-void check_file(std::string fName)
+void check_file_data(unsigned char* data, int fileSize, std::string fName)
 {
-    fallout::File* stream = fallout::fileOpen(fName.c_str(), "rb");
-    if (stream == NULL) {
-        printf("Error opening %s\n", fName.c_str());
-        exit(1);
-    }
-
-    checked_files++;
-
-    int fileSize = fallout::fileGetSize(stream);
-    // TODO: Use smart ptr
-    auto data = (unsigned char*)malloc(fileSize);
-
-    fileRead(data, 1, fileSize, stream);
-    fileClose(stream);
 
     auto script_strings = std::vector<std::string> {};
     {
@@ -157,8 +144,26 @@ void check_file(std::string fName)
         }
         // std::cout << "Script string: " << script_str << std::endl;
     }
+}
+void check_file_stream(fallout::File* stream, std::string fName)
+{
+    int fileSize = fallout::fileGetSize(stream);
+    auto data = std::make_unique<unsigned char[]>(fileSize);
+    fileRead(data.get(), 1, fileSize, stream);
+    check_file_data(data.get(), fileSize, fName);
+}
 
-    free(data);
+void check_file(std::string fName)
+{
+    fallout::File* stream = fallout::fileOpen(fName.c_str(), "rb");
+    if (stream == NULL) {
+        printf("Error opening %s\n", fName.c_str());
+        exit(1);
+    }
+
+    check_file_stream(stream, fName);
+
+    fileClose(stream);
 };
 
 void scan_in_folder(std::string dirPath)
@@ -175,6 +180,8 @@ void scan_in_folder(std::string dirPath)
                 filePath.rfind(".int.expected") == filePath.size() - 13 || filePath.rfind(".int") == filePath.size() - 4) {
                 // std::cout << "Scanning file: " << dirEntry.path() << std::endl;
                 check_file(dirEntry.path());
+            } else if (filePath.rfind(".dat") == filePath.size() - 4) {
+                // asdasd
             } else {
                 // std::cout << "Skipping file with unsupported extension: " << dirEntry.path() << std::endl;
             }
@@ -207,8 +214,9 @@ void checkScriptsOpcodes()
 
     checked_files = 0;
 
-    //scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project");
-    scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/scripts_src");
+    // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project");
+    // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/scripts_src");
+    scan_in_folder("/data/games/fallout2_gog_restoration");
     // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/tmp/verytmp/");
     // scan_in_folder("/home/vasilii/fallout2-ce/sfall_testing/");
 
