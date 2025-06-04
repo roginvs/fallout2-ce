@@ -70,7 +70,7 @@ bool sfallConfigInit(int argc, char** argv)
     configSetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_AUTO_OPEN_DOORS, 0);
     configSetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_GAPLESS_MUSIC, 0);
 
-    on_config_defaults(gSfallConfig);
+    auto configChecker = ConfigChecker(gSfallConfig, "ddraw.ini");
 
     char path[COMPAT_MAX_PATH];
     char* executable = argv[0];
@@ -86,6 +86,8 @@ bool sfallConfigInit(int argc, char** argv)
     configRead(&gSfallConfig, path, false);
 
     configParseCommandLineArguments(&gSfallConfig, argc, argv);
+
+    configChecker.check(gSfallConfig);
 
     gSfallConfigInitialized = true;
 

@@ -1,5 +1,7 @@
 #include "unknown_opcodes_scan.h"
+#include "config.h"
 #include "dfile.h"
+#include "dictionary.h"
 #include "interpreter.h"
 #include "platform_compat.h"
 #include "sfall_metarules.h"
@@ -14,22 +16,25 @@
 #include <stdio.h>
 #include <string.h>
 #include <string>
-#include "dictionary.h"
-#include "config.h"
-
 
 std::map<fallout::opcode_t, std::set<std::string>> unknown_opcodes;
 std::map<std::string, std::set<std::string>> sus_strings;
 
-bool ends_with(const std::string& str, const std::string& suffix) {
-    auto low = str;
-  std::transform(low.begin(), low.end(), low.begin(), ::tolower);
-    auto low_suffix = suffix;
-    std::transform(low_suffix.begin(), low_suffix.end(), low_suffix.begin(), ::tolower);
+std::string to_lower(const std::string& str)
+{
+    std::string lowerStr = str;
+    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
+    return lowerStr;
+};
+
+bool ends_with(const std::string& str, const std::string& suffix)
+{
+    auto low = to_lower(str);
+    auto low_suffix = to_lower(suffix);
     if (str.size() < suffix.size()) {
         return false;
     }
-    return std::equal(low_suffix.rbegin(), low_suffix.rend(), low.rbegin()); 
+    return std::equal(low_suffix.rbegin(), low_suffix.rend(), low.rbegin());
 }
 
 int checked_files = 0;
@@ -160,7 +165,6 @@ void check_file(std::string fName)
     fileClose(stream);
 };
 
-
 void check_database(std::string dbFileName)
 {
     std::cout << "Checking database file: " << dbFileName << std::endl;
@@ -211,8 +215,6 @@ void check_database(std::string dbFileName)
     fallout::dbaseClose(db);
 }
 
-
-
 void scan_in_folder(std::string dirPath)
 {
     // std::cout << "Scanning folder: " << dirPath << std::endl;
@@ -223,8 +225,7 @@ void scan_in_folder(std::string dirPath)
         } else if (dirEntry.is_regular_file()) {
             std::string filePath = dirEntry.path();
             if (
-                ends_with(filePath, ".int") ||
-                ends_with(filePath, ".int.expected")){
+                ends_with(filePath, ".int") || ends_with(filePath, ".int.expected")) {
                 // std::cout << "Scanning file: " << dirEntry.path() << std::endl;
                 check_file(dirEntry.path());
             } else if (ends_with(filePath, ".dat")) {
@@ -254,40 +255,77 @@ auto get_opcode_name(fallout::opcode_t opcode)
     }
 }
 
-auto config_to_maps(fallout::Config& config){
-
+auto config_to_maps(fallout::Config& config, bool to_lowercase)
+{
+    ConfigMap out;
     for (int sectionIndex = 0; sectionIndex < config.entriesLength; sectionIndex++) {
         auto section = &(config.entries[sectionIndex]);
-        std::cout << "Section = " << section->key << std::endl;
+        // std::cout << "Section = " << section->key << std::endl;
         auto sectionDict = (fallout::ConfigSection*)section->value;
 
         for (int entryIndex = 0; entryIndex < sectionDict->entriesLength; entryIndex++) {
-        auto sectionEntry = &(sectionDict->entries[entryIndex]);
-            std::cout << "  Key = " << sectionEntry->key << "; value " << sectionEntry->value << std::endl;
-        }        
-    }
-    /*
-        DictionaryEntry* sectionEntry = &(config->entries[sectionIndex]);
-    ConfigSection* section = (ConfigSection*)sectionEntry->value;
+            auto sectionEntry = &(sectionDict->entries[entryIndex]);
+            auto val = *(char**)sectionEntry->value;
 
-        DictionaryEntry* keyValueEntry = &(section->entries[index]);
-    *valuePtr = *(char**)keyValueEntry->value;
-
-
-    std::map<std::string, std::string> configMap;
-    for (const auto& section : config.sections) {
-        for (const auto& keyValue : section.second) {
-            configMap[section.first + "." + keyValue.first] = keyValue.second;
+            std::string sectionKey = section->key;
+            if (to_lowercase) {
+                sectionKey = to_lower(sectionKey);
+            }
+            std::string entryKey = sectionEntry->key;
+            if (to_lowercase) {
+                entryKey = to_lower(entryKey);
+            }
+            out[sectionKey][entryKey] = std::string(val);
+            // std::cout << "  Key = " << sectionEntry->key << "; value " << val << std::endl;
         }
     }
-    return configMap;
-    */
-   return 0;
+
+    /*
+    for (auto [k1, sec]: out) {
+        for (auto [k2, v]: sec) {
+            std::cout << "  " << k1 << "." << k2 << " = " << v << std::endl;
+        }
+    }
+        */
+    return out;
 }
 
-void on_config_defaults(fallout::Config& config) {
-    //asdasd
-    
+ConfigChecker::ConfigChecker(fallout::Config& configDefaults, std::string configFileName)
+    : configFileName(configFileName)
+{
+    defaultsMap = config_to_maps(configDefaults, true);
+}
+
+void ConfigChecker::check(fallout::Config& readedConfig)
+{
+    std::cout << "Checking config file: " << configFileName << std::endl;
+    int errorsCount = 0;
+    auto readedMap = config_to_maps(readedConfig, false);
+
+    for (const auto& [readedSection, readedEntries] : readedMap) {
+        if (defaultsMap.find(to_lower(readedSection)) == defaultsMap.end()) {
+            std::cout << "- ERROR: Section '" << readedSection << "' is not defined in defaults" << std::endl;
+            for (const auto& [key, value] : readedEntries) {
+                std::cout << "    - " << key << "=" << value << std::endl;
+            };
+            errorsCount++;
+            continue;
+        }
+        for (const auto& [readedKey, readedValue] : readedEntries) {
+            if (defaultsMap[to_lower(readedSection)].find(to_lower(readedKey)) == defaultsMap[to_lower(readedSection)].end()) {
+                std::cout << "- Unknown key in [" << readedSection << "]: " << readedKey << "=" << readedValue << std::endl;
+                errorsCount++;
+            } else if (defaultsMap[readedSection][readedKey] != readedValue) {
+                // copilot suggested this, but I think it is not needed
+            }
+        }
+    }
+    if (errorsCount == 0) {
+        std::cout << "- Everything is ok, no errors found" << std::endl;
+    } else {
+        std::cout << "- Found " << errorsCount << " errors in config file" << std::endl;
+    }
+    std::cout << std::endl;
 }
 
 void checkScriptsOpcodes()
@@ -300,7 +338,7 @@ void checkScriptsOpcodes()
     std::string folderName = ".";
 
     scan_in_folder(folderName);
-    
+
     if (false) { // This is folder path stripping, not used now
         for (auto& [opcode, nameSet] : unknown_opcodes) {
             std::set<std::string> updatedNames;
