@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
-
+#include "unknown_opcodes_scan.h"
 #include "platform_compat.h"
 
 namespace fallout {
@@ -69,6 +69,8 @@ bool sfallConfigInit(int argc, char** argv)
     configSetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_USE_WALK_DISTANCE, 5);
     configSetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_AUTO_OPEN_DOORS, 0);
     configSetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_GAPLESS_MUSIC, 0);
+
+    on_config_defaults(gSfallConfig);
 
     char path[COMPAT_MAX_PATH];
     char* executable = argv[0];

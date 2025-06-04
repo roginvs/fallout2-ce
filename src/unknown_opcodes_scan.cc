@@ -14,9 +14,23 @@
 #include <stdio.h>
 #include <string.h>
 #include <string>
+#include "dictionary.h"
+#include "config.h"
+
 
 std::map<fallout::opcode_t, std::set<std::string>> unknown_opcodes;
 std::map<std::string, std::set<std::string>> sus_strings;
+
+bool ends_with(const std::string& str, const std::string& suffix) {
+    auto low = str;
+  std::transform(low.begin(), low.end(), low.begin(), ::tolower);
+    auto low_suffix = suffix;
+    std::transform(low_suffix.begin(), low_suffix.end(), low_suffix.begin(), ::tolower);
+    if (str.size() < suffix.size()) {
+        return false;
+    }
+    return std::equal(low_suffix.rbegin(), low_suffix.rend(), low.rbegin()); 
+}
 
 int checked_files = 0;
 
@@ -146,13 +160,14 @@ void check_file(std::string fName)
     fileClose(stream);
 };
 
+
 void check_database(std::string dbFileName)
 {
     std::cout << "Checking database file: " << dbFileName << std::endl;
 
     fallout::File* stream = fallout::fileOpen(dbFileName.c_str(), "rb");
     auto sizeOfFile = fallout::fileGetSize(stream);
-    if (sizeOfFile <= 4) {
+    if (sizeOfFile <= 8) {
         std::cout << "  - File is too small, skipping" << std::endl;
         fallout::fileClose(stream);
         return;
@@ -174,8 +189,7 @@ void check_database(std::string dbFileName)
         auto entryPath = std::string(db->entries[i].path);
         // std::cout << "  - Checking entry " << i << ": " << entryPath << std::endl;
 
-        std::transform(entryPath.begin(), entryPath.end(), entryPath.begin(), ::tolower);
-        if (entryPath.rfind(".int") == entryPath.size() - 4) {
+        if (ends_with(entryPath, ".int")) {
             // std::cout << "    - This is script, checking..." << std::endl;
             fallout::DFile* dfile = fallout::dfileOpen(db, db->entries[i].path, "rb");
             if (dfile == NULL) {
@@ -197,6 +211,8 @@ void check_database(std::string dbFileName)
     fallout::dbaseClose(db);
 }
 
+
+
 void scan_in_folder(std::string dirPath)
 {
     // std::cout << "Scanning folder: " << dirPath << std::endl;
@@ -205,13 +221,13 @@ void scan_in_folder(std::string dirPath)
             scan_in_folder(dirEntry.path().string());
             continue;
         } else if (dirEntry.is_regular_file()) {
-            std::string filePath = dirEntry.path().string();
-            std::transform(filePath.begin(), filePath.end(), filePath.begin(), ::tolower);
+            std::string filePath = dirEntry.path();
             if (
-                filePath.rfind(".int.expected") == filePath.size() - 13 || filePath.rfind(".int") == filePath.size() - 4) {
+                ends_with(filePath, ".int") ||
+                ends_with(filePath, ".int.expected")){
                 // std::cout << "Scanning file: " << dirEntry.path() << std::endl;
                 check_file(dirEntry.path());
-            } else if (filePath.rfind(".dat") == filePath.size() - 4) {
+            } else if (ends_with(filePath, ".dat")) {
                 check_database(dirEntry.path());
             } else {
                 // std::cout << "Skipping file with unsupported extension: " << dirEntry.path() << std::endl;
@@ -238,6 +254,42 @@ auto get_opcode_name(fallout::opcode_t opcode)
     }
 }
 
+auto config_to_maps(fallout::Config& config){
+
+    for (int sectionIndex = 0; sectionIndex < config.entriesLength; sectionIndex++) {
+        auto section = &(config.entries[sectionIndex]);
+        std::cout << "Section = " << section->key << std::endl;
+        auto sectionDict = (fallout::ConfigSection*)section->value;
+
+        for (int entryIndex = 0; entryIndex < sectionDict->entriesLength; entryIndex++) {
+        auto sectionEntry = &(sectionDict->entries[entryIndex]);
+            std::cout << "  Key = " << sectionEntry->key << "; value " << sectionEntry->value << std::endl;
+        }        
+    }
+    /*
+        DictionaryEntry* sectionEntry = &(config->entries[sectionIndex]);
+    ConfigSection* section = (ConfigSection*)sectionEntry->value;
+
+        DictionaryEntry* keyValueEntry = &(section->entries[index]);
+    *valuePtr = *(char**)keyValueEntry->value;
+
+
+    std::map<std::string, std::string> configMap;
+    for (const auto& section : config.sections) {
+        for (const auto& keyValue : section.second) {
+            configMap[section.first + "." + keyValue.first] = keyValue.second;
+        }
+    }
+    return configMap;
+    */
+   return 0;
+}
+
+void on_config_defaults(fallout::Config& config) {
+    //asdasd
+    
+}
+
 void checkScriptsOpcodes()
 {
     unknown_opcodes.clear();
@@ -245,14 +297,10 @@ void checkScriptsOpcodes()
 
     checked_files = 0;
 
-    std::string folderName = "/data/games/fallout2_gog_restoration";
+    std::string folderName = ".";
 
-    // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project");
-    // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/scripts_src");
     scan_in_folder(folderName);
-    // scan_in_folder("/home/vasilii/sslc/test/gamescripts/Fallout2_Restoration_Project/tmp/verytmp/");
-    // scan_in_folder("/home/vasilii/fallout2-ce/sfall_testing/");
-
+    
     if (false) { // This is folder path stripping, not used now
         for (auto& [opcode, nameSet] : unknown_opcodes) {
             std::set<std::string> updatedNames;
