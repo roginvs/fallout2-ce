@@ -1,11 +1,11 @@
-#include "unknown_opcodes_scan.h"
+#include "scan_unimplemented.h"
 #include "config.h"
 #include "dfile.h"
 #include "dictionary.h"
 #include "interpreter.h"
 #include "platform_compat.h"
 #include "sfall_metarules.h"
-#include "unknown_opcodes_scan_sfall.h"
+#include "scan_unimplemented_sfall.h"
 #include <algorithm>
 #include <filesystem>
 #include <iomanip>

@@ -7,7 +7,7 @@
 #include "db.h"
 #include "main.h"
 #include "platform_compat.h"
-#include "unknown_opcodes_scan.h"
+#include "scan_unimplemented.h"
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h>

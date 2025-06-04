@@ -10,7 +10,7 @@
 #include "interface.h"
 #include "memory.h"
 #include "mouse.h"
-#include "unknown_opcodes_scan.h"
+#include "scan_unimplemented.h"
 #include "win32.h"
 #include "window_manager.h"
 #include "window_manager_private.h"

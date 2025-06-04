@@ -35,7 +35,7 @@
 #include "stat.h"
 #include "svga.h"
 #include "tile.h"
-#include "unknown_opcodes_scan.h"
+#include "scan_unimplemented.h"
 #include "window.h"
 #include "window_manager.h"
 #include "window_manager_private.h"

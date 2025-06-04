@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "unknown_opcodes_scan.h"
+#include "scan_unimplemented.h"
 #include "platform_compat.h"
 
 namespace fallout {
