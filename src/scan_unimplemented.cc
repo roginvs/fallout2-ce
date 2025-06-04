@@ -383,6 +383,7 @@ void checkScriptsOpcodes()
         printf("Everything is ok, all opcodes are known and no sus strings. Checked %i files\n", checked_files);
     } else {
         printf("\n\nChecked %i files and found those:\n", checked_files);
+        // TODO: Sort
         for (auto iter : unknown_opcodes) {
             auto& opcode = iter.first;
             // https://github.com/sfall-team/sfall/blob/master/sfall/Modules/Scripting/Opcodes.cpp
@@ -401,6 +402,7 @@ void checkScriptsOpcodes()
         }
 
         printf("\nSame but per-file:\n");
+        // TODO: Sort
         std::map<std::string, std::set<std::string>> files;
         for (auto iter : unknown_opcodes) {
             auto& opcode = iter.first;
