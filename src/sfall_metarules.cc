@@ -12,6 +12,7 @@
 #include "game_dialog.h"
 #include "game_mouse.h"
 #include "interface.h"
+#include "interpreter.h"
 #include "inventory.h"
 #include "object.h"
 #include "platform_compat.h"
@@ -20,7 +21,6 @@
 #include "tile.h"
 #include "window.h"
 #include "worldmap.h"
-#include "interpreter.h"
 
 namespace fallout {
 

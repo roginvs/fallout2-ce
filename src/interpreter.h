@@ -13,7 +13,6 @@ namespace fallout {
 // SFALL: Increase number of opcodes.
 #define OPCODE_MAX_COUNT 768
 
-
 typedef enum Opcode {
     OPCODE_NOOP = 0x8000,
     OPCODE_PUSH = 0x8001,
@@ -243,7 +242,6 @@ void programReturnStackPushPointer(Program* program, void* value);
 ProgramValue programReturnStackPopValue(Program* program);
 int programReturnStackPopInteger(Program* program);
 void* programReturnStackPopPointer(Program* program);
-
 
 } // namespace fallout
 
