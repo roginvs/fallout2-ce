@@ -10,8 +10,6 @@
 #include "scan_unimplemented_sfall.h"
 #include "sfall_metarules.h"
 #include <algorithm>
-#include <dirent.h>
-#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -21,6 +19,17 @@
 #include <string.h>
 #include <string>
 #include <sys/stat.h>
+
+#if defined(__linux__)
+    #include <filesystem>
+#elif defined(_WIN32)
+    #include <windows.h>
+    #include <sys/stat.h>
+#else
+    #include <dirent.h>
+    #include <sys/stat.h>
+    #include <cstring>
+#endif
 
 std::string to_lower(const std::string& str)
 {
@@ -59,21 +68,30 @@ std::string toHexString(unsigned int value, bool prefix = true, bool uppercase =
 }
 
 
+#if defined(__linux__)
+#define directory_iterator std::filesystem::directory_iterator
+#else
+
 // This is a simple directory iterator that mimics the behavior of C++17's std::filesystem::directory_iterator
 class directory_iterator {
 public:
     class DirEntry {
     public:
         explicit DirEntry(const std::string& fullPath)
-            : _path(fullPath)
-        {
+            : _path(fullPath), _isDir(false), _isFile(false) {
+#ifdef _WIN32
+            struct _stat s;
+            if (_stat(fullPath.c_str(), &s) == 0) {
+                _isDir = (s.st_mode & _S_IFDIR);
+                _isFile = (s.st_mode & _S_IFREG);
+            }
+#else
             struct stat s;
             if (stat(fullPath.c_str(), &s) == 0) {
                 _isDir = S_ISDIR(s.st_mode);
                 _isFile = S_ISREG(s.st_mode);
-            } else {
-                _isDir = _isFile = false;
             }
+#endif
         }
 
         bool is_directory() const { return _isDir; }
@@ -85,28 +103,51 @@ public:
         bool _isDir;
         bool _isFile;
     };
+
     class Iterator {
     public:
         Iterator() = default;
-        Iterator(const std::string& path)
-            : _dir(opendir(path.c_str()))
-            , _root(path)
-        {
-            ++(*this); // Load first entry
+
+        explicit Iterator(const std::string& path) : _root(path) {
+#ifdef _WIN32
+            std::string searchPath = path + "\\*";
+            _hFind = FindFirstFileA(searchPath.c_str(), &_findData);
+            _hasMore = (_hFind != INVALID_HANDLE_VALUE);
+#else
+            _dir = opendir(path.c_str());
+#endif
+            ++(*this); // load first valid
         }
 
-        ~Iterator()
-        {
-            if (_dir) closedir(_dir);
+        ~Iterator() {
+#ifdef _WIN32
+            if (_hFind != INVALID_HANDLE_VALUE) {
+                FindClose(_hFind);
+            }
+#else
+            if (_dir) {
+                closedir(_dir);
+            }
+#endif
         }
 
-        DirEntry operator*() const
-        {
+        DirEntry operator*() const {
             return DirEntry(_root + "/" + _entryName);
         }
 
-        Iterator& operator++()
-        {
+        Iterator& operator++() {
+#ifdef _WIN32
+            while (_hasMore) {
+                std::string name = _findData.cFileName;
+                if (name != "." && name != "..") {
+                    _entryName = name;
+                    _hasMore = FindNextFileA(_hFind, &_findData);
+                    return *this;
+                }
+                _hasMore = FindNextFileA(_hFind, &_findData);
+            }
+            _hFind = INVALID_HANDLE_VALUE;
+#else
             if (!_dir) return *this;
             struct dirent* entry;
             while ((entry = readdir(_dir))) {
@@ -116,28 +157,35 @@ public:
                     return *this;
                 }
             }
-            // No more entries
             closedir(_dir);
             _dir = nullptr;
+#endif
             _entryName.clear();
             return *this;
         }
 
-        bool operator!=(const Iterator& other) const
-        {
+        bool operator!=(const Iterator& other) const {
+#ifdef _WIN32
+            return _hFind != other._hFind;
+#else
             return _dir != other._dir;
+#endif
         }
 
     private:
-        DIR* _dir = nullptr;
         std::string _root;
         std::string _entryName;
+
+#ifdef _WIN32
+        HANDLE _hFind = INVALID_HANDLE_VALUE;
+        WIN32_FIND_DATAA _findData;
+        bool _hasMore = false;
+#else
+        DIR* _dir = nullptr;
+#endif
     };
 
-    explicit directory_iterator(const std::string& path)
-        : _path(path)
-    {
-    }
+    explicit directory_iterator(const std::string& path) : _path(path) {}
     Iterator begin() const { return Iterator(_path); }
     Iterator end() const { return Iterator(); }
 
@@ -145,5 +193,6 @@ private:
     std::string _path;
 };
 
+#endif
 
 #endif

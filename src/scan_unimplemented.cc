@@ -21,4 +21,3 @@
 #include "scan_unimplemented_utils.h"
 #include "scan_unimplemented_opcodes.h"
 #include "scan_unimplemented_configs.h"
-
