@@ -11,10 +11,10 @@ procedure assertEquals(variable desc, variable a, variable b) begin
    test_suite_assertions++;
 
    if (a != b or typeof(a) != typeof(b)) then begin
-      display_msg("Assertion failed \""+desc+"\": "+a+" != "+b);
+      display_msg("FAIL \""+desc+"\": "+a+" != "+b);
       test_suite_errors ++;
    end else if (test_suite_verbose) then begin
-      display_msg("Assert \""+desc+"\" ok");
+      display_msg("ok \""+desc+"\"");
    end
 end
 
@@ -22,10 +22,10 @@ procedure assertNotEquals(variable desc, variable a, variable b) begin
    test_suite_assertions++;
 
    if (a == b) then begin
-      display_msg("Assertion failed \""+desc+"\": "+a+" == "+b);
+      display_msg("FAIL \""+desc+"\": "+a+" == "+b);
       test_suite_errors ++;
    end else if (test_suite_verbose) then begin
-      display_msg("Assert \""+desc+"\" ok");
+      display_msg("ok \""+desc+"\"");
    end
 end
 
@@ -35,10 +35,10 @@ procedure assertFloat(variable desc, variable a, variable b, variable tolerance 
 
    variable diff := abs(a - b);
    if (diff > tolerance) then begin
-      display_msg("Assertion failed \""+desc+"\": "+a+" != "+b+" (diff: "+diff+")");
+      display_msg("FAIL \""+desc+"\": "+a+" != "+b+" (diff: "+diff+")");
       test_suite_errors ++;
    end else if (test_suite_verbose) then begin
-      display_msg("Assert \""+desc+"\" ok");
+      display_msg("ok \""+desc+"\"");
    end
 end
 
@@ -98,14 +98,14 @@ procedure report_test_results(variable desc) begin
    end
    
 
+   variable assertions_stats_str = (arr_id[TEST_ASSERTIONS_TOTAL]-arr_id[TEST_ASSERTIONS_FAILED]) + 
+      "/" + arr_id[TEST_ASSERTIONS_TOTAL];
    if (arr_id[TEST_ASSERTIONS_FAILED] == 0) then begin
       float_msg(dude_obj, "Tested " + total_suites_count + " cases: " + total_suites_names + ". " +
-          (arr_id[TEST_ASSERTIONS_TOTAL]-arr_id[TEST_ASSERTIONS_FAILED]) + "/" + arr_id[TEST_ASSERTIONS_TOTAL] +
-          " assertions passed!", FLOAT_MSG_GREEN);
+          assertions_stats_str + " assertions passed!", FLOAT_MSG_GREEN);
    end else begin
       float_msg(dude_obj, "Tested " + total_suites_count + " cases: " + total_suites_names + ". " +
-          (arr_id[TEST_ASSERTIONS_TOTAL]-arr_id[TEST_ASSERTIONS_FAILED]) + "/" + arr_id[TEST_ASSERTIONS_TOTAL] +
-           " assertions passed", FLOAT_MSG_RED);
+          assertions_stats_str + " assertions passed", FLOAT_MSG_RED);
    end
 end
 
