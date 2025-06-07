@@ -1,0 +1,12 @@
+#include "test_utils.h"
+#include "sfall.h"
+
+procedure start begin
+
+    display_msg("Testing metarule_exist functions...");
+
+    call assertEquals("string_format", metarule_exist("string_format"), 1);
+    call assertEquals("metarule_exist", metarule_exist("metarule_exist"), 1);
+    
+    call report_test_results("metarule_exist");
+end
