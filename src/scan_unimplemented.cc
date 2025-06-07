@@ -10,7 +10,6 @@
 #include "scan_unimplemented_utils.h"
 #include "sfall_metarules.h"
 #include <algorithm>
-#include <dirent.h>
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
