@@ -48,28 +48,63 @@ procedure report_test_results(variable desc) begin
      (test_suite_assertions-test_suite_errors) + "/" + test_suite_assertions + "");
    display_msg("================");
 
-   #define TEST_CASES "TstCases"
-   #define TEST_ASSERTIONS_TOTAL "TestTota"
-   #define TEST_ASSERTIONS_FAILED "TestFail"
+
+   #define GL_VAR_TESTING_INFO_ARRAY_ID "TestArra"
+   #define TEST_ARR_IDENTIFIER_KEY "__testing_info_array__"
+   variable arr_id = get_sfall_global_int(GL_VAR_TESTING_INFO_ARRAY_ID);
+   if arr_id != 0 then begin
+      // Let's check that it is actually our testing array
+      if array_key(arr_id, -1) == 0 then begin
+         // It is not even associative array, so it is not our testing array
+         arr_id = 0;
+      end else begin
+         if arr_id[TEST_ARR_IDENTIFIER_KEY] != 1 then begin
+            // It is associative array, but it is not our testing array
+            arr_id = 0;
+         end
+      end
+   end
+   if arr_id == 0 then begin
+      arr_id = create_array(-1, 0);
+      arr_id[TEST_ARR_IDENTIFIER_KEY] = 1;
+      set_sfall_global(GL_VAR_TESTING_INFO_ARRAY_ID, arr_id);
+   end
+
+
+   #define TEST_SUITES "Test suites"
+   #define TEST_ASSERTIONS_TOTAL "Tests assertings total"
+   #define TEST_ASSERTIONS_FAILED "Tests assertings failed"
+   
+   if arr_id[TEST_SUITES] == 0 then begin
+      arr_id[TEST_SUITES] = create_array(-1, 0);
+   end
 
    //set_sfall_global("test_suite_errors", test_suite_errors);
-   variable gl_cases = get_sfall_global_int(TEST_CASES);
-   variable gl_assertions_total = get_sfall_global_int(TEST_ASSERTIONS_TOTAL);
-   variable gl_assertions_failed = get_sfall_global_int(TEST_ASSERTIONS_FAILED);
-   gl_cases += 1;
-   gl_assertions_total = gl_assertions_total + test_suite_assertions;
-   gl_assertions_failed = gl_assertions_failed + test_suite_errors;
-   set_sfall_global(TEST_CASES, gl_cases);
-   set_sfall_global(TEST_ASSERTIONS_TOTAL, gl_assertions_total);
-   set_sfall_global(TEST_ASSERTIONS_FAILED, gl_assertions_failed);
+   
+   arr_id[TEST_ASSERTIONS_TOTAL] += test_suite_assertions;
+   arr_id[TEST_ASSERTIONS_FAILED] += test_suite_errors;
+   arr_id[TEST_SUITES][desc] += 1;
 
-   if (gl_assertions_failed == 0) then begin
-      float_msg(dude_obj, "Tested " + gl_cases + " cases, " +
-          (gl_assertions_total-gl_assertions_failed) + "/" + gl_assertions_total +
+   variable total_suites_names = "";
+   variable total_suites_count = 0;
+
+   variable key, item;
+   foreach (key: item in arr_id[TEST_SUITES]) begin
+      total_suites_count += item;
+      if (total_suites_names != "") then begin
+         total_suites_names += ", ";
+      end
+      total_suites_names += key;
+   end
+   
+
+   if (arr_id[TEST_ASSERTIONS_FAILED] == 0) then begin
+      float_msg(dude_obj, "Tested " + total_suites_count + " cases: " + total_suites_names + ". " +
+          (arr_id[TEST_ASSERTIONS_TOTAL]-arr_id[TEST_ASSERTIONS_FAILED]) + "/" + arr_id[TEST_ASSERTIONS_TOTAL] +
           " assertions passed!", FLOAT_MSG_GREEN);
    end else begin
-      float_msg(dude_obj, "Tested " + gl_cases + " cases, " +
-          (gl_assertions_total-gl_assertions_failed) + "/" + gl_assertions_total +
+      float_msg(dude_obj, "Tested " + total_suites_count + " cases: " + total_suites_names + ". " +
+          (arr_id[TEST_ASSERTIONS_TOTAL]-arr_id[TEST_ASSERTIONS_FAILED]) + "/" + arr_id[TEST_ASSERTIONS_TOTAL] +
            " assertions passed", FLOAT_MSG_RED);
    end
 end
