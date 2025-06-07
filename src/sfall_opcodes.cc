@@ -216,7 +216,7 @@ static void op_active_hand(Program* program)
 // toggle_active_hand
 static void op_toggle_active_hand(Program* program)
 {
-    programStackPushInteger(program, interfaceBarSwapHands(true));
+    interfaceBarSwapHands(true);
 }
 
 // set_global_script_type

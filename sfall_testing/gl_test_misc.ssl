@@ -2,15 +2,14 @@
 #include "sfall.h"
 
 procedure start begin
-    set_global_script_repeat(300);
     // TODO: move this to a more suitable place, once we have more functions implemented
+    // These are in the "Other" category in the sfall documentation
     display_msg("Testing misc functions...");
-    display_msg("active hand is " + active_hand);
     variable hand := active_hand;
     toggle_active_hand;
     call assertEquals("active_hand toggled", active_hand, 1 - hand);
     toggle_active_hand;
-    call assertEquals("active_hand toggled", active_hand, hand); // XXX crashing when this line is included
+    call assertEquals("active_hand toggled", active_hand, hand);
     
     call report_test_results("misc");
 end
