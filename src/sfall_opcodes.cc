@@ -208,9 +208,15 @@ static void op_set_world_map_pos(Program* program)
 }
 
 // active_hand
-static void op_get_current_hand(Program* program)
+static void op_active_hand(Program* program)
 {
     programStackPushInteger(program, interfaceGetCurrentHand());
+}
+
+// toggle_active_hand
+static void op_toggle_active_hand(Program* program)
+{
+    interfaceBarSwapHands(true);
 }
 
 // set_global_script_type
@@ -1303,8 +1309,9 @@ void sfallOpcodesInit()
     // 0x8192 - void set_critter_current_ap(object critter, int ap)
 
     // 0x8193 - int  active_hand()
-    interpreterRegisterOpcode(0x8193, op_get_current_hand);
+    interpreterRegisterOpcode(0x8193, op_active_hand);
     // 0x8194 - void toggle_active_hand()
+    interpreterRegisterOpcode(0x8194, op_toggle_active_hand);
 
     // 0x8195 - void set_weapon_knockback(object weapon, int type, int/float value)
     // 0x8196 - void set_target_knockback(object critter, int type, int/float value)
