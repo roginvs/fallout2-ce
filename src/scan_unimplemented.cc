@@ -7,6 +7,7 @@
 #include "scan_unimplemented_sfall.h"
 #include "sfall_metarules.h"
 #include <algorithm>
+#include <dirent.h>
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
@@ -16,6 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <string>
+#include <sys/stat.h>
 
 std::map<fallout::opcode_t, std::set<std::string>> unknown_opcodes;
 std::map<std::string, std::set<std::string>> sus_strings;
@@ -225,12 +227,98 @@ void check_database(std::string dbFileName)
     fallout::dbaseClose(db);
 }
 
+// This is a simple directory iterator that mimics the behavior of C++17's std::filesystem::directory_iterator
+class directory_iterator {
+public:
+    class DirEntry {
+    public:
+        explicit DirEntry(const std::string& fullPath)
+            : _path(fullPath)
+        {
+            struct stat s;
+            if (stat(fullPath.c_str(), &s) == 0) {
+                _isDir = S_ISDIR(s.st_mode);
+                _isFile = S_ISREG(s.st_mode);
+            } else {
+                _isDir = _isFile = false;
+            }
+        }
+
+        bool is_directory() const { return _isDir; }
+        bool is_regular_file() const { return _isFile; }
+        const std::string& path() const { return _path; }
+
+    private:
+        std::string _path;
+        bool _isDir;
+        bool _isFile;
+    };
+    class Iterator {
+    public:
+        Iterator() = default;
+        Iterator(const std::string& path)
+            : _dir(opendir(path.c_str()))
+            , _root(path)
+        {
+            ++(*this); // Load first entry
+        }
+
+        ~Iterator()
+        {
+            if (_dir) closedir(_dir);
+        }
+
+        DirEntry operator*() const
+        {
+            return DirEntry(_root + "/" + _entryName);
+        }
+
+        Iterator& operator++()
+        {
+            if (!_dir) return *this;
+            struct dirent* entry;
+            while ((entry = readdir(_dir))) {
+                std::string name = entry->d_name;
+                if (name != "." && name != "..") {
+                    _entryName = name;
+                    return *this;
+                }
+            }
+            // No more entries
+            closedir(_dir);
+            _dir = nullptr;
+            _entryName.clear();
+            return *this;
+        }
+
+        bool operator!=(const Iterator& other) const
+        {
+            return _dir != other._dir;
+        }
+
+    private:
+        DIR* _dir = nullptr;
+        std::string _root;
+        std::string _entryName;
+    };
+
+    explicit directory_iterator(const std::string& path)
+        : _path(path)
+    {
+    }
+    Iterator begin() const { return Iterator(_path); }
+    Iterator end() const { return Iterator(); }
+
+private:
+    std::string _path;
+};
+
 void scan_in_folder(std::string dirPath)
 {
     // std::cout << "Scanning folder: " << dirPath << std::endl;
-    for (auto dirEntry : std::filesystem::directory_iterator(dirPath)) {
+    for (auto dirEntry : directory_iterator(dirPath)) {
         if (dirEntry.is_directory()) {
-            scan_in_folder(dirEntry.path().string());
+            scan_in_folder(dirEntry.path());
             continue;
         } else if (dirEntry.is_regular_file()) {
             std::string filePath = dirEntry.path();
