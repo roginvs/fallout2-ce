@@ -8,7 +8,10 @@ procedure start begin
     call assertEquals("string_format", metarule_exist("string_format"), 1);
     call assertEquals("metarule_exist", metarule_exist("metarule_exist"), 1);
 
-    if metarule_exist("opcode_exists") then begin
+    // This will fail on sFall
+    call assertEquals("opcode_exists", metarule_exist("opcode_exists"), 1);
+
+    if metarule_exist("opcode_exists") then begin // And example if how to use it
         #define opcode_exists(opcode) sfall_func1("opcode_exists", opcode)
         #define OP_GET_UPTIME 0x81B3
         #define OP_NOOP 0x8000
