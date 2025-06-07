@@ -30,6 +30,17 @@ procedure assertNotEquals(variable desc, variable a, variable b) begin
 end
 
 
+procedure assertFloat(variable desc, variable a, variable b, variable tolerance = 0.001) begin
+   test_suite_assertions++;
+
+   variable diff := abs(a - b);
+   if (diff > tolerance) then begin
+      display_msg("Assertion failed \""+desc+"\": "+a+" != "+b+" (diff: "+diff+")");
+      test_suite_errors ++;
+   end else if (test_suite_verbose) then begin
+      display_msg("Assert \""+desc+"\" ok");
+   end
+end
 
 procedure report_test_results(variable desc) begin
    
