@@ -4,7 +4,10 @@
 #include "dictionary.h"
 #include "interpreter.h"
 #include "platform_compat.h"
+#include "scan_unimplemented_configs.h"
+#include "scan_unimplemented_opcodes.h"
 #include "scan_unimplemented_sfall.h"
+#include "scan_unimplemented_utils.h"
 #include "sfall_metarules.h"
 #include <algorithm>
 #include <dirent.h>
@@ -18,6 +21,3 @@
 #include <string.h>
 #include <string>
 #include <sys/stat.h>
-#include "scan_unimplemented_utils.h"
-#include "scan_unimplemented_opcodes.h"
-#include "scan_unimplemented_configs.h"

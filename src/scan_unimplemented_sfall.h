@@ -288,5 +288,4 @@ static struct SfallOpcodeInfo opcodeInfoArray[] = {
     { 0x281, "sfall_func8" }
 };
 
-
 #endif

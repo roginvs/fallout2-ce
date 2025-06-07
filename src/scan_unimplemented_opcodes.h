@@ -1,10 +1,11 @@
-#include "scan_unimplemented.h"
 #include "config.h"
 #include "dfile.h"
 #include "dictionary.h"
 #include "interpreter.h"
 #include "platform_compat.h"
+#include "scan_unimplemented.h"
 #include "scan_unimplemented_sfall.h"
+#include "scan_unimplemented_utils.h"
 #include "sfall_metarules.h"
 #include <algorithm>
 #include <dirent.h>
@@ -18,7 +19,6 @@
 #include <string.h>
 #include <string>
 #include <sys/stat.h>
-#include "scan_unimplemented_utils.h"
 
 std::map<fallout::opcode_t, std::set<std::string>> unknown_opcodes;
 std::map<std::string, std::set<std::string>> sus_strings;

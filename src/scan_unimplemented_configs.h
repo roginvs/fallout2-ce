@@ -1,10 +1,11 @@
-#include "scan_unimplemented.h"
 #include "config.h"
 #include "dfile.h"
 #include "dictionary.h"
 #include "interpreter.h"
 #include "platform_compat.h"
+#include "scan_unimplemented.h"
 #include "scan_unimplemented_sfall.h"
+#include "scan_unimplemented_utils.h"
 #include "sfall_metarules.h"
 #include <algorithm>
 #include <dirent.h>
@@ -18,8 +19,6 @@
 #include <string.h>
 #include <string>
 #include <sys/stat.h>
-#include "scan_unimplemented_utils.h"
-
 
 auto config_to_maps(fallout::Config& config, bool to_lowercase)
 {
