@@ -16,9 +16,9 @@ procedure start begin
         #define OP_GET_UPTIME 0x81B3
         #define OP_NOOP 0x8000
 
-        call assertEquals("opcode_exists", opcode_exists(OP_GET_UPTIME), 1);
-        call assertEquals("opcode_exists", opcode_exists(OP_NOOP), 1);
-        call assertEquals("opcode_exists", opcode_exists(0xFFFF), 0);
+        call assertEquals("opcode_exists OP_GET_UPTIME", opcode_exists(OP_GET_UPTIME), 1);
+        call assertEquals("opcode_exists OP_NOOP", opcode_exists(OP_NOOP), 1);
+        call assertEquals("opcode_exists 0xFFFF", opcode_exists(0xFFFF), 0);
     end else begin
         display_msg("Opcode exists metarule is not available, skipping tests.");
     end
