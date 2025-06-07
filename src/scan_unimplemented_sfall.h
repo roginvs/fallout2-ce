@@ -1,3 +1,6 @@
+#ifndef SCAN_UNIMPLEMENTED_SFALL_H
+#define SCAN_UNIMPLEMENTED_SFALL_H
+
 // A copy-paste from sFall
 // commit 930d1e8a032388c1989b0e9f7a469f570e44f621
 // https://github.com/sfall-team/sfall
@@ -284,3 +287,6 @@ static struct SfallOpcodeInfo opcodeInfoArray[] = {
     { 0x280, "sfall_func7" },
     { 0x281, "sfall_func8" }
 };
+
+
+#endif
