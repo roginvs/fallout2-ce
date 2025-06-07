@@ -154,7 +154,7 @@ procedure start begin
     call test_derived_base_stat_critter(dude_obj);
     call test_derived_base_stat_critter(closest_critter);
 
-    call report_test_results("Stats");
+    call report_test_results("stats");
     
 
     // set_pc_base_stat(STAT_lu, 10);
