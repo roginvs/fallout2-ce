@@ -72,7 +72,6 @@ bool sfallConfigInit(int argc, char** argv)
 
     configSetBool(&gSfallConfig, SFALL_CONFIG_MAIN_KEY, SFALL_CONFIG_ENABLE_HIRES_STENCIL, true);
 
-  
     char path[COMPAT_MAX_PATH];
     char* executable = argv[0];
     char* ch = strrchr(executable, '\\');
@@ -85,7 +84,7 @@ bool sfallConfigInit(int argc, char** argv)
     }
 
     auto configChecker = ConfigChecker(gSfallConfig, "ddraw.ini");
-  
+
     configRead(&gSfallConfig, path, false);
 
     configParseCommandLineArguments(&gSfallConfig, argc, argv);
