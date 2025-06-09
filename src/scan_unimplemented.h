@@ -2,12 +2,13 @@
 #define CHECK_SCRIPTS_OPCODES_SCAN_H
 
 #include "config.h"
+#include <cctype>
 #include <map>
 #include <set>
 #include <string>
-#include <cctype> 
 
-inline char to_lower(char c) {
+inline char to_lower(char c)
+{
     return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 }
 
