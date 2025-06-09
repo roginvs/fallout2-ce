@@ -7,6 +7,7 @@
 #include <string>
 
 #include "combat.h"
+#include "config.h" // For Config, configInit, configFree
 #include "debug.h"
 #include "game.h"
 #include "game_dialog.h"
@@ -15,6 +16,7 @@
 #include "inventory.h"
 #include "object.h"
 #include "platform_compat.h"
+#include "sfall_arrays.h" // For CreateTempArray, SetArray
 #include "sfall_ini.h"
 #include "text_font.h"
 #include "tile.h"
@@ -47,7 +49,6 @@ static void mf_metarule_exist(Program* program, int args);
 static void mf_outlined_object(Program* program, int args);
 static void mf_set_cursor_mode(Program* program, int args);
 static void mf_set_flags(Program* program, int args);
-static void mf_set_ini_setting(Program* program, int args);
 static void mf_set_outline(Program* program, int args);
 static void mf_show_window(Program* program, int args);
 static void mf_tile_refresh_display(Program* program, int args);
@@ -58,6 +59,7 @@ static void mf_string_format(Program* program, int args);
 static void mf_floor2(Program* program, int args);
 
 // ref. https://github.com/sfall-team/sfall/blob/42556141127895c27476cd5242a73739cbb0fade/sfall/Modules/Scripting/Handlers/Metarule.cpp#L72
+// Note: metarules should pop arguments off the stack in natural order
 constexpr MetaruleInfo kMetarules[] = {
     // {"add_extra_msg_file",        mf_add_extra_msg_file,        1, 2, -1, {ARG_STRING, ARG_INT}},
     // {"add_iface_tag",             mf_add_iface_tag,             0, 0},
@@ -69,7 +71,7 @@ constexpr MetaruleInfo kMetarules[] = {
     { "car_gas_amount", mf_car_gas_amount, 0, 0 },
     { "combat_data", mf_combat_data, 0, 0 },
     // {"create_win",                mf_create_win,                5, 6, -1, {ARG_STRING, ARG_INT, ARG_INT, ARG_INT, ARG_INT, ARG_INT}},
-    { "critter_inven_obj2", mf_critter_inven_obj2, 2, 2 },
+    { "critter_inven_obj2", mf_critter_inven_obj2, 2, 2 }, // XXX: likely parameter order mismatch
     // {"dialog_message",            mf_dialog_message,            1, 1, -1, {ARG_STRING}},
     { "dialog_obj", mf_dialog_obj, 0, 0 },
     // {"display_stats",             mf_display_stats,             0, 0}, // refresh
@@ -83,13 +85,13 @@ constexpr MetaruleInfo kMetarules[] = {
     { "get_cursor_mode", mf_get_cursor_mode, 0, 0 },
     { "get_flags", mf_get_flags, 1, 1 },
     // {"get_ini_config",            mf_get_ini_config,            2, 2,  0, {ARG_STRING, ARG_INT}},
-    // {"get_ini_section",           mf_get_ini_section,           2, 2, -1, {ARG_STRING, ARG_STRING}},
-    // {"get_ini_sections",          mf_get_ini_sections,          1, 1, -1, {ARG_STRING}},
+    { "get_ini_section", mf_get_ini_section, 2, 2 },
+    { "get_ini_sections", mf_get_ini_sections, 1, 1 },
     // {"get_inven_ap_cost",         mf_get_inven_ap_cost,         0, 0},
     // {"get_map_enter_position",    mf_get_map_enter_position,    0, 0},
     // {"get_metarule_table",        mf_get_metarule_table,        0, 0},
     // {"get_object_ai_data",        mf_get_object_ai_data,        2, 2, -1, {ARG_OBJECT, ARG_INT}},
-    { "get_object_data", mf_get_object_data, 2, 2 },
+    { "get_object_data", mf_get_object_data, 2, 2 }, // XXX: likely parameter order mismatch
     // {"get_outline",               mf_get_outline,               1, 1,  0, {ARG_OBJECT}},
     // {"get_sfall_arg_at",          mf_get_sfall_arg_at,          1, 1,  0, {ARG_INT}},
     // {"get_stat_max",              mf_get_stat_max,              1, 2,  0, {ARG_INT, ARG_INT}},
@@ -137,7 +139,7 @@ constexpr MetaruleInfo kMetarules[] = {
     { "set_ini_setting", mf_set_ini_setting, 2, 2 },
     // {"set_map_enter_position",    mf_set_map_enter_position,    3, 3, -1, {ARG_INT, ARG_INT, ARG_INT}},
     // {"set_object_data",           mf_set_object_data,           3, 3, -1, {ARG_OBJECT, ARG_INT, ARG_INT}},
-    { "set_outline", mf_set_outline, 2, 2 },
+    { "set_outline", mf_set_outline, 2, 2 }, // XXX: likely parameter order mismatch
     // {"set_quest_failure_value",   mf_set_quest_failure_value,   2, 2, -1, {ARG_INT, ARG_INT}},
     // {"set_rest_heal_time",        mf_set_rest_heal_time,        1, 1, -1, {ARG_INT}},
     // {"set_worldmap_heal_time",    mf_set_worldmap_heal_time,    1, 1, -1, {ARG_INT}},
@@ -298,30 +300,6 @@ void mf_set_flags(Program* program, int args)
     programStackPushInteger(program, -1);
 }
 
-void mf_set_ini_setting(Program* program, int args)
-{
-    ProgramValue value = programStackPopValue(program);
-    const char* triplet = programStackPopString(program);
-
-    if (value.isString()) {
-        const char* stringValue = programGetString(program, value.opcode, value.integerValue);
-        if (!sfall_ini_set_string(triplet, stringValue)) {
-            debugPrint("set_ini_setting: unable to write '%s' to '%s'",
-                stringValue,
-                triplet);
-        }
-    } else {
-        int integerValue = value.asInt();
-        if (!sfall_ini_set_int(triplet, integerValue)) {
-            debugPrint("set_ini_setting: unable to write '%d' to '%s'",
-                integerValue,
-                triplet);
-        }
-    }
-
-    programStackPushInteger(program, -1);
-}
-
 void mf_set_outline(Program* program, int args)
 {
     int outline = programStackPopInteger(program);
@@ -460,7 +438,7 @@ void mf_string_find(Program* program, int args)
 
     const char* found = strstr(str + startPos, substr);
     if (found) {
-        programStackPushInteger(program, found - str);
+        programStackPushInteger(program, static_cast<int>(found - str));
     } else {
         programStackPushInteger(program, -1);
     }
@@ -502,7 +480,7 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
         formatArgs[index] = programStackPopValue(program);
     }
 
-    int fmtLen = strlen(format);
+    int fmtLen = static_cast<int>(strlen(format));
     if (fmtLen == 0) {
         programStackPushString(program, "");
         return;
@@ -558,7 +536,7 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
                 if (c == 'S' || c == 'Z') {
                     c = 's'; // don't allow wide strings
                 }
-                if (c == 's' && !arg.isString() || // don't allow treating non-string values as string pointers
+                if ((c == 's' && !arg.isString()) || // don't allow treating non-string values as string pointers
                     c == 'n') // don't allow "n" specifier
                 {
                     c = 'd';

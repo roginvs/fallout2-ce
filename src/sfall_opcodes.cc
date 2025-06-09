@@ -208,9 +208,15 @@ static void op_set_world_map_pos(Program* program)
 }
 
 // active_hand
-static void op_get_current_hand(Program* program)
+static void op_active_hand(Program* program)
 {
     programStackPushInteger(program, interfaceGetCurrentHand());
+}
+
+// toggle_active_hand
+static void op_toggle_active_hand(Program* program)
+{
+    interfaceBarSwapHands(true);
 }
 
 // set_global_script_type
@@ -250,19 +256,6 @@ static void op_get_sfall_global_int(Program* program)
     programStackPushInteger(program, value);
 }
 
-// get_ini_setting
-static void op_get_ini_setting(Program* program)
-{
-    const char* string = programStackPopString(program);
-
-    int value;
-    if (sfall_ini_get_int(string, &value)) {
-        programStackPushInteger(program, value);
-    } else {
-        programStackPushInteger(program, -1);
-    }
-}
-
 // get_game_mode
 static void op_get_game_mode(Program* program)
 {
@@ -295,19 +288,6 @@ static void op_set_bodypart_hit_modifier(Program* program)
     int penalty = programStackPopInteger(program);
     int hit_location = programStackPopInteger(program);
     combat_set_hit_location_penalty(hit_location, penalty);
-}
-
-// get_ini_string
-static void op_get_ini_string(Program* program)
-{
-    const char* string = programStackPopString(program);
-
-    char value[256];
-    if (sfall_ini_get_string(string, value, sizeof(value))) {
-        programStackPushString(program, value);
-    } else {
-        programStackPushInteger(program, -1);
-    }
 }
 
 // sqrt
@@ -739,7 +719,7 @@ static void op_substr(Program* program)
 
     char buf[5120] = { 0 };
 
-    int len = strlen(str);
+    int len = static_cast<int>(strlen(str));
 
     if (startPos < 0) {
         startPos += len; // start from end
@@ -971,7 +951,7 @@ static void op_party_member_list(Program* program)
 {
     auto includeHidden = programStackPopInteger(program);
     auto objects = get_all_party_members_objects(includeHidden);
-    auto arrayId = CreateTempArray(objects.size(), SFALL_ARRAYFLAG_RESERVED);
+    auto arrayId = CreateTempArray(static_cast<int>(objects.size()), SFALL_ARRAYFLAG_RESERVED);
     for (int i = 0; i < LenArray(arrayId); i++) {
         SetArray(arrayId, ProgramValue { i }, ProgramValue { objects[i] }, false, program);
     }
@@ -995,7 +975,7 @@ static void op_type_of(Program* program)
 static void op_round(Program* program)
 {
     float floatValue = programStackPopValue(program).asFloat();
-    programStackPushInteger(program, lroundf(floatValue));
+    programStackPushInteger(program, static_cast<int>(lroundf(floatValue)));
 }
 
 enum BlockType {
@@ -1155,6 +1135,7 @@ static void op_charcode(Program* program)
     }
 }
 
+// Note: opcodes should pop arguments off the stack in reverse order
 void sfallOpcodesInit()
 {
     // ref. https://github.com/sfall-team/sfall/blob/71ecec3d405bd5e945f157954618b169e60068fe/artifacts/scripting/sfall%20opcode%20list.txt#L145
@@ -1303,8 +1284,9 @@ void sfallOpcodesInit()
     // 0x8192 - void set_critter_current_ap(object critter, int ap)
 
     // 0x8193 - int  active_hand()
-    interpreterRegisterOpcode(0x8193, op_get_current_hand);
+    interpreterRegisterOpcode(0x8193, op_active_hand);
     // 0x8194 - void toggle_active_hand()
+    interpreterRegisterOpcode(0x8194, op_toggle_active_hand);
 
     // 0x8195 - void set_weapon_knockback(object weapon, int type, int/float value)
     // 0x8196 - void set_target_knockback(object critter, int type, int/float value)

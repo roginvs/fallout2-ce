@@ -166,7 +166,7 @@ procedure array_test_suite begin
 
    display_msg("All tests finished with "+test_suite_errors+" errors.");
 
-   call report_test_results("Arrays");
+   call report_test_results("arrays");
 end
 
 
