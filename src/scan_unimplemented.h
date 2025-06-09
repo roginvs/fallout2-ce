@@ -5,6 +5,11 @@
 #include <map>
 #include <set>
 #include <string>
+#include <cctype> 
+
+inline char to_lower(char c) {
+    return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+}
 
 struct CaseInsensitiveCompare {
     bool operator()(const std::string& a, const std::string& b) const
@@ -13,7 +18,7 @@ struct CaseInsensitiveCompare {
             a.begin(), a.end(),
             b.begin(), b.end(),
             [](unsigned char c1, unsigned char c2) {
-                return std::tolower(c1) < std::tolower(c2);
+                return to_lower(c1) < to_lower(c2);
             });
     }
 };
