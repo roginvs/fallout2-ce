@@ -532,7 +532,6 @@ bool xbaseOpen(const char* path)
 
     char workingDirectory[COMPAT_MAX_PATH];
     if (getcwd(workingDirectory, COMPAT_MAX_PATH) == nullptr) {
-        // FIXME: Leaking xbase and path. Fixed?
         free(xbase->path);
         free(xbase);
         return false;
@@ -545,11 +544,9 @@ bool xbaseOpen(const char* path)
         return true;
     }
 
-    chdir(workingDirectory);
-
-    xbase->next = gXbaseHead;
-    gXbaseHead = xbase;
-
+    // Cleanup if chdir(path) failed
+    free(xbase->path);
+    free(xbase);
     return false; // return false to trigger messages on game load
 }
 
