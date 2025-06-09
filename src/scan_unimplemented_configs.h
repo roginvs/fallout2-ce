@@ -19,7 +19,7 @@
 #include <string>
 #include <sys/stat.h>
 
-auto config_to_maps(fallout::Config& config, bool to_lowercase)
+auto config_to_maps(fallout::Config& config)
 {
     ConfigMap out;
     for (int sectionIndex = 0; sectionIndex < config.entriesLength; sectionIndex++) {
@@ -32,13 +32,7 @@ auto config_to_maps(fallout::Config& config, bool to_lowercase)
             auto val = *(char**)sectionEntry->value;
 
             std::string sectionKey = section->key;
-            if (to_lowercase) {
-                sectionKey = to_lower(sectionKey);
-            }
             std::string entryKey = sectionEntry->key;
-            if (to_lowercase) {
-                entryKey = to_lower(entryKey);
-            }
             out[sectionKey][entryKey] = std::string(val);
             // std::cout << "  Key = " << sectionEntry->key << "; value " << val << std::endl;
         }
@@ -56,29 +50,23 @@ auto config_to_maps(fallout::Config& config, bool to_lowercase)
 
 ConfigChecker::ConfigChecker(fallout::Config& configDefaults, std::string configFileName)
     : configFileName(configFileName)
-    , defaultsMap(config_to_maps(configDefaults, true))
+    , defaultsMap(config_to_maps(configDefaults))
 {
 }
 ConfigChecker::ConfigChecker(ConfigMap configDefaults, std::string configFileName)
     : configFileName(configFileName)
+    , defaultsMap(configDefaults)
 {
-    for (const auto& [section, entries] : configDefaults) {
-        std::map<std::string, std::string> lowerEntries;
-        for (const auto& [key, value] : entries) {
-            lowerEntries[to_lower(key)] = value;
-        }
-        defaultsMap[to_lower(section)] = std::move(lowerEntries);
-    }
 }
 
 void ConfigChecker::check(fallout::Config& readedConfig)
 {
     std::cout << "Checking config file: " << configFileName << std::endl;
     int errorsCount = 0;
-    auto readedMap = config_to_maps(readedConfig, false);
+    auto readedMap = config_to_maps(readedConfig);
 
     for (const auto& [readedSection, readedEntries] : readedMap) {
-        if (defaultsMap.find(to_lower(readedSection)) == defaultsMap.end()) {
+        if (defaultsMap.find((readedSection)) == defaultsMap.end()) {
             std::cout << "- ERROR: Section '" << readedSection << "' is not defined in defaults" << std::endl;
             for (const auto& [key, value] : readedEntries) {
                 std::cout << "    - " << key << "=" << value << std::endl;
@@ -87,7 +75,7 @@ void ConfigChecker::check(fallout::Config& readedConfig)
             continue;
         }
         for (const auto& [readedKey, readedValue] : readedEntries) {
-            if (defaultsMap[to_lower(readedSection)].find(to_lower(readedKey)) == defaultsMap[to_lower(readedSection)].end()) {
+            if (defaultsMap[(readedSection)].find((readedKey)) == defaultsMap[(readedSection)].end()) {
                 std::cout << "- Unknown key in [" << readedSection << "]: " << readedKey << "=" << readedValue << std::endl;
                 errorsCount++;
             } else if (defaultsMap[readedSection][readedKey] != readedValue) {
