@@ -173,7 +173,7 @@ int gameInitWithOptions(const char* windowTitle, bool isMapper, int font, int fl
         debugPrint("Failed on init_options_menu\n");
         return -1;
     }
-    
+
     debugPrint(">init_options_menu\n");
 
     if (!gIsMapper && skipOpeningMovies < 2) {
