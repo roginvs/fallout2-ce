@@ -438,7 +438,7 @@ void mf_string_find(Program* program, int args)
 
     const char* found = strstr(str + startPos, substr);
     if (found) {
-        programStackPushInteger(program, found - str);
+        programStackPushInteger(program, static_cast<int>(found - str));
     } else {
         programStackPushInteger(program, -1);
     }
@@ -480,7 +480,7 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
         formatArgs[index] = programStackPopValue(program);
     }
 
-    int fmtLen = strlen(format);
+    int fmtLen = static_cast<int>(strlen(format));
     if (fmtLen == 0) {
         programStackPushString(program, "");
         return;
@@ -536,7 +536,7 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
                 if (c == 'S' || c == 'Z') {
                     c = 's'; // don't allow wide strings
                 }
-                if (c == 's' && !arg.isString() || // don't allow treating non-string values as string pointers
+                if ((c == 's' && !arg.isString()) || // don't allow treating non-string values as string pointers
                     c == 'n') // don't allow "n" specifier
                 {
                     c = 'd';
