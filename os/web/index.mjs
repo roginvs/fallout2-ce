@@ -11,11 +11,11 @@ import { removeOldCache } from "./gamecache.mjs";
 import { registerServiceWorker } from "./service_worker_manager.mjs";
 
 window.addEventListener("error", (err) => {
-    console.info("error", err);
+    console.info("error", err, err?.error);
     console.info(
-        `Error is: ${err.error?.name}: ${err.error?.message} ${err.error?.stack}`,
+        `Error is: ${err?.error?.name}: ${err?.error?.message} ${err?.error?.stack}`,
     );
-    setErrorState(err.error);
+    setErrorState(err?.error);
 });
 window.addEventListener("unhandledrejection", (err) => {
     console.info("unhandledrejection", err);
