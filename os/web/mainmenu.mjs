@@ -159,7 +159,7 @@ function downloadSlot(files, folderName, slotFolderName, saveName) {
  *
  * @returns { Promise<File> }
  */
-async function pickFile() {
+function pickFile() {
     // showOpenFilePicker
     return new Promise((resolve, reject) => {
         const input = document.createElement("input");
@@ -179,13 +179,11 @@ async function pickFile() {
 /**
  *
  * @param {IDBDatabase} database
-   @param {string} folderName
+ * @param {string} folderName
  * @param {string} slotFolderName
+ * @param {File} file
  */
-async function uploadSavegame(database, folderName, slotFolderName) {
-    setStatusText(`Pick a file...`);
-    const file = await pickFile();
-
+async function uploadSavegame(database, folderName, slotFolderName, file) {
     setStatusText(`Loading file...`);
     const url = URL.createObjectURL(file);
     const raw = await fetch(url).then((x) => x.arrayBuffer());
@@ -408,15 +406,26 @@ async function renderGameSlots(gameFolder, slotsDiv, lang) {
             e.preventDefault();
 
             preventAutoreload();
-            (async () => {
-                const reopenedDb = await initDb(gameFolder);
-                await uploadSavegame(reopenedDb, gameFolder, slotFolderName);
-                setStatusText(`Done, refreshing page...`);
-                window.location.reload();
-            })().catch((e) => {
-                console.warn(e);
-                setErrorState(e);
-            });
+
+            setStatusText(`Pick a file...`);
+            pickFile() // Ensure that file picker is called on user gesture
+                .then(async (file) => {
+                    setStatusText(`Loading file...`);
+                    const reopenedDb = await initDb(gameFolder);
+                    await uploadSavegame(
+                        reopenedDb,
+                        gameFolder,
+                        slotFolderName,
+                        file,
+                    );
+                    setStatusText(`Done, refreshing page...`);
+                    window.location.reload();
+                })
+                .catch((e) => {
+                    setStatusText(null);
+                    console.warn(e);
+                    setErrorState(e);
+                });
         });
 
         if (saveName !== null) {
