@@ -140,6 +140,9 @@ int debugPrint(const char* format, ...)
     } else {
 #ifndef NDEBUG
         SDL_LogMessageV(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, format, args);
+#elif defined(__EMSCRIPTEN__)
+        // Just to have some debug logs in Sentry reports
+        rc = vprintf(format, args);
 #endif
         rc = -1;
     }
