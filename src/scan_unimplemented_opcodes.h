@@ -232,6 +232,10 @@ auto get_opcode_name(fallout::opcode_t opcode)
 
 void checkScriptsOpcodes()
 {
+    if (!gScanUnimplementedEnabled) {
+        return;
+    }
+
     unknown_opcodes.clear();
     sus_strings.clear();
 

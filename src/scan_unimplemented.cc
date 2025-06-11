@@ -20,3 +20,14 @@
 #include <string.h>
 #include <string>
 #include <sys/stat.h>
+
+bool gScanUnimplementedEnabled = false;
+
+void scanUnimplementdParseCommandLineArguments(int argc, char** argv){ 
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--scan-unimplemented") == 0) {
+            gScanUnimplementedEnabled = true;
+            printf("== Scanning of unimplemented is enabled == \n");
+        };
+    }
+}

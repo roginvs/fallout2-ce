@@ -7,6 +7,10 @@
 #include <set>
 #include <string>
 
+extern bool gScanUnimplementedEnabled;
+
+void scanUnimplementdParseCommandLineArguments(int argc, char** argv);
+
 inline char to_lower(char c)
 {
     return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
