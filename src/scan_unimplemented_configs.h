@@ -64,7 +64,7 @@ void ConfigChecker::check(fallout::Config& readedConfig)
     if (!gScanUnimplementedEnabled) {
         return;
     }
-    
+
     std::cout << "Checking config file: " << configFileName << std::endl;
     int errorsCount = 0;
     auto readedMap = config_to_maps(readedConfig);

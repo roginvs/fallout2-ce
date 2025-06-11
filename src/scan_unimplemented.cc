@@ -23,7 +23,8 @@
 
 bool gScanUnimplementedEnabled = false;
 
-void scanUnimplementdParseCommandLineArguments(int argc, char** argv){ 
+void scanUnimplementdParseCommandLineArguments(int argc, char** argv)
+{
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--scan-unimplemented") == 0) {
             gScanUnimplementedEnabled = true;
