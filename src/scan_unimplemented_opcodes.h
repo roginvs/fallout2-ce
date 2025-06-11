@@ -20,8 +20,84 @@
 
 std::map<fallout::opcode_t, std::set<std::string>> unknown_opcodes;
 std::map<std::string, std::set<std::string>> sus_strings;
+std::map<int, std::set<std::string>> unknown_hooks;
 
 int checked_files = 0;
+
+std::string get_hook_name(int hookId)
+{
+    static constexpr char const* hook_names[] = {
+        "HOOK_TOHIT",
+        "HOOK_AFTERHITROLL",
+        "HOOK_CALCAPCOST",
+        "HOOK_DEATHANIM1",
+        "HOOK_DEATHANIM2",
+        "HOOK_COMBATDAMAGE",
+        "HOOK_ONDEATH",
+        "HOOK_FINDTARGET",
+        "HOOK_USEOBJON",
+        "HOOK_REMOVEINVENOBJ",
+        "HOOK_BARTERPRICE",
+        "HOOK_MOVECOST",
+        "HOOK_HEXMOVEBLOCKING",
+        "HOOK_HEXAIBLOCKING",
+        "HOOK_HEXSHOOTBLOCKING",
+        "HOOK_HEXSIGHTBLOCKING",
+        "HOOK_ITEMDAMAGE",
+        "HOOK_AMMOCOST",
+        "HOOK_USEOBJ",
+        "HOOK_KEYPRESS",
+        "HOOK_MOUSECLICK",
+        "HOOK_USESKILL",
+        "HOOK_STEAL",
+        "HOOK_WITHINPERCEPTION",
+        "HOOK_INVENTORYMOVE",
+        "HOOK_INVENWIELD",
+        "HOOK_ADJUSTFID",
+        "HOOK_COMBATTURN",
+        "HOOK_CARTRAVEL",
+        "HOOK_SETGLOBALVAR",
+        "HOOK_RESTTIMER",
+        "HOOK_GAMEMODECHANGE",
+        "HOOK_USEANIMOBJ",
+        "HOOK_EXPLOSIVETIMER",
+        "HOOK_DESCRIPTIONOBJ",
+        "HOOK_USESKILLON",
+        "HOOK_ONEXPLOSION",
+        "HOOK_SUBCOMBATDAMAGE",
+        "HOOK_SETLIGHTING",
+        "HOOK_SNEAK",
+        "HOOK_STDPROCEDURE",
+        "HOOK_STDPROCEDURE_END",
+        "HOOK_TARGETOBJECT",
+        "HOOK_ENCOUNTER",
+        "HOOK_ADJUSTPOISON",
+        "HOOK_ADJUSTRADS",
+        "HOOK_ROLLCHECK",
+        "HOOK_BESTWEAPON",
+        "HOOK_CANUSEWEAPON",
+        // RESERVED 49 to 60
+        nullptr, // 49
+        nullptr, // 50
+        nullptr, // 51
+        nullptr, // 52
+        nullptr, // 53
+        nullptr, // 54
+        nullptr, // 55
+        nullptr, // 56
+        nullptr, // 57
+        nullptr, // 58
+        nullptr, // 59
+        nullptr, // 60
+        "HOOK_BUILDSFXWEAPON",
+        "HOOK_COUNT"
+    };
+    const size_t hook_names_count = sizeof(hook_names) / sizeof(hook_names[0]);
+    if (hookId < 0 || hookId >= hook_names_count || hook_names[hookId] == nullptr) {
+        return "Unknown hook";
+    }
+    return std::string(hook_names[hookId]);
+}
 
 void check_int_data(
     std::string fName,
@@ -43,6 +119,27 @@ void check_int_data(
             auto& set = unknown_opcodes[opcode];
             set.insert(fName);
         };
+
+        if (opcodeIndex == 0x207) { // register_hook
+            if (i >= 6 && fallout::stackReadInt16(data, i - 6) == 0xC001) {
+                auto hookProcIndex = fallout::stackReadInt32(data, i - 6 + 2);
+                // All hooks are unknown atm
+                unknown_hooks[hookProcIndex].insert(fName);
+            } else {
+                printf("ERROR: Unknown usage of register_hook in file %s at pos=0x%lx\n", fName.c_str(), i);
+                exit(1);
+            }
+        } else if (opcodeIndex == 0x262 || opcodeIndex == 0x27d) { // register_hook_proc / register_hook_proc_spec
+            if (
+                i >= 6 * 2 && fallout::stackReadInt16(data, i - 6) == 0xC001 && fallout::stackReadInt16(data, i - 6 * 2) == 0xC001) {
+                auto hookProcIndex = fallout::stackReadInt32(data, i - 6 * 2 + 2);
+                // All hooks are unknown atm
+                unknown_hooks[hookProcIndex].insert(fName);
+            } else {
+                printf("ERROR: Unknown usage of register_hook_proc in file %s at pos=0x%lx\n", fName.c_str(), i);
+                exit(1);
+            }
+        }
 
         // printf("DEBUG: pos=0x%lx opcode=0x%x (%x) handler=%s\n", i, opcode, opcodeIndex, handler ? "yes": "no=======================");
 
@@ -238,11 +335,12 @@ void checkScriptsOpcodes()
 
     unknown_opcodes.clear();
     sus_strings.clear();
+    unknown_hooks.clear();
 
     checked_files = 0;
 
     std::string folderName = ".";
-
+    
     scan_in_folder(folderName);
 
     if (false) { // This is folder path stripping, not used now
@@ -274,7 +372,7 @@ void checkScriptsOpcodes()
         }
     }
 
-    if (unknown_opcodes.size() == 0 && sus_strings.size() == 0) {
+    if (unknown_opcodes.size() == 0 && sus_strings.size() == 0 && unknown_hooks.size() == 0) {
         printf("Everything is ok, all opcodes are known and no sus strings. Checked %i files\n", checked_files);
     } else {
         printf("\n\nChecked %i files and found those:\n", checked_files);
@@ -295,6 +393,14 @@ void checkScriptsOpcodes()
                 printf("  - %s\n", fName.c_str());
             }
         }
+        for (const auto& [hookId, files] : unknown_hooks) {
+            printf("HOOK %s (%i):\n",
+                get_hook_name(hookId).c_str(),
+                hookId);
+            for (auto fName : files) {
+                printf("  - %s\n", fName.c_str());
+            }
+        }
 
         printf("\nSame but per-file:\n");
         // TODO: Sort
@@ -312,6 +418,14 @@ void checkScriptsOpcodes()
         for (auto iter : sus_strings) {
             for (auto fName : iter.second) {
                 files[fName].insert(std::string("METARULE ") + iter.first);
+            }
+        }
+        for (const auto& [hookId, files] : unknown_hooks) {
+            for (auto fName : files) {
+                std::string oss = "HOOK " + get_hook_name(hookId) + " "
+                    + " (" + hookId + ")";
+
+                files[fName].insert(oss);
             }
         }
         for (auto iter : files) {
