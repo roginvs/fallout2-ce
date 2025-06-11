@@ -340,7 +340,7 @@ void checkScriptsOpcodes()
     checked_files = 0;
 
     std::string folderName = ".";
-    
+
     scan_in_folder(folderName);
 
     if (false) { // This is folder path stripping, not used now
