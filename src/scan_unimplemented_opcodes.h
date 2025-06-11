@@ -420,10 +420,10 @@ void checkScriptsOpcodes()
                 files[fName].insert(std::string("METARULE ") + iter.first);
             }
         }
-        for (const auto& [hookId, files] : unknown_hooks) {
-            for (auto fName : files) {
+        for (const auto& [hookId, hookFiles] : unknown_hooks) {
+            for (auto fName : hookFiles) {
                 std::string oss = "HOOK " + get_hook_name(hookId) + " "
-                    + " (" + hookId + ")";
+                    + " (" + std::to_string(hookId) + ")";
 
                 files[fName].insert(oss);
             }
