@@ -241,7 +241,11 @@ ProgramValue programReturnStackPopValue(Program* program);
 int programReturnStackPopInteger(Program* program);
 void* programReturnStackPopPointer(Program* program);
 
-// CE
+opcode_t stackReadInt16(unsigned char* data, int pos);
+int stackReadInt32(unsigned char* data, int pos);
+
+extern OpcodeHandler* gInterpreterOpcodeHandlers[OPCODE_MAX_COUNT];
+
 ProgramValue programMakeString(Program* program, const char* str);
 ProgramValue programMakeInt(Program* program, int val);
 

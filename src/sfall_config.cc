@@ -1,9 +1,9 @@
 #include "sfall_config.h"
 
+#include "platform_compat.h"
+#include "scan_unimplemented.h"
 #include <stdio.h>
 #include <string.h>
-
-#include "platform_compat.h"
 
 namespace fallout {
 
@@ -83,9 +83,13 @@ bool sfallConfigInit(int argc, char** argv)
         strcpy(path, SFALL_CONFIG_FILE_NAME);
     }
 
+    auto configChecker = ConfigChecker(gSfallConfig, "ddraw.ini");
+
     configRead(&gSfallConfig, path, false);
 
     configParseCommandLineArguments(&gSfallConfig, argc, argv);
+
+    configChecker.check(gSfallConfig);
 
     gSfallConfigInitialized = true;
 
