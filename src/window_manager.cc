@@ -31,7 +31,7 @@ static void _win_buffering(bool bufferWindows);
 static void _win_move(int win_index, int x, int y);
 static void _win_clip(Window* window, RectListNode** rect, unsigned char* a3);
 static void win_drag(int win);
-static void _refresh_all(Rect* rect, unsigned char* a2);
+static void _refresh_all(Rect* rect, unsigned char* dest);
 static Button* buttonGetButton(int btn, Window** out_win);
 static Button* buttonCreateInternal(int win, int x, int y, int width, int height, int mouseEnterEventCode, int mouseExitEventCode, int mouseDownEventCode, int mouseUpEventCode, int flags, unsigned char* up, unsigned char* dn, unsigned char* hover);
 static int _GNW_check_buttons(Window* window, int* keyCodePtr);
@@ -740,7 +740,7 @@ void _win_move(int win, int x, int y)
 
     if ((window->flags & WINDOW_MANAGED) != 0) {
         // TODO: Not sure what this means.
-        x &= ~0x03;
+        x &= ~0x03; // truncates x to a multiple of 4 pixels
     }
 
     window->rect.left = x;
@@ -796,6 +796,8 @@ void windowRefreshRect(int win, const Rect* rect)
 // 0x4D6FD8
 void _GNW_win_refresh(Window* window, Rect* rect, unsigned char* dest)
 {
+    // dest is only used when refreshing the portion of the screen containing the cursor (which is subsequently drawn on the buffer)
+
     RectListNode *refreshRectList, *clipRect, *screenRect, *nextRect;
     int dest_pitch;
 
@@ -838,6 +840,7 @@ void _GNW_win_refresh(Window* window, Rect* rect, unsigned char* dest)
 
                     if (dest) {
                         if (_buffering && (window->flags & WINDOW_TRANSPARENT)) {
+                            // window->blitProc is always blitBufferToBufferTrans
                             window->blitProc(window->buffer + clipRect->rect.left - window->rect.left + (clipRect->rect.top - window->rect.top) * window->width,
                                 clipRect->rect.right - clipRect->rect.left + 1,
                                 clipRect->rect.bottom - clipRect->rect.top + 1,
@@ -1078,30 +1081,31 @@ void win_drag(int win)
     }
 
     if ((window->flags & WINDOW_MANAGED) != 0 && (window->rect.left & 3) != 0) {
+        // move to a x-pixel multiple of 4
         _win_move(window->id, window->rect.left, window->rect.top);
     }
 }
 
 // 0x4D77F8
-void _win_get_mouse_buf(unsigned char* a1)
+void _win_get_mouse_buf(unsigned char* dest)
 {
     Rect rect;
     mouseGetRect(&rect);
-    _refresh_all(&rect, a1);
+    _refresh_all(&rect, dest);
 }
 
 // 0x4D7814
-void _refresh_all(Rect* rect, unsigned char* a2)
+void _refresh_all(Rect* rect, unsigned char* dest)
 {
     _doing_refresh_all = 1;
 
     for (int index = 0; index < gWindowsLength; index++) {
-        _GNW_win_refresh(gWindows[index], rect, a2);
+        _GNW_win_refresh(gWindows[index], rect, dest);
     }
 
     _doing_refresh_all = 0;
 
-    if (a2 == nullptr) {
+    if (dest == nullptr) {
         if (!cursorIsHidden()) {
             if (_mouse_in(rect->left, rect->top, rect->right, rect->bottom)) {
                 mouseShowCursor();
