@@ -830,7 +830,7 @@ void _GNW_win_refresh(Window* window, Rect* rect, unsigned char* dest)
             // computes clip boundaries for this window, considering all windows higher in z-index
             _win_clip(window, &refreshRectList, dest);
 
-            if (window->id) { 
+            if (window->id) {
                 // loop through all clip rectangles blitting to dest or screen
                 clipRect = refreshRectList;
                 while (clipRect) {
@@ -906,7 +906,7 @@ void _GNW_win_refresh(Window* window, Rect* rect, unsigned char* dest)
                                 dest + dest_pitch * (clipRect->rect.top - rect->top) + clipRect->rect.left - rect->left,
                                 dest_pitch);
                         } else {
-                            if (_buffering) {  // note: _buffering appears to always be false
+                            if (_buffering) { // note: _buffering appears to always be false
                                 blitBufferToBuffer(buf,
                                     width,
                                     height,
