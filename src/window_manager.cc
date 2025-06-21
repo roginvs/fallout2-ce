@@ -26,6 +26,8 @@ namespace fallout {
 // The maximum number of button groups.
 #define BUTTON_GROUP_LIST_CAPACITY (64)
 
+static bool refreshingTransparent = false;
+
 static void windowFree(int win);
 static void _win_buffering(bool bufferWindows);
 static void _win_move(int win_index, int x, int y);
@@ -176,7 +178,8 @@ int windowManagerInit(VideoSystemInitProc* videoSystemInitProc, VideoSystemExitP
         }
     }
 
-    _buffering = false;
+    // brute force to true for now
+    _buffering = true;
     _doing_refresh_all = 0;
 
     if (!_initColors()) {
@@ -879,7 +882,7 @@ void _GNW_win_refresh(Window* window, Rect* rect, unsigned char* dest)
                             _scr_blit(
                                 window->buffer + clipRect->rect.left - window->rect.left + (clipRect->rect.top - window->rect.top) * window->width,
                                 window->width,
-                                clipRect->rect.bottom - clipRect->rect.bottom + 1,
+                                clipRect->rect.bottom - clipRect->rect.top + 1,
                                 0,
                                 0,
                                 clipRect->rect.right - clipRect->rect.left + 1,
@@ -957,6 +960,15 @@ void _GNW_win_refresh(Window* window, Rect* rect, unsigned char* dest)
             }
         } else {
             _rect_free(refreshRectList);
+        }
+    }
+
+    if (!_doing_refresh_all && a3 == nullptr && (window->flags & WINDOW_TRANSPARENT)) {
+        if (!refreshingTransparent) {
+            refreshingTransparent = true;
+            Rect dirtyRect = window->rect;
+            windowRefreshAll(&dirtyRect);
+            refreshingTransparent = false;
         }
     }
 }
