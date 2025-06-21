@@ -812,7 +812,9 @@ void _GNW_win_refresh(Window* window, Rect* rect, unsigned char* dest)
     }
 
     if ((window->flags & WINDOW_TRANSPARENT) && _buffering && !_doing_refresh_all) {
-        // TODO: Incomplete.
+        Rect dirtyRect = window->rect;
+        windowRefreshAll(&dirtyRect);
+        return;
     } else {
         // Initial rectangle list node representing the intersection of window and refresh areas
         refreshRectList = _rect_malloc();
@@ -960,15 +962,6 @@ void _GNW_win_refresh(Window* window, Rect* rect, unsigned char* dest)
             }
         } else {
             _rect_free(refreshRectList);
-        }
-    }
-
-    if (!_doing_refresh_all && a3 == nullptr && (window->flags & WINDOW_TRANSPARENT)) {
-        if (!refreshingTransparent) {
-            refreshingTransparent = true;
-            Rect dirtyRect = window->rect;
-            windowRefreshAll(&dirtyRect);
-            refreshingTransparent = false;
         }
     }
 }
