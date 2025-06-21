@@ -26,8 +26,6 @@ namespace fallout {
 // The maximum number of button groups.
 #define BUTTON_GROUP_LIST_CAPACITY (64)
 
-static bool refreshingTransparent = false;
-
 static void windowFree(int win);
 static void _win_buffering(bool bufferWindows);
 static void _win_move(int win_index, int x, int y);
