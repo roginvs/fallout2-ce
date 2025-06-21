@@ -879,7 +879,7 @@ void _GNW_win_refresh(Window* window, Rect* rect, unsigned char* dest)
                             _scr_blit(
                                 window->buffer + clipRect->rect.left - window->rect.left + (clipRect->rect.top - window->rect.top) * window->width,
                                 window->width,
-                                clipRect->rect.bottom - clipRect->rect.bottom + 1,
+                                clipRect->rect.bottom - clipRect->rect.top + 1,
                                 0,
                                 0,
                                 clipRect->rect.right - clipRect->rect.left + 1,
