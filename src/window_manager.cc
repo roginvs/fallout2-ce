@@ -176,8 +176,8 @@ int windowManagerInit(VideoSystemInitProc* videoSystemInitProc, VideoSystemExitP
         }
     }
 
-    // brute force to true for now
-    _buffering = true;
+    // turn on buffering if _screen_buffer allocated via gameInitWithOptions flag
+    _buffering = (_screen_buffer != nullptr);
     _doing_refresh_all = 0;
 
     if (!_initColors()) {
