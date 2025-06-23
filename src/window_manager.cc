@@ -177,7 +177,7 @@ int windowManagerInit(VideoSystemInitProc* videoSystemInitProc, VideoSystemExitP
         // Enable buffering since we successfully allocated a buffer
         _buffering = true;
     }
-    
+
     _doing_refresh_all = 0;
 
     if (!_initColors()) {
