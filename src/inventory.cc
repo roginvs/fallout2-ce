@@ -4818,10 +4818,10 @@ static void _barter_move_inventory(Object* item, int quantity, int slotIndex, in
 {
     Rect rect;
     if (fromDude) {
-        rect.left = 23;
-        rect.top = INVENTORY_SLOT_HEIGHT * slotIndex + 34;
+        rect.left = 31;
+        rect.top = INVENTORY_SLOT_HEIGHT * slotIndex + 31;
     } else {
-        rect.left = 395;
+        rect.left = 389;
         rect.top = INVENTORY_SLOT_HEIGHT * slotIndex + 31;
     }
 
