@@ -809,11 +809,6 @@ void _GNW_win_refresh(Window* window, Rect* rect, unsigned char* dest)
         return;
     }
 
-    if ((window->flags & WINDOW_TRANSPARENT) && _buffering && !_doing_refresh_all) {
-        Rect dirtyRect = window->rect;
-        windowRefreshAll(&dirtyRect);
-        return;
-    } else {
         // Initial rectangle list node representing the intersection of window and refresh areas
         refreshRectList = _rect_malloc();
         if (refreshRectList == nullptr) {
@@ -961,7 +956,6 @@ void _GNW_win_refresh(Window* window, Rect* rect, unsigned char* dest)
         } else {
             _rect_free(refreshRectList);
         }
-    }
 }
 
 // 0x4D759C
