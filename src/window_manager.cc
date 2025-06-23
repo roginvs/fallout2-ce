@@ -92,7 +92,7 @@ static int gWindowsLength;
 static int _window_flags;
 
 // 0x6ADF2C
-static bool _buffering;
+static bool _buffering = false;
 
 // 0x6ADF30
 static int _bk_color;
@@ -174,10 +174,10 @@ int windowManagerInit(VideoSystemInitProc* videoSystemInitProc, VideoSystemExitP
 
             return WINDOW_MANAGER_ERR_NO_MEMORY;
         }
+        // Enable buffering since we successfully allocated a buffer
+        _buffering = true;
     }
-
-    // turn on buffering if _screen_buffer allocated via gameInitWithOptions flag
-    _buffering = (_screen_buffer != nullptr);
+    
     _doing_refresh_all = 0;
 
     if (!_initColors()) {
