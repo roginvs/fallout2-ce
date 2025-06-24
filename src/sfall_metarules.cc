@@ -9,8 +9,8 @@
 #include "color.h"
 #include "combat.h"
 #include "config.h" // For Config, configInit, configFree
-#include "debug.h"
 #include "dbox.h"
+#include "debug.h"
 #include "game.h"
 #include "game_dialog.h"
 #include "game_mouse.h"
@@ -110,7 +110,7 @@ const MetaruleInfo kMetarules[] = {
     // {"item_weight",               mf_item_weight,               1, 1,  0, {ARG_OBJECT}},
     // {"lock_is_jammed",            mf_lock_is_jammed,            1, 1,  0, {ARG_OBJECT}},
     { "loot_obj", mf_loot_obj, 0, 0 },
-    {"message_box",               mf_message_box,               1, 4}, // {ARG_STRING, ARG_INT, ARG_INT, ARG_INT}},
+    { "message_box", mf_message_box, 1, 4 }, // {ARG_STRING, ARG_INT, ARG_INT, ARG_INT}},
     { "metarule_exist", mf_metarule_exist, 1, 1 },
     // {"npc_engine_level_up",       mf_npc_engine_level_up,       1, 1},
     // {"obj_is_openable",           mf_obj_is_openable,           1, 1,  0, {ARG_OBJECT}},
@@ -573,7 +573,8 @@ void sprintf_lite(Program* program, int args, const char* infoOpcodeName)
 }
 
 // message_box
-void mf_message_box(Program* program, int args) {
+void mf_message_box(Program* program, int args)
+{
     static int dialogShowCount = 0;
 
     const char* string = programStackPopString(program);
@@ -602,18 +603,18 @@ void mf_message_box(Program* program, int args) {
     }
 
     // note: most of the CE code uses colorTable indices, but this metarule expects palette values.
-    // Default: yellow (145) = _colorTable[32328]         
+    // Default: yellow (145) = _colorTable[32328]
     int color1 = _colorTable[32328], color2 = _colorTable[32328];
     if (args > 2) {
         color1 = programStackPopInteger(program);
     }
     if (args > 3) {
         color2 = programStackPopInteger(program);
-	}
+    }
 
     dialogShowCount++;
     scriptsDisable();
-    int rc = showDialogBox(copy,body,count,192,116,color1,nullptr,color2,flags);
+    int rc = showDialogBox(copy, body, count, 192, 116, color1, nullptr, color2, flags);
     if (--dialogShowCount == 0) {
         scriptsEnable();
     }
