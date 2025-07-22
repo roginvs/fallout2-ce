@@ -2614,7 +2614,7 @@ static void _adjust_fid()
         }
 
         int animationCode = 0;
-        if (interfaceGetCurrentHand()) {
+        if (interfaceGetCurrentHand() == HAND_RIGHT) {
             if (gInventoryRightHandItem != nullptr) {
                 protoGetProto(gInventoryRightHandItem->pid, &proto);
                 if (proto->item.type == ITEM_TYPE_WEAPON) {
