@@ -156,7 +156,7 @@ typedef enum OpRegAnimFunc {
 static void scriptPredefinedError(Program* program, const char* name, int error);
 static void scriptError(const char* format, ...);
 static int tileIsVisible(int tile);
-static int _correctFidForRemovedItem(Object* a1, Object* a2, int a3);
+static int _correctFidForRemovedItem(Object* critter, Object* item, int flags);
 static void opGiveExpPoints(Program* program);
 static void opScrReturn(Program* program);
 static void opPlaySfx(Program* program);
@@ -412,48 +412,48 @@ static int tileIsVisible(int tile)
 }
 
 // 0x45409C
-static int _correctFidForRemovedItem(Object* a1, Object* a2, int flags)
+static int _correctFidForRemovedItem(Object* critter, Object* item, int flags)
 {
-    if (a1 == gDude) {
+    if (critter == gDude) {
         bool animated = !gameUiIsDisabled();
         interfaceUpdateItems(animated, INTERFACE_ITEM_ACTION_DEFAULT, INTERFACE_ITEM_ACTION_DEFAULT);
     }
 
-    int fid = a1->fid;
-    int v8 = (fid & 0xF000) >> 12;
+    int fid = critter->fid;
+    int weaponCode = FID_WEAPON_CODE(fid);
     int newFid = -1;
 
-    if ((flags & 0x03000000) != 0) {
-        if (a1 == gDude) {
-            if (interfaceGetCurrentHand()) {
-                if ((flags & 0x02000000) != 0) {
-                    v8 = 0;
+    if ((flags & OBJECT_IN_ANY_HAND) != 0) {
+        if (critter == gDude) {
+            if (interfaceGetCurrentHand() == HAND_RIGHT) {
+                if ((flags & OBJECT_IN_RIGHT_HAND) != 0) {
+                    weaponCode = 0;
                 }
             } else {
-                if ((flags & 0x01000000) != 0) {
-                    v8 = 0;
+                if ((flags & OBJECT_IN_LEFT_HAND) != 0) {
+                    weaponCode = 0;
                 }
             }
         } else {
-            if ((flags & 0x02000000) != 0) {
-                v8 = 0;
+            if ((flags & OBJECT_IN_RIGHT_HAND) != 0) {
+                weaponCode = 0;
             }
         }
 
-        if (v8 == 0) {
-            newFid = buildFid(FID_TYPE(fid), fid & 0xFFF, FID_ANIM_TYPE(fid), 0, (fid & 0x70000000) >> 28);
+        if (weaponCode == 0) {
+            newFid = buildFid(FID_TYPE(fid), fid & 0xFFF, FID_ANIM_TYPE(fid), 0, FID_ROTATION(fid));
         }
     } else {
-        if (a1 == gDude) {
-            newFid = buildFid(FID_TYPE(fid), _art_vault_guy_num, FID_ANIM_TYPE(fid), v8, (fid & 0x70000000) >> 28);
+        if (critter == gDude) {
+            newFid = buildFid(FID_TYPE(fid), _art_vault_guy_num, FID_ANIM_TYPE(fid), weaponCode, FID_ROTATION(fid));
         }
 
-        _adjust_ac(a1, a2, nullptr);
+        _adjust_ac(critter, item, nullptr);
     }
 
     if (newFid != -1) {
         Rect rect;
-        objectSetFid(a1, newFid, &rect);
+        objectSetFid(critter, newFid, &rect);
         tileWindowRefreshRect(&rect, gElevation);
     }
 
@@ -4604,12 +4604,12 @@ static void opMoveObjectInventoryToObject(Program* program)
 
     if (object1 != gDude && item2 != nullptr) {
         int flags = 0;
-        if ((item2->flags & 0x01000000) != 0) {
-            flags |= 0x01000000;
+        if ((item2->flags & OBJECT_IN_LEFT_HAND) != 0) {
+            flags |= OBJECT_IN_LEFT_HAND;
         }
 
-        if ((item2->flags & 0x02000000) != 0) {
-            flags |= 0x02000000;
+        if ((item2->flags & OBJECT_IN_RIGHT_HAND) != 0) {
+            flags |= OBJECT_IN_RIGHT_HAND;
         }
 
         _correctFidForRemovedItem(object1, item2, flags);
