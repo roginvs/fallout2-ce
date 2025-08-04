@@ -19,6 +19,7 @@ jobs:
         uses: bobheadxi/deployments@v1
         id: deployment
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           step: start
           env: preview
 
@@ -104,7 +105,8 @@ jobs:
         uses: bobheadxi/deployments@v1
         with:
           step: finish
-          env: preview
-          status: success
+          env: ${{ steps.deployment.outputs.env }}
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+          ref: ${{ github.event.pull_request.head.sha }}
           env_url: https://${{ github.repository_owner }}.github.io/fallout2-ce/PR-${{ github.event.pull_request.number }}/
 
