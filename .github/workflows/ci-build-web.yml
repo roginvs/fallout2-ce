@@ -105,6 +105,7 @@ jobs:
         uses: bobheadxi/deployments@v1
         with:
           step: finish
+          status: success
           env: ${{ steps.deployment.outputs.env }}
           deployment_id: ${{ steps.deployment.outputs.deployment_id }}
           ref: ${{ github.event.pull_request.head.sha }}
