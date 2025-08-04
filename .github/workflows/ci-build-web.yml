@@ -22,7 +22,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           step: start
           debug: true
-          env: preview
+          env: preview-${{ github.event.pull_request.number }}
 
       - name: Clone
         uses: actions/checkout@v4
