@@ -21,6 +21,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           step: start
+          debug: true
           env: preview
 
       - name: Clone
@@ -106,6 +107,7 @@ jobs:
         with:
           step: finish
           status: success
+          debug: true
           env: ${{ steps.deployment.outputs.env }}
           deployment_id: ${{ steps.deployment.outputs.deployment_id }}
           ref: ${{ github.event.pull_request.head.sha }}
