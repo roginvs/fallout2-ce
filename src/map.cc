@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include <vector>
 
@@ -953,6 +954,10 @@ static int mapLoad(File* stream)
 
         strcat(path, ".GAM");
         globalVarsRead(path, "MAP_GLOBAL_VARS:", &gMapGlobalVarsLength, &gMapGlobalVars);
+        if (gMapHeader.globalVariablesCount != gMapGlobalVarsLength) {
+            assert(gMapHeader.globalVariablesCount == gMapGlobalPointers.size());
+            gMapGlobalPointers.resize(gMapGlobalVarsLength);
+        }
         gMapHeader.globalVariablesCount = gMapGlobalVarsLength;
     }
 
