@@ -562,20 +562,26 @@ int dfileSeek(DFile* stream, long offset, int origin)
         return 1;
     }
 
-    if (inflateEnd(stream->decompressionStream) != Z_OK) {
-        stream->flags |= DFILE_ERROR;
-        return 1;
-    }
+    if (stream->entry->compressed == 1) {
+        if (inflateEnd(stream->decompressionStream) != Z_OK) {
+            stream->flags |= DFILE_ERROR;
+            return 1;
+        }
 
-    stream->decompressionStream->zalloc = Z_NULL;
-    stream->decompressionStream->zfree = Z_NULL;
-    stream->decompressionStream->opaque = Z_NULL;
-    stream->decompressionStream->next_in = stream->decompressionBuffer;
-    stream->decompressionStream->avail_in = 0;
+        stream->decompressionStream->zalloc = Z_NULL;
+        stream->decompressionStream->zfree = Z_NULL;
+        stream->decompressionStream->opaque = Z_NULL;
+        stream->decompressionStream->next_in = stream->decompressionBuffer;
+        stream->decompressionStream->avail_in = 0;
 
-    if (inflateInit(stream->decompressionStream) != Z_OK) {
-        stream->flags |= DFILE_ERROR;
-        return 1;
+        if (inflateInit(stream->decompressionStream) != Z_OK) {
+            stream->flags |= DFILE_ERROR;
+            return 1;
+        }
+    } else {
+        // FIXME: I'm not sure what this assignment means. This field is
+        // only meaningful when reading compressed streams.
+        stream->compressedBytesRead = 0;
     }
 
     stream->position = 0;
