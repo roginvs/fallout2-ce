@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      deployments: write
     steps:
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
@@ -44,3 +45,11 @@ jobs:
             git commit --amend -m "🚮 Remove preview for closed PR #${{ github.event.pull_request.number }}"
             git push --force
           fi
+
+      - name: mark environment as deactivated
+        uses: bobheadxi/deployments@v1
+        with:
+          step: deactivate-env
+          env: preview-${{ github.event.pull_request.number }}
+          desc: Environment was pruned
+          debug: true
