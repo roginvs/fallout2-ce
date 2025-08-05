@@ -1,5 +1,6 @@
 #include "art.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -702,7 +703,12 @@ static int artReadList(const char* path, char** artListPtr, int* artListSizePtr)
         artList[12] = '\0';
 
         artList += 13;
+
+        count--;
     }
+
+    // Sanity check. There was a bug with uncompressed database file seek
+    assert(count == 0); 
 
     fileClose(stream);
 
