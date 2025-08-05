@@ -708,7 +708,7 @@ static int artReadList(const char* path, char** artListPtr, int* artListSizePtr)
     }
 
     // Sanity check. There was a bug with uncompressed database file seek
-    assert(count == 0); 
+    assert(count == 0);
 
     fileClose(stream);
 
