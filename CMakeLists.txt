@@ -424,7 +424,15 @@ else()
        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/nevada-*.png"
        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/sonora-*.png"
     )
-    file(COPY ${WEB_STATIC} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+    # Copy each file individually, excluding symlinks
+    foreach(file IN LISTS WEB_STATIC)
+        # Symlinks are skipped because I run devserver from os/web directory,
+        # and I create symlinks to the build directory for emscipten output
+        if(NOT IS_SYMLINK "${file}")
+            message(STATUS "Copying: ${file} → ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+            file(COPY "${file}" DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+        endif()
+    endforeach()
    
     # Update service worker with current date
     set(SERVICE_WORKER_FILE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/index.sw.js")
