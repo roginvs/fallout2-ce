@@ -18,6 +18,17 @@ emmake make VERBOSE=1
 cd web
 ```
 
+Or alternatively using docker (no need to install emscipten)
+
+```bash
+# Release build
+docker run --rm --user $(id -u):$(id -g) -v $(pwd):/src emscripten/emsdk:3.1.74 sh -c 'mkdir -p build && cd build && export SOURCE_MAP_BASE=https://fallout-nevada.ru/ && export EM_CACHE=/src/build/emcache &&  emcmake cmake -DCMAKE_BUILD_TYPE="Release" ../ && emmake make VERBOSE=1 -j 8'
+
+# Debug build
+docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) emscripten/emsdk:3.1.74 sh -c 'mkdir -p build && cd build && export EM_CACHE=$(pwd)/build/emcache-debug &&  emcmake cmake -DCMAKE_BUILD_TYPE="Debug" ../ && emmake make VERBOSE=1 -j 8'
+
+```
+
 ### Copy game data
 
 Create a `game` subfolder and copy each game folder there (for example `build/web/game/FalloutNevada/`)
