@@ -230,7 +230,8 @@ int falloutMain(int argc, char** argv)
 // 0x480CC0
 static bool falloutInit(int argc, char** argv)
 {
-    if (gameInitWithOptions("FALLOUT II", false, 0, 0, argc, argv) == -1) {
+    // set flag to 1 to initialize _screen_buffer for WINDOW_TRANSPARENT
+    if (gameInitWithOptions("FALLOUT II", false, 0, 1, argc, argv) == -1) {
         return false;
     }
 

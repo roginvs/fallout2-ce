@@ -15,6 +15,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
+      - name: start deployment
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: bobheadxi/deployments@v1
+        id: deployment
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          step: start
+          debug: true
+          env: preview-${{ github.event.pull_request.number }}
+
       - name: Clone
         uses: actions/checkout@v4
 
@@ -90,11 +100,17 @@ jobs:
           folder: fallout2-ce-ems/dist
           target-folder: ${{ steps.set-path.outputs.DEST_DIR }}
           clean: false
+          single-commit: true
 
-      - name: Comment preview URL on PR
+      - name: Update deployment status
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body "🚀 WebAssembly PR Preview for ${{github.event.pull_request.head.sha || github.sha }} is available at: https://${{ github.repository_owner }}.github.io/fallout2-ce/PR-${{ github.event.pull_request.number }}/"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: bobheadxi/deployments@v1
+        with:
+          step: finish
+          status: success
+          debug: true
+          env: ${{ steps.deployment.outputs.env }}
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          env_url: https://${{ github.repository_owner }}.github.io/fallout2-ce/PR-${{ github.event.pull_request.number }}/
+

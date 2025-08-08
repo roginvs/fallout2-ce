@@ -2540,7 +2540,7 @@ static int _GetComment(int slot)
         _loadsaveFrmImages[LOAD_SAVE_FRM_RED_BUTTON_PRESSED].getData(),
         nullptr,
         BUTTON_FLAG_TRANSPARENT);
-    if (btn == -1) {
+    if (btn != -1) {
         buttonSetCallbacks(btn, _gsound_red_butt_press, _gsound_red_butt_release);
     }
 
@@ -2558,7 +2558,7 @@ static int _GetComment(int slot)
         _loadsaveFrmImages[LOAD_SAVE_FRM_RED_BUTTON_PRESSED].getData(),
         nullptr,
         BUTTON_FLAG_TRANSPARENT);
-    if (btn == -1) {
+    if (btn != -1) {
         buttonSetCallbacks(btn, _gsound_red_butt_press, _gsound_red_butt_release);
     }
 

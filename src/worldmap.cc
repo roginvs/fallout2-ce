@@ -461,6 +461,13 @@ typedef struct WmGenData {
     int oldFont;
 } WmGenData;
 
+// CE/SFALL: control world map time via script
+float gScriptWorldMapMulti = 1.0f;
+void wmSetScriptWorldMapMulti(float value)
+{
+    gScriptWorldMapMulti = value;
+}
+
 static void wmSetFlags(int* flagsPtr, int flag, int value);
 static int wmGenDataInit();
 static int wmGenDataReset();
@@ -537,6 +544,7 @@ static int wmInterfaceRefresh();
 static void wmInterfaceRefreshDate(bool shouldRefreshWindow);
 static int wmMatchWorldPosToArea(int x, int y, int* areaIdxPtr);
 static int wmInterfaceDrawCircleOverlay(CityInfo* cityInfo, CitySizeDescription* citySizeInfo, unsigned char* buffer, int x, int y);
+static int wmInterfaceDrawCircleOverlaySafe(CityInfo* city, CitySizeDescription* citySizeDescription, unsigned char* dest, int x, int y);
 static void wmInterfaceDrawSubTileRectFogged(unsigned char* dest, int width, int height, int pitch);
 static int wmInterfaceDrawSubTileList(TileInfo* tileInfo, int column, int row, int x, int y, int a6);
 static int wmDrawCursorStopped();
@@ -679,6 +687,10 @@ static int wmBkWin = -1;
 // 0x51DE24
 static unsigned char* wmBkWinBuf = nullptr;
 
+// CE: Offscreen buffer for safe city overlay rendering
+static unsigned char* wmOverlayOffscreenBuf = nullptr;
+#define WM_OVERLAY_BUFFER_SIZE (200)
+
 // 0x51DE2C
 static int wmWorldOffsetX = 0;
 
@@ -731,6 +743,13 @@ static const int wmRndCursorFids[WORLD_MAP_ENCOUNTER_FRM_COUNT] = {
     438,
     439,
 };
+
+#define MAX_TRAIL_LENGTH 1000
+
+typedef struct {
+    int x;
+    int y;
+} TrailDot;
 
 // 0x51DE94
 static int* wmLabelList = nullptr;
@@ -827,6 +846,7 @@ static FrmImage _townFrmImage;
 static bool wmFaded = false;
 static int wmForceEncounterMapId = -1;
 static unsigned int wmForceEncounterFlags = 0;
+static int worldmapTrailMarkers;
 
 static inline bool cityIsValid(int city)
 {
@@ -878,6 +898,12 @@ int wmWorldMap_init()
 
     wmMarkSubTileRadiusVisited(wmGenData.worldPosX, wmGenData.worldPosY);
     wmWorldMapSaveTempData();
+
+    // SFALL
+    gTownMapHotkeysFix = true;
+    worldmapTrailMarkers = 0;
+    configGetBool(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_TOWN_MAP_HOTKEYS_FIX_KEY, &gTownMapHotkeysFix);
+    configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_WORLDMAP_TRAIL_MARKERS, &worldmapTrailMarkers);
 
     // CE: City size fids should be initialized during startup. They are used
     // during |wmTeleportToArea| to calculate worldmap position when jumping
@@ -3135,7 +3161,7 @@ static int wmWorldMapFunc(int a1)
         }
 
         if ((mouseEvent & MOUSE_EVENT_LEFT_BUTTON_DOWN) != 0 && (mouseEvent & MOUSE_EVENT_LEFT_BUTTON_REPEAT) == 0) {
-            if (mouseHitTestInWindow(wmBkWin, WM_VIEW_X, WM_VIEW_Y, 472, 465)) {
+            if (mouseHitTestInWindow(wmBkWin, WM_VIEW_X, WM_VIEW_Y, WM_VIEW_WIDTH + WM_VIEW_X, WM_VIEW_HEIGHT + WM_VIEW_Y)) {
                 if (!wmGenData.isWalking && !wmGenData.mousePressed && abs(wmGenData.worldPosX - worldX) < 5 && abs(wmGenData.worldPosY - worldY) < 5) {
                     wmGenData.mousePressed = true;
                     wmInterfaceRefresh();
@@ -3187,7 +3213,7 @@ static int wmWorldMapFunc(int a1)
                     }
                 }
             } else {
-                if (mouseHitTestInWindow(wmBkWin, WM_VIEW_X, WM_VIEW_Y, 472, 465)) {
+                if (mouseHitTestInWindow(wmBkWin, WM_VIEW_X, WM_VIEW_Y, WM_VIEW_WIDTH + WM_VIEW_X, WM_VIEW_HEIGHT + WM_VIEW_Y)) {
                     wmPartyInitWalking(worldX, worldY);
                 }
 
@@ -3269,7 +3295,7 @@ static int wmWorldMapFunc(int a1)
             int wheelY;
             mouseGetWheel(&wheelX, &wheelY);
 
-            if (mouseHitTestInWindow(wmBkWin, WM_VIEW_X, WM_VIEW_Y, 472, 465)) {
+            if (mouseHitTestInWindow(wmBkWin, WM_VIEW_X, WM_VIEW_Y, WM_VIEW_WIDTH + WM_VIEW_X, WM_VIEW_HEIGHT + WM_VIEW_Y)) {
                 wmInterfaceScrollPixel(20, 20, wheelX, -wheelY, nullptr, true);
             } else if (mouseHitTestInWindow(wmBkWin, 501, 135, 501 + 119, 135 + 178)) {
                 if (wheelY != 0) {
@@ -4190,9 +4216,9 @@ static bool wmGameTimeIncrement(int ticksToAdd)
 
     // SFALL: Fix Pathfinder perk.
     int pathfinderRank = perkGetRank(gDude, PERK_PATHFINDER);
-    double bonus = static_cast<double>(ticksToAdd) * static_cast<double>(pathfinderRank) * 0.25 + gGameTimeIncRemainder;
-    gGameTimeIncRemainder = modf(bonus, &bonus);
-    ticksToAdd -= static_cast<int>(bonus);
+    double newTicks = static_cast<double>(ticksToAdd) * (1.0 - static_cast<double>(pathfinderRank) * 0.25) * gScriptWorldMapMulti + gGameTimeIncRemainder;
+    gGameTimeIncRemainder = modf(newTicks, &newTicks);
+    ticksToAdd = static_cast<int>(newTicks);
 
     while (ticksToAdd != 0) {
         unsigned int gameTime = gameTimeGetTime();
@@ -4508,6 +4534,12 @@ static int wmInterfaceInit()
 
     wmBkWinBuf = windowGetBuffer(wmBkWin);
     if (wmBkWinBuf == nullptr) {
+        return -1;
+    }
+
+    // CE: Allocate offscreen buffer for safe city overlay rendering
+    wmOverlayOffscreenBuf = (unsigned char*)internal_malloc(WM_OVERLAY_BUFFER_SIZE * WM_OVERLAY_BUFFER_SIZE);
+    if (wmOverlayOffscreenBuf == nullptr) {
         return -1;
     }
 
@@ -4837,6 +4869,12 @@ static int wmInterfaceExit()
 
     // NOTE: Uninline.
     wmFreeTabsLabelList(&wmLabelList, &wmLabelCount);
+
+    // CE: Free offscreen buffer for safe city overlay rendering
+    if (wmOverlayOffscreenBuf != nullptr) {
+        internal_free(wmOverlayOffscreenBuf);
+        wmOverlayOffscreenBuf = nullptr;
+    }
 
     wmInterfaceWasInitialized = 0;
 
@@ -5239,10 +5277,8 @@ static int wmInterfaceRefresh()
             CitySizeDescription* citySizeDescription = &(wmSphereData[cityInfo->size]);
             int cityX = cityInfo->x - wmWorldOffsetX;
             int cityY = cityInfo->y - wmWorldOffsetY;
-            if (cityX >= 0 && cityX <= 472 - citySizeDescription->frmImage.getWidth()
-                && cityY >= 0 && cityY <= 465 - citySizeDescription->frmImage.getHeight()) {
-                wmInterfaceDrawCircleOverlay(cityInfo, citySizeDescription, wmBkWinBuf, cityX, cityY);
-            }
+            // CE: Use safe overlay drawing with proper bounds checking instead of hardcoded limits
+            wmInterfaceDrawCircleOverlaySafe(cityInfo, citySizeDescription, wmBkWinBuf, cityX, cityY);
         }
     }
 
@@ -5396,6 +5432,150 @@ static int wmMatchWorldPosToArea(int x, int y, int* areaIdxPtr)
     return 0;
 }
 
+// CE: Safe city overlay drawing with proper bounds checking
+static int wmInterfaceDrawCircleOverlaySafe(CityInfo* city, CitySizeDescription* citySizeDescription, unsigned char* dest, int xArg, int yArg)
+{
+    MessageListItem messageListItem;
+    char name[CITY_NAME_SIZE];
+    if (wmAreaIsKnown(city->areaId)) {
+        wmGetAreaName(city, name);
+    } else {
+        strncpy(name, getmsg(&wmMsgFile, &messageListItem, 1004), CITY_NAME_SIZE - 1);
+        name[CITY_NAME_SIZE - 1] = '\0';
+    }
+
+    // Basic dimensions
+    int circleWidth = citySizeDescription->frmImage.getWidth();
+    int circleHeight = citySizeDescription->frmImage.getHeight();
+    int textWidth = fontGetStringWidth(name);
+    int textHeight = fontGetLineHeight();
+    const int spacing = 3;
+
+    // 1. Relative Ideal Positions (Origin at 0,0 for circle's top-left)
+    int xTextRel = (circleWidth - textWidth) / 2;
+    int yTextRel = circleHeight + spacing;
+
+    // 2. Content Bounding Box (Relative to circle's 0,0 origin)
+    int contentMinXRel = std::min(0, xTextRel);
+    int contentMaxXRel = std::max(circleWidth, xTextRel + textWidth);
+
+    int contentActualWidth = contentMaxXRel - contentMinXRel;
+    int contentActualHeight = circleHeight + spacing + textHeight;
+
+    // Viewport boundaries
+    int viewportLeft = WM_VIEW_X;
+    int viewportTop = WM_VIEW_Y;
+    int viewportRight = WM_VIEW_X + WM_VIEW_WIDTH;
+    int viewportBottom = WM_VIEW_Y + WM_VIEW_HEIGHT;
+
+    // Overall screen position for the content bounding box's top-left
+    int screenContentBoxX = xArg + contentMinXRel;
+    int screenContentBoxY = yArg; // yArg is for circle's top
+
+    // Check if the entire content box is outside the viewport
+    if (screenContentBoxX + contentActualWidth < viewportLeft || screenContentBoxX >= viewportRight || screenContentBoxY + contentActualHeight < viewportTop || screenContentBoxY >= viewportBottom) {
+        return 0; // Completely outside viewport
+    }
+
+    // 3. Positioning Content Bounding Box within wmOverlayOffscreenBuf
+    // This is the top-left of where our combined content will sit in the offscreen buffer.
+    int bufferContentStartX = (WM_OVERLAY_BUFFER_SIZE - contentActualWidth) / 2;
+    int bufferContentStartY = (WM_OVERLAY_BUFFER_SIZE - contentActualHeight) / 2;
+
+    // Clear/prepare the offscreen buffer
+    memset(wmOverlayOffscreenBuf, 0, WM_OVERLAY_BUFFER_SIZE * WM_OVERLAY_BUFFER_SIZE);
+
+    // Copy background from main screen buffer to offscreen buffer
+    // Determine the part of the screen that corresponds to our offscreen content area
+    int bgCopySrcXOnScreen = screenContentBoxX;
+    int bgCopySrcYOnScreen = screenContentBoxY;
+
+    int bgCopyClippedSrcX = std::max(bgCopySrcXOnScreen, viewportLeft);
+    int bgCopyClippedSrcY = std::max(bgCopySrcYOnScreen, viewportTop);
+
+    int bgCopyClippedEndX = std::min(bgCopySrcXOnScreen + contentActualWidth, viewportRight);
+    int bgCopyClippedEndY = std::min(bgCopySrcYOnScreen + contentActualHeight, viewportBottom);
+
+    int bgFinalCopyWidth = bgCopyClippedEndX - bgCopyClippedSrcX;
+    int bgFinalCopyHeight = bgCopyClippedEndY - bgCopyClippedSrcY;
+
+    if (bgFinalCopyWidth > 0 && bgFinalCopyHeight > 0) {
+        // Offset into the offscreen buffer where this background piece should go
+        int bgDstXInBuffer = bufferContentStartX + (bgCopyClippedSrcX - bgCopySrcXOnScreen);
+        int bgDstYInBuffer = bufferContentStartY + (bgCopyClippedSrcY - bgCopySrcYOnScreen);
+
+        if (bgDstXInBuffer >= 0 && bgDstYInBuffer >= 0 && bgDstXInBuffer + bgFinalCopyWidth <= WM_OVERLAY_BUFFER_SIZE && bgDstYInBuffer + bgFinalCopyHeight <= WM_OVERLAY_BUFFER_SIZE) {
+
+            blitBufferToBuffer(
+                dest + bgCopyClippedSrcY * WM_WINDOW_WIDTH + bgCopyClippedSrcX, // Source from main screen
+                bgFinalCopyWidth,
+                bgFinalCopyHeight,
+                WM_WINDOW_WIDTH,
+                wmOverlayOffscreenBuf + bgDstYInBuffer * WM_OVERLAY_BUFFER_SIZE + bgDstXInBuffer, // Dest in offscreen
+                WM_OVERLAY_BUFFER_SIZE);
+        }
+    }
+
+    // 4. Absolute Drawing Coordinates within wmOverlayOffscreenBuf
+    // (relative to top-left of wmOverlayOffscreenBuf)
+    int circleDrawAbsX = bufferContentStartX - contentMinXRel;
+    int circleDrawAbsY = bufferContentStartY; // since content_min_y_rel is 0
+
+    int textDrawAbsX = bufferContentStartX - contentMinXRel + xTextRel;
+    int textDrawAbsY = bufferContentStartY + yTextRel;
+
+    // Draw circle onto offscreen buffer
+    if (circleDrawAbsX >= 0 && circleDrawAbsY >= 0 && circleDrawAbsX + circleWidth <= WM_OVERLAY_BUFFER_SIZE && circleDrawAbsY + circleHeight <= WM_OVERLAY_BUFFER_SIZE) {
+        _dark_translucent_trans_buf_to_buf(
+            citySizeDescription->frmImage.getData(),
+            circleWidth, circleHeight, circleWidth,
+            wmOverlayOffscreenBuf,
+            circleDrawAbsX, circleDrawAbsY,
+            WM_OVERLAY_BUFFER_SIZE,
+            0x10000, circleBlendTable, _commonGrayTable);
+    }
+
+    // Draw text onto offscreen buffer
+    if (textDrawAbsX >= 0 && textDrawAbsY >= 0 && textDrawAbsX + textWidth <= WM_OVERLAY_BUFFER_SIZE && textDrawAbsY + textHeight <= WM_OVERLAY_BUFFER_SIZE) {
+        fontDrawText(
+            wmOverlayOffscreenBuf + textDrawAbsY * WM_OVERLAY_BUFFER_SIZE + textDrawAbsX,
+            name, textWidth, WM_OVERLAY_BUFFER_SIZE,
+            _colorTable[992] | FONT_SHADOW);
+    }
+
+    // 5. Final Blit to Screen (dest buffer)
+    // Source from offscreen buffer (top-left of our centered content)
+    int finalBlitSrcXOffscreen = bufferContentStartX;
+    int finalBlitSrcYOffscreen = bufferContentStartY;
+
+    // Destination on screen (top-left of where content box should appear)
+    int finalBlitDstXScreen = screenContentBoxX;
+    int finalBlitDstYScreen = screenContentBoxY;
+
+    // Clip the source region for blitting based on what's visible in the viewport
+    // relative to the screen_content_box origin.
+    int clippedFinalSrcXOffscreen = finalBlitSrcXOffscreen + std::max(0, viewportLeft - finalBlitDstXScreen);
+    int clippedFinalSrcYOffscreen = finalBlitSrcYOffscreen + std::max(0, viewportTop - finalBlitDstYScreen);
+
+    // Clipped destination on screen
+    int clippedFinalDstXScreen = std::max(finalBlitDstXScreen, viewportLeft);
+    int clippedFinalDstYScreen = std::max(finalBlitDstYScreen, viewportTop);
+
+    // Calculate width and height of the actual region to blit
+    int blitWidth = std::min(finalBlitDstXScreen + contentActualWidth, viewportRight) - clippedFinalDstXScreen;
+    int blitHeight = std::min(finalBlitDstYScreen + contentActualHeight, viewportBottom) - clippedFinalDstYScreen;
+
+    if (blitWidth > 0 && blitHeight > 0 && clippedFinalSrcXOffscreen >= 0 && clippedFinalSrcYOffscreen >= 0 && clippedFinalSrcXOffscreen + blitWidth <= WM_OVERLAY_BUFFER_SIZE && clippedFinalSrcYOffscreen + blitHeight <= WM_OVERLAY_BUFFER_SIZE && clippedFinalDstXScreen >= 0 && clippedFinalDstYScreen >= 0 && clippedFinalDstXScreen + blitWidth <= WM_WINDOW_WIDTH && clippedFinalDstYScreen + blitHeight <= WM_WINDOW_HEIGHT) {
+        blitBufferToBuffer(
+            wmOverlayOffscreenBuf + clippedFinalSrcYOffscreen * WM_OVERLAY_BUFFER_SIZE + clippedFinalSrcXOffscreen,
+            blitWidth, blitHeight,
+            WM_OVERLAY_BUFFER_SIZE,
+            dest + clippedFinalDstYScreen * WM_WINDOW_WIDTH + clippedFinalDstXScreen,
+            WM_WINDOW_WIDTH);
+    }
+    return 0;
+}
+
 // 0x4C3FA8
 static int wmInterfaceDrawCircleOverlay(CityInfo* city, CitySizeDescription* citySizeDescription, unsigned char* dest, int x, int y)
 {
@@ -5470,8 +5650,8 @@ static int wmInterfaceDrawSubTileList(TileInfo* tileInfo, int column, int row, i
         destY = WM_VIEW_Y;
     }
 
-    if (height + y > 464) {
-        height -= height + y - 464;
+    if (height + y > WM_VIEW_Y + WM_VIEW_HEIGHT) {
+        height -= height + y - (WM_VIEW_Y + WM_VIEW_HEIGHT);
     }
 
     int width = WM_SUBTILE_SIZE * a6;
@@ -5480,8 +5660,8 @@ static int wmInterfaceDrawSubTileList(TileInfo* tileInfo, int column, int row, i
         width -= WM_VIEW_X - x;
     }
 
-    if (width + x > 472) {
-        width -= width + x - 472;
+    if (width + x > WM_VIEW_X + WM_VIEW_WIDTH) {
+        width -= width + x - (WM_VIEW_X + WM_VIEW_WIDTH);
     }
 
     if (width > 0 && height > 0) {
@@ -5506,13 +5686,16 @@ static int wmDrawCursorStopped()
     int width;
     int height;
 
-    if (wmGenData.walkDestinationX >= 1 || wmGenData.walkDestinationY >= 1) {
+    bool isWalkingNow = (wmGenData.walkDestinationX != 0 || wmGenData.walkDestinationY != 0);
 
+    if (isWalkingNow) {
+        // moving cursor
         if (wmGenData.encounterIconIsVisible) {
             src = wmGenData.encounterCursorFrmImages[wmGenData.encounterCursorId].getData();
             width = wmGenData.encounterCursorFrmImages[wmGenData.encounterCursorId].getWidth();
             height = wmGenData.encounterCursorFrmImages[wmGenData.encounterCursorId].getHeight();
         } else {
+            // current location (+)
             src = wmGenData.locationMarkerFrmImage.getData();
             width = wmGenData.locationMarkerFrmImage.getWidth();
             height = wmGenData.locationMarkerFrmImage.getHeight();
@@ -5546,6 +5729,77 @@ static int wmDrawCursorStopped()
         if (wmGenData.worldPosX >= wmWorldOffsetX && wmGenData.worldPosX < wmWorldOffsetX + WM_VIEW_WIDTH
             && wmGenData.worldPosY >= wmWorldOffsetY && wmGenData.worldPosY < wmWorldOffsetY + WM_VIEW_HEIGHT) {
             blitBufferToBufferTrans(src, width, height, width, wmBkWinBuf + WM_WINDOW_WIDTH * (WM_VIEW_Y - wmWorldOffsetY + wmGenData.worldPosY - height / 2) + WM_VIEW_X - wmWorldOffsetX + wmGenData.worldPosX - width / 2, WM_WINDOW_WIDTH);
+        }
+    }
+
+    // Dotted Trail logic
+
+    if (worldmapTrailMarkers) {
+        static bool wasWalking = false;
+        static uint32_t lastTrailDropTick = 0;
+        const int baseCooldown = 25; // base time between potential dot drops
+        static int trailDotCount = 0;
+        static TrailDot trailDots[MAX_TRAIL_LENGTH];
+        static int patternCounter = 0;
+
+        // Clear the trail when player stops - needs to be done when reloading map too
+        if (wasWalking && !isWalkingNow) {
+            trailDotCount = 0;
+        }
+        wasWalking = isWalkingNow;
+
+        if (isWalkingNow) {
+            uint32_t now = getTicks();
+            if (now - lastTrailDropTick >= baseCooldown) {
+                lastTrailDropTick = now;
+                patternCounter++;
+
+                // Figure out current terrain difficulty
+                wmPartyFindCurSubTile();
+                int difficulty = 1;
+                if (wmGenData.currentSubtile) {
+                    Terrain* t = &wmTerrainTypeList[wmGenData.currentSubtile->terrain];
+                    difficulty = t->difficulty;
+                    if (difficulty < 1) difficulty = 1;
+                }
+
+                // Decide whether to drop on this step, based on terrain (difficulty)
+                bool shouldDrop;
+                if (difficulty >= 4) {
+                    shouldDrop = (patternCounter % 4) != 0; // Drop 3 out of every 4 steps --- used?
+                } else if (difficulty == 3) {
+                    shouldDrop = (patternCounter % 3) != 0; // Drop 2 out of every 3
+                } else if (difficulty == 2) {
+                    shouldDrop = (patternCounter % 2) == 0; // Drop every other step
+                } else {
+                    shouldDrop = (patternCounter % 3) == 0; // Drop only once every 3 steps
+                }
+
+                if (shouldDrop) {
+                    int cx = wmGenData.worldPosX;
+                    int cy = wmGenData.worldPosY;
+                    if (trailDotCount < MAX_TRAIL_LENGTH) {
+                        trailDots[trailDotCount++] = { cx, cy };
+                    } else {
+                        // shift left, add more dots
+                        memmove(trailDots, trailDots + 1, sizeof(TrailDot) * (MAX_TRAIL_LENGTH - 1));
+                        trailDots[MAX_TRAIL_LENGTH - 1] = { cx, cy };
+                    }
+                }
+            }
+        }
+
+        // Render the trail dots
+        for (int i = 0; i < trailDotCount; i++) {
+            int x = trailDots[i].x;
+            int y = trailDots[i].y;
+            if (x >= wmWorldOffsetX && x < wmWorldOffsetX + WM_VIEW_WIDTH
+                && y >= wmWorldOffsetY && y < wmWorldOffsetY + WM_VIEW_HEIGHT) {
+                unsigned char* dst = wmBkWinBuf
+                    + WM_WINDOW_WIDTH * (WM_VIEW_Y - wmWorldOffsetY + y)
+                    + (WM_VIEW_X - wmWorldOffsetX + x);
+                *dst = 136; // bright-red palette index? - not matching perfectly, what palette is being used?
+            }
         }
     }
 

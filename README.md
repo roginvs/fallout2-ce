@@ -1,6 +1,6 @@
 # Fallout 2 Community Edition
 
-Fallout 2 Community Edition is a fully working re-implementation of Fallout 2, with the same original gameplay, engine bugfixes, and some quality of life improvements, that works (mostly) hassle-free on multiple platforms.  This is a fork of the original project, which isn't getting regular updates.
+Fallout 2 Community Edition is a fully working re-implementation of Fallout 2, with the same original gameplay, engine bugfixes, and some quality of life improvements, that works (mostly) hassle-free on multiple platforms. This is a fork of the original project, which isn't getting regular updates.
 
 Popular Fallout 2 total conversion mods are partially supported. Original versions of Nevada and Sonora (that do not rely on extended features provided by Sfall) work. [Fallout 2 Restoration Project](https://github.com/BGforgeNet/Fallout2_Restoration_Project), [Fallout Et Tu](https://github.com/rotators/Fo1in2) and [Olympus 2207](https://olympus2207.com) are not yet supported. Other mods (particularly Resurrection and Yesterday) are not tested.
 
@@ -8,7 +8,7 @@ There is also [Fallout Community Edition](https://github.com/alexbatalov/fallout
 
 ## Installation
 
-You must own the game to play. Purchase your copy on [GOG](https://www.gog.com/game/fallout_2), [Epic Games](https://store.epicgames.com/p/fallout-2) or [Steam](https://store.steampowered.com/app/38410). Download latest [release](https://github.com/fallout2-ce/fallout2-ce/releases) or build from source. 
+You must own the game to play. Purchase your copy on [GOG](https://www.gog.com/game/fallout_2), [Epic Games](https://store.epicgames.com/p/fallout-2) or [Steam](https://store.steampowered.com/app/38410). Download latest [release](https://github.com/fallout2-ce/fallout2-ce/releases) or build from source.
 
 ### Windows
 
@@ -44,7 +44,7 @@ $ sudo apt install libsdl2-2.0-0
 
 -   Alternatively you can use Fallout 2 from Macplay/The Omni Group as a base - you need to extract game assets from the original bundle. Mount CD/DMG, right click `Fallout 2` -> `Show Package Contents`, navigate to `Contents/Resources`. Copy `GameData` folder somewhere, for example `/Applications/Fallout2`.
 
--   Or if you're a Terminal user and have Homebrew installed you can extract the needed files from the GoG installer:
+-   Or if you're a Terminal user and have Homebrew installed you can extract the needed files from the GoG installer. **Note**: You must use "Offline backup game installer", not the main game installer.
 
 ```console
 $ brew install innoextract
@@ -132,7 +132,7 @@ IFACE_BAR_SIDES_ORI=0
 ;This will increase the width of the interface bar expanding the area used to display text.
 ;if IFACE_BAR_WIDTH=640 - Interface bar will remain at it's original width.
 ;if IFACE_BAR_WIDTH=800 - Interface bar will use 800pix wide asset from f2_res.dat.
-IFACE_BAR_WIDTH=640
+;IFACE_BAR_WIDTH=640
 ```
 
 Recommendations:
@@ -143,7 +143,7 @@ Recommendations:
 
 In time this stuff will receive in-game interface, right now you have to do it manually. For a sample f2_res.ini configuration file, containing all currently working settings use this link: [f2_res.ini](https://raw.githubusercontent.com/fallout2-ce/fallout2-ce/refs/heads/mainmenu/files/f2_res.ini)
 
-*Note*: use of the IFACE_BAR settings requires the f2_res.dat file, which contains graphical assets. Various versions are available, but one compatible with the above f2_res.ini be found here: [f2_res.dat](https://github.com/fallout2-ce/fallout2-ce/raw/refs/heads/mainmenu/files/f2_res.dat)
+_Note_: use of the IFACE_BAR settings requires the f2_res.dat file, which contains graphical assets. Various versions are available, but one compatible with the above f2_res.ini be found here: [f2_res.dat](https://github.com/fallout2-ce/fallout2-ce/raw/refs/heads/mainmenu/files/f2_res.dat)
 
 The third configuration file is `ddraw.ini` (part of Sfall). There are dozens of options that adjust or override engine behaviour and gameplay mechanics. This file is intended for modders and advanced users.
 
@@ -151,14 +151,14 @@ For a sample ddraw.ini configuration file, containing all currently working sett
 
 ## Quality of life benefits over vanilla Fallout
 
-* High resolution support
-* Increased pathfinding nodes 5x for more accurate pathfinding
-* Ctrl-click to quickly move items when bartering, looting, or stealing
-* _a_ to select "all" when selecting item quantity
-* _a_ to `Take All` when looting
-* When bartering, caps default to the right amount to balance the trade (if possible)
-* Music continues playing between maps (requires config)
-* Auto open doors (requires config)
+-   High resolution support
+-   Increased pathfinding nodes 5x for more accurate pathfinding
+-   Ctrl-click to quickly move items when bartering, looting, or stealing
+-   _a_ to select "all" when selecting item quantity
+-   _a_ to `Take All` when looting
+-   When bartering, caps default to the right amount to balance the trade (if possible)
+-   Music continues playing between maps (requires config)
+-   Auto open doors (requires config)
 
 ## Contributing
 

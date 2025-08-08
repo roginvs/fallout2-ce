@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      deployments: write
     steps:
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
@@ -30,5 +31,26 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "🚮 Remove preview for closed PR #${{ github.event.pull_request.number }}"
-          git push
+
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Current branch: $CURRENT_BRANCH"
+
+          if [ "$CURRENT_BRANCH" != "gh-pages" ]; then
+            echo "❌ Refusing to force-push to non-gh-pages branch: $CURRENT_BRANCH"
+            exit 1
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit --amend -m "🚮 Remove preview for closed PR #${{ github.event.pull_request.number }}"
+            git push --force
+          fi
+
+      - name: mark environment as deactivated
+        uses: bobheadxi/deployments@v1
+        with:
+          step: deactivate-env
+          env: preview-${{ github.event.pull_request.number }}
+          desc: Environment was pruned
+          debug: true

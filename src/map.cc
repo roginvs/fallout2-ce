@@ -1,5 +1,6 @@
 #include "map.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -822,7 +823,8 @@ static int mapLoad(File* stream)
     _map_save_in_game(true);
     int gaplessMusic = 0;
     configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_GAPLESS_MUSIC, &gaplessMusic);
-    if (!gaplessMusic) {
+    if (backgoundSoundIsPlaying() && !gaplessMusic) {
+        // playing the loading sound might interrupt continuous music playback
         backgroundSoundLoad("wind2", 12, 13, 16);
     }
     isoDisable();
@@ -952,6 +954,10 @@ static int mapLoad(File* stream)
 
         strcat(path, ".GAM");
         globalVarsRead(path, "MAP_GLOBAL_VARS:", &gMapGlobalVarsLength, &gMapGlobalVars);
+        if (gMapHeader.globalVariablesCount != gMapGlobalVarsLength) {
+            assert(gMapHeader.globalVariablesCount == gMapGlobalPointers.size());
+            gMapGlobalPointers.resize(gMapGlobalVarsLength);
+        }
         gMapHeader.globalVariablesCount = gMapGlobalVarsLength;
     }
 
