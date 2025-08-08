@@ -2,7 +2,7 @@
 
 ## Installation
 
-Install emscripten for example version `3.1.74`.
+Install emscripten version `3.1.74`.
 
 ## Build
 
