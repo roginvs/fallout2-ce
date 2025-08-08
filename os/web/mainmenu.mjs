@@ -829,9 +829,14 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                 } else if (filePath.toLowerCase() === "ddraw.ini") {
                     const iniParser = new IniParser(data);
 
-                    if (isUsingHiRes) {
-                        iniParser.setValue("Main", "HiResMode", "1");
-                    }
+                    iniParser.setValue(
+                        "Main",
+                        "EnableHighResolutionStencil",
+                        isUsingHiRes ? "1" : "0",
+                    );
+
+                    // I like this feature but it it is not visible in Sonora
+                    iniParser.setValue("Misc", "WorldMapTravelMarkers", "0");
 
                     const iniData = iniParser.pack();
                     console.info(
