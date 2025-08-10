@@ -1,4 +1,5 @@
 import { configuration } from "./config.mjs";
+import { showContextMenu } from "./contextmenu.mjs";
 import { addDebugTag } from "./debugTags.mjs";
 import { removeGameCache } from "./gamecache.mjs";
 import { addHotkeysForFullscreen } from "./hotkeys_and_workarounds.mjs";
@@ -24,7 +25,7 @@ async function initDb(folderName) {
     return new Promise((resolve, reject) => {
         const request = window.indexedDB.open(
             `/${folderName}/data/SAVEGAME`,
-            IDBFS_DB_VERSION,
+            IDBFS_DB_VERSION
         );
         request.onerror = (event) => {
             reject(request.error);
@@ -124,7 +125,7 @@ function downloadBuf(buf, fname) {
 function downloadSlot(files, folderName, slotFolderName, saveName) {
     const prefix = `/${folderName}/data/SAVEGAME/${slotFolderName}/`;
     const filesList = [...files.keys()].filter((x) =>
-        typeof x === "string" ? x.startsWith(prefix) : false,
+        typeof x === "string" ? x.startsWith(prefix) : false
     );
 
     /** @type {Uint8Array[]} */
@@ -138,8 +139,8 @@ function downloadSlot(files, folderName, slotFolderName, saveName) {
         tarBlocks.push(
             packTarFile(
                 fName.slice(prefix.length),
-                entry ? entry.contents : null,
-            ),
+                entry ? entry.contents : null
+            )
         );
     }
     tarBlocks.push(tarEnding);
@@ -210,7 +211,7 @@ async function uploadSavegame(database, folderName, slotFolderName, file) {
         }
 
         const saveDatFile = seenFiles.find(
-            (x) => x === "SAVE.DAT" || x.endsWith("/SAVE.DAT"),
+            (x) => x === "SAVE.DAT" || x.endsWith("/SAVE.DAT")
         );
 
         if (!saveDatFile) {
@@ -219,14 +220,14 @@ async function uploadSavegame(database, folderName, slotFolderName, file) {
 
         commonPrefix = saveDatFile.slice(
             0,
-            saveDatFile.length - "SAVE.DAT".length,
+            saveDatFile.length - "SAVE.DAT".length
         );
         if (seenFiles.some((x) => !x.startsWith(commonPrefix))) {
             throw new Error(`Files are not in the same folder!`);
         }
 
         console.info(
-            `Common prefix: ${commonPrefix}, saveDatFile: ${saveDatFile}`,
+            `Common prefix: ${commonPrefix}, saveDatFile: ${saveDatFile}`
         );
     }
 
@@ -235,13 +236,13 @@ async function uploadSavegame(database, folderName, slotFolderName, file) {
         setStatusText(`Removing old saving...`);
         const files = await readFilesFromDb(database);
         for (const fileToRemove of [...files.keys()].filter((x) =>
-            typeof x === "string" ? x.startsWith(prefix) : false,
+            typeof x === "string" ? x.startsWith(prefix) : false
         )) {
             console.info(`Removing ${fileToRemove}`);
             await new Promise((resolve, reject) => {
                 const transaction = database.transaction(
                     [IDBFS_STORE_NAME],
-                    "readwrite",
+                    "readwrite"
                 );
                 const request = transaction
                     .objectStore(IDBFS_STORE_NAME)
@@ -273,7 +274,7 @@ async function uploadSavegame(database, folderName, slotFolderName, file) {
                 await new Promise((resolve, reject) => {
                     const transaction = database.transaction(
                         [IDBFS_STORE_NAME],
-                        "readwrite",
+                        "readwrite"
                     );
 
                     /** @type {IdbFileData} */
@@ -293,7 +294,7 @@ async function uploadSavegame(database, folderName, slotFolderName, file) {
             await new Promise((resolve, reject) => {
                 const transaction = database.transaction(
                     [IDBFS_STORE_NAME],
-                    "readwrite",
+                    "readwrite"
                 );
 
                 /** @type {IdbFileData} */
@@ -323,7 +324,7 @@ async function uploadSavegame(database, folderName, slotFolderName, file) {
  */
 function getSaveInfo(files, folderName, slotFolderName) {
     const saveDat = files.get(
-        `/${folderName}/data/SAVEGAME/${slotFolderName}/SAVE.DAT`,
+        `/${folderName}/data/SAVEGAME/${slotFolderName}/SAVE.DAT`
     );
     if (!saveDat || !saveDat.contents) {
         return null;
@@ -331,7 +332,7 @@ function getSaveInfo(files, folderName, slotFolderName) {
 
     const expectedHeader = "FALLOUT SAVE FILE";
     const observedHeader = String.fromCharCode(
-        ...saveDat.contents.slice(0, expectedHeader.length),
+        ...saveDat.contents.slice(0, expectedHeader.length)
     );
     if (expectedHeader !== observedHeader) {
         return null;
@@ -340,8 +341,8 @@ function getSaveInfo(files, folderName, slotFolderName) {
     const saveName = new TextDecoder("windows-1251").decode(
         saveDat.contents.slice(
             0x3d,
-            Math.min(0x3d + 0x1e, saveDat.contents.indexOf(0, 0x3d)),
-        ),
+            Math.min(0x3d + 0x1e, saveDat.contents.indexOf(0, 0x3d))
+        )
     );
     return saveName;
 }
@@ -376,71 +377,78 @@ async function renderGameSlots(gameFolder, slotsDiv, lang) {
         }
 
         slotDiv.innerHTML = `
-            <div class="game_slot_id">${lang.slot} ${i}</div>
+            <a class="game_slot_id" href="#"  id="showmenu_${gameFolder}_${slotFolderName}">${
+            lang.slot
+        } ${i}</a>
             
             
-                ${
-                    saveName !== null
-                        ? `<a class="game_slot_name" href="#" id="download_${gameFolder}_${slotFolderName}">[${
-                              saveName || lang.noName
-                          }]</a>`
-                        : ""
-                }
+                <div class="game_slot_name" >${
+                    saveName !== null ? saveName || lang.noName : ""
+                }</div>
 
-                <a class="game_slot_upload" href="#" id="upload_${gameFolder}_${slotFolderName}">${
-                    lang.import
-                }</a>
-               
             
         `;
 
         slotsDiv.appendChild(slotDiv);
 
-        const uploadButton = document.getElementById(
-            `upload_${gameFolder}_${slotFolderName}`,
+        const showMenuButton = document.getElementById(
+            `showmenu_${gameFolder}_${slotFolderName}`
         );
-        if (!uploadButton) {
-            throw new Error(`No upload button!`);
+        if (!showMenuButton) {
+            throw new Error(`No show menu button!`);
         }
-        uploadButton.addEventListener("click", (e) => {
-            e.preventDefault();
+        showMenuButton.addEventListener("click", (e) => {
+            // todo
 
-            preventAutoreload();
+            showContextMenu(
+                showMenuButton,
+                [
+                    {
+                        id: /** @type {const} */ ("download"),
+                        label: lang.downloadSave,
+                        hidden: saveName === null,
+                    },
+                    {
+                        id: /** @type {const} */ ("uploadFile"),
+                        label: lang.importFromFile,
+                    },
+                ],
+                (id) => {
+                    if (id === "uploadFile") {
+                        preventAutoreload();
 
-            setStatusText(`Pick a file...`);
-            pickFile() // Ensure that file picker is called on user gesture
-                .then(async (file) => {
-                    setStatusText(`Loading file...`);
-                    const reopenedDb = await initDb(gameFolder);
-                    await uploadSavegame(
-                        reopenedDb,
-                        gameFolder,
-                        slotFolderName,
-                        file,
-                    );
-                    setStatusText(`Done, refreshing page...`);
-                    window.location.reload();
-                })
-                .catch((e) => {
-                    setStatusText(null);
-                    console.warn(e);
-                    setErrorState(e);
-                });
-        });
-
-        if (saveName !== null) {
-            const downloadButton = document.getElementById(
-                `download_${gameFolder}_${slotFolderName}`,
+                        setStatusText(`Pick a file...`);
+                        pickFile() // Ensure that file picker is called on user gesture
+                            .then(async (file) => {
+                                setStatusText(`Loading file...`);
+                                const reopenedDb = await initDb(gameFolder);
+                                await uploadSavegame(
+                                    reopenedDb,
+                                    gameFolder,
+                                    slotFolderName,
+                                    file
+                                );
+                                setStatusText(`Done, refreshing page...`);
+                                window.location.reload();
+                            })
+                            .catch((e) => {
+                                setStatusText(null);
+                                console.warn(e);
+                                setErrorState(e);
+                            });
+                    } else if (id === "download") {
+                        if (saveName) {
+                            downloadSlot(
+                                files,
+                                gameFolder,
+                                slotFolderName,
+                                saveName
+                            );
+                        }
+                    }
+                }
             );
-            if (!downloadButton) {
-                throw new Error(`No download button`);
-            }
-
-            downloadButton.addEventListener("click", (e) => {
-                e.preventDefault();
-                downloadSlot(files, gameFolder, slotFolderName, saveName);
-            });
-        }
+        });
     }
 
     database.close();
@@ -489,11 +497,11 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
     div.className = "game_menu";
     div.innerHTML = `
         <div class="game_header"><a href="#/${game.folder}" id="select_game_${
-            game.folder
-        }">${game.name}</a></div>
+        game.folder
+    }">${game.name}</a></div>
         <button class="game_start" id="start_${game.folder}">${
-            lang.startGame
-        }</button>
+        lang.startGame
+    }</button>
         <div class="game_slots" id="game_slots_${game.folder}">...</div>
 
         <div class="game_options">
@@ -521,7 +529,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
     menuDiv.appendChild(div);
 
     const selectGameLink = document.getElementById(
-        `select_game_${game.folder}`,
+        `select_game_${game.folder}`
     );
     if (!selectGameLink) {
         throw new Error(`No link!`);
@@ -540,7 +548,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
     {
         const enableHiResCheckboxLocalStorageKey = `enable_hires_${game.folder}`;
         const enableHiResCheckboxLocalStorageValue = localStorage.getItem(
-            enableHiResCheckboxLocalStorageKey,
+            enableHiResCheckboxLocalStorageKey
         );
         if (enableHiResCheckboxLocalStorageValue === "no") {
             enableHiResCheckbox.checked = false;
@@ -697,10 +705,10 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         ) {
                             const cssPixelDiff =
                                 Math.abs(
-                                    screen.width - canvasParent.clientWidth,
+                                    screen.width - canvasParent.clientWidth
                                 ) +
                                 Math.abs(
-                                    screen.height - canvasParent.clientHeight,
+                                    screen.height - canvasParent.clientHeight
                                 );
 
                             if (cssPixelDiff < 1) {
@@ -720,16 +728,16 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                                     `clientCss=${canvasParent.clientWidth}x${canvasParent.clientHeight} ${DELIMITER}` +
                                     `game=${Math.round(
                                         canvasParent.clientWidth *
-                                            devicePixelRatio,
+                                            devicePixelRatio
                                     )}x${Math.round(
                                         canvasParent.clientHeight *
-                                            devicePixelRatio,
+                                            devicePixelRatio
                                     )}${DELIMITER}` +
                                     `t=${
                                         MAX_WAITING_FOR_FULLSCREEN -
                                         (new Date().getTime() -
                                             fullscreenStartedTime.getTime())
-                                    }ms`,
+                                    }ms`
                             );
                             await new Promise((r) => setTimeout(r, 10));
                         }
@@ -742,28 +750,28 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     const cssPixelHeight = canvasParent.clientHeight;
 
                     const gameScreenWidth = Math.round(
-                        cssPixelWidth * devicePixelRatio,
+                        cssPixelWidth * devicePixelRatio
                     );
                     const gameScreenHeight = Math.round(
-                        cssPixelHeight * devicePixelRatio,
+                        cssPixelHeight * devicePixelRatio
                     );
 
                     console.info(
-                        `Canvas pixel size: ${cssPixelWidth}x${cssPixelHeight}`,
+                        `Canvas pixel size: ${cssPixelWidth}x${cssPixelHeight}`
                     );
                     console.info(`devicePixelRatio: ${devicePixelRatio}`);
                     console.info(
-                        `Game screen size: ${gameScreenWidth}x${gameScreenHeight}`,
+                        `Game screen size: ${gameScreenWidth}x${gameScreenHeight}`
                     );
 
                     addDebugTag("isUsingHiRes", isUsingHiRes);
                     addDebugTag(
                         "canvasPixelSize",
-                        `${cssPixelWidth}x${cssPixelHeight}`,
+                        `${cssPixelWidth}x${cssPixelHeight}`
                     );
                     addDebugTag(
                         "gameScreenSize",
-                        `${gameScreenWidth}x${gameScreenHeight}`,
+                        `${gameScreenWidth}x${gameScreenHeight}`
                     );
                     addDebugTag("devicePixelRatio", devicePixelRatio);
 
@@ -786,30 +794,30 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         iniParser.setValue(
                             "MAIN",
                             "SCR_WIDTH",
-                            `${gameScreenWidth}`,
+                            `${gameScreenWidth}`
                         );
                         iniParser.setValue(
                             "MAIN",
                             "SCR_HEIGHT",
-                            `${gameScreenHeight}`,
+                            `${gameScreenHeight}`
                         );
 
                         const scaling = Math.min(
                             Math.floor(gameScreenWidth / 640),
-                            Math.floor(gameScreenHeight / 480),
+                            Math.floor(gameScreenHeight / 480)
                         );
 
                         iniParser.setValue(
                             "MAIN",
                             "SCALE_2X",
-                            (scaling - 1).toString(),
+                            (scaling - 1).toString()
                         );
 
                         iniParser.setValue("IFACE", "IFACE_BAR_MODE", "0");
                         iniParser.setValue(
                             "IFACE",
                             "IFACE_BAR_WIDTH",
-                            `${gameScreenWidth / scaling >= 800 ? 800 : 640}`,
+                            `${gameScreenWidth / scaling >= 800 ? 800 : 640}`
                         );
                         iniParser.setValue("IFACE", "IFACE_BAR_SIDE_ART", "2");
                         iniParser.setValue("IFACE", "IFACE_BAR_SIDES_ORI", "0");
@@ -817,13 +825,13 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         iniParser.setValue(
                             "STATIC_SCREENS",
                             "SPLASH_SCRN_SIZE",
-                            `1`,
+                            `1`
                         );
                     }
 
                     const iniData = iniParser.pack();
                     console.info(
-                        "f2_res.ini:\n\n" + String.fromCharCode(...iniData),
+                        "f2_res.ini:\n\n" + String.fromCharCode(...iniData)
                     );
                     return iniData;
                 } else if (filePath.toLowerCase() === "ddraw.ini") {
@@ -832,7 +840,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     iniParser.setValue(
                         "Main",
                         "EnableHighResolutionStencil",
-                        isUsingHiRes ? "1" : "0",
+                        isUsingHiRes ? "1" : "0"
                     );
 
                     // I like this feature but it it is not visible in Sonora
@@ -840,7 +848,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
                     const iniData = iniParser.pack();
                     console.info(
-                        "ddraw.ini:\n\n" + String.fromCharCode(...iniData),
+                        "ddraw.ini:\n\n" + String.fromCharCode(...iniData)
                     );
                     return iniData;
                 } else if (
@@ -894,19 +902,19 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     ]) {
                         if (
                             !index.find(
-                                (f) => f.name.toLowerCase() === filePath,
+                                (f) => f.name.toLowerCase() === filePath
                             )
                         ) {
                             // If file is not present then we have to add it here with content
                             const fileContent = await fileTransformer(
                                 filePath,
-                                new Uint8Array(0),
+                                new Uint8Array(0)
                             );
                             const calculatedHex = [
                                 ...new Uint8Array(fileContent),
                             ]
                                 .map((digit) =>
-                                    digit.toString(16).padStart(2, "0"),
+                                    digit.toString(16).padStart(2, "0")
                                 )
                                 .join("")
                                 .toLowerCase();
@@ -921,7 +929,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     }
                     return index;
                 },
-                fileTransformer,
+                fileTransformer
             );
             setStatusText("Starting");
             removeRunDependency("initialize-filesystems");
@@ -980,7 +988,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
     });
 
     const download_link = document.getElementById(
-        `game_download_${game.folder}`,
+        `game_download_${game.folder}`
     );
     if (!download_link) {
         throw new Error(`No button!`);
@@ -1019,7 +1027,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
             alert(
                 `${lang.error}: ${
                     e instanceof Error ? e.name + " " + e.message : e
-                }`,
+                }`
             );
         }
 
@@ -1053,6 +1061,9 @@ const langData = /** @type {const} */ ({
         slot: "Слот",
         noName: "Нет имени",
         import: "Импорт",
+        importFromFile: "Импорт из файла",
+        importFromFolder: "Импорт из папки",
+        downloadSave: "Скачать сохранение",
         downloadGame: "Загрузить в оффлайн",
         clearCache: "Очистить кэш",
         clearCacheConfirm:
@@ -1082,6 +1093,9 @@ const langData = /** @type {const} */ ({
         slot: "Slot",
         noName: "No name",
         import: "Import",
+        importFromFile: "Import from file",
+        importFromFolder: "Import from folder",
+        downloadSave: "Download save",
         downloadGame: "Download to offline",
         clearCache: "Clear cache",
         clearCacheConfirm:
@@ -1124,7 +1138,7 @@ export function renderMenu() {
         .split("/")
         .slice(1);
     const isOneGameSelected = configuration.games.find(
-        (x) => x.folder === langOrGameStr,
+        (x) => x.folder === langOrGameStr
     );
     const langKey = /** @type {keyof typeof langData} */ (
         !isOneGameSelected ? langOrGameStr : isOneGameSelected.lang
@@ -1171,7 +1185,7 @@ ${lang.header}
                       // Keep only first of the game type
                       hideWhenNoSaveGames =
                           arr.findIndex(
-                              (x) => x.gameType === gameInfo.gameType,
+                              (x) => x.gameType === gameInfo.gameType
                           ) !== index;
                   }
 
@@ -1207,7 +1221,7 @@ ${lang.header}
         }
         showAllVersionsOrGamesButton.onclick = () => {
             redirectToPath(
-                isOneGameSelected ? `/${langKey}` : `/${langKey}/all`,
+                isOneGameSelected ? `/${langKey}` : `/${langKey}/all`
             );
         };
     }
@@ -1224,7 +1238,7 @@ ${lang.header}
                         `<a href="#/${langKey}" id="language_link_${langKey}">${
                             langData[/** @type {keyof LangDataObj} */ (langKey)]
                                 .langName
-                        }</a>`,
+                        }</a>`
                 )
                 .join("")}
         </div>`);
@@ -1252,7 +1266,7 @@ function getLocalStorageKeyForDownloadedGameFlag(gameName) {
  */
 function getGameCacheDownloadedStatus(gameName) {
     return !!localStorage.getItem(
-        getLocalStorageKeyForDownloadedGameFlag(gameName),
+        getLocalStorageKeyForDownloadedGameFlag(gameName)
     );
 }
 
