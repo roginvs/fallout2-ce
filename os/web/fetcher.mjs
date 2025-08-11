@@ -87,8 +87,8 @@ export function createFetcher(
     return async (
         /** @type {string} */
         filePath,
-        /** @type {number|undefined} */ expectedSize,
-        /** @type {string|undefined} */ expectedSha256hash,
+        /** @type {number=} */ expectedSize,
+        /** @type {string=} */ expectedSha256hash,
     ) => {
         onFetching(filePath);
 
