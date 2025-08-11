@@ -98,7 +98,7 @@ async function readFilesFromDb(database) {
 
 /**
  *
- * @param {Uint8Array} buf
+ * @param {Uint8Array<ArrayBuffer>} buf
  * @param {string} fname
  */
 function downloadBuf(buf, fname) {
