@@ -55,7 +55,11 @@ function initializeGlobalModuleObject() {
                 // We want our own title
                 info.env.emscripten_set_window_title = () => {};
 
-                const inst = await WebAssembly.instantiate(arrayBuffer, info);
+                const inst = await WebAssembly.instantiate(
+                    /** @type {Uint8Array<ArrayBuffer>} */
+                    (arrayBuffer),
+                    info,
+                );
                 setStatusText("");
                 receiveInstance(inst.instance, inst.module);
             })().catch((e) => {
