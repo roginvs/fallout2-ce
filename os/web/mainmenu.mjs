@@ -509,7 +509,7 @@ async function renderGameSlots(gameFolder, slotsDiv, lang) {
                                 setErrorState(e);
                             });
                     } else if (id === "download") {
-                        if (saveName) {
+                        if (saveName !== null) {
                             downloadSlot(
                                 files,
                                 gameFolder,
