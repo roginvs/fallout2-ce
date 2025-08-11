@@ -20,8 +20,12 @@ function initializeGlobalModuleObject() {
         },
         onExit: (/** @type {number} */ code) => {
             console.info(`Exited with code ${code}`);
-            document.exitPointerLock();
-            document.exitFullscreen().catch((e) => {});
+            if (typeof document.exitPointerLock === "function") {
+                document.exitPointerLock();
+            }
+            if (typeof document.exitFullscreen === "function") {
+                document.exitFullscreen().catch((e) => {});
+            }
             if (code === 0) {
                 setStatusText(`Exited with code ${code}`);
                 window.location.reload();
