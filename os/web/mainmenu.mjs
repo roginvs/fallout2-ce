@@ -436,6 +436,7 @@ async function renderGameSlots(gameFolder, slotsDiv, lang) {
             throw new Error(`No show menu button!`);
         }
         showMenuButton.addEventListener("click", (e) => {
+            e.preventDefault();
             showContextMenu(
                 showMenuButton,
                 [

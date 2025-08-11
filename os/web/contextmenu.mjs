@@ -22,7 +22,8 @@ export function showContextMenu(targetElement, items, onItemClick) {
         const menuItem = document.createElement("div");
         menuItem.className = "context-menu-item";
         menuItem.textContent = item.label;
-        menuItem.addEventListener("click", () => {
+        menuItem.addEventListener("click", (e) => {
+            e.preventDefault();
             onItemClick(item.id);
             menu.remove();
         });
