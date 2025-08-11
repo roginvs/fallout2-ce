@@ -53,12 +53,11 @@
     border: 1px dashed grey;
     padding: 5px;
 }
-.game_slot_name {
-    margin-bottom: 10px;
+.game_slot_id {
     color: inherit;
 }
-.game_slot_upload {
-    margin-top: auto;
+.game_slot_name {
+    margin-bottom: 10px;
     color: inherit;
 }
 

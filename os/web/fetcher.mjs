@@ -87,8 +87,8 @@ export function createFetcher(
     return async (
         /** @type {string} */
         filePath,
-        /** @type {number|undefined} */ expectedSize,
-        /** @type {string|undefined} */ expectedSha256hash,
+        /** @type {number|undefined} */ expectedSize = undefined,
+        /** @type {string|undefined} */ expectedSha256hash = undefined,
     ) => {
         onFetching(filePath);
 
@@ -141,7 +141,10 @@ export function createFetcher(
         }
 
         if (expectedSha256hash !== undefined) {
-            const calculatedBuf = await crypto.subtle.digest("SHA-256", data);
+            const calculatedBuf = await crypto.subtle.digest(
+                "SHA-256",
+                /** @type {Uint8Array<ArrayBuffer>} */ (data),
+            );
             const calculatedHex = [...new Uint8Array(calculatedBuf)]
                 .map((digit) => digit.toString(16).padStart(2, "0"))
                 .join("")

@@ -1,4 +1,5 @@
 import { configuration } from "./config.mjs";
+import { showContextMenu } from "./contextmenu.mjs";
 import { addDebugTag } from "./debugTags.mjs";
 import { removeGameCache } from "./gamecache.mjs";
 import { addHotkeysForFullscreen } from "./hotkeys_and_workarounds.mjs";
@@ -97,7 +98,7 @@ async function readFilesFromDb(database) {
 
 /**
  *
- * @param {Uint8Array} buf
+ * @param {Uint8Array<ArrayBuffer>} buf
  * @param {string} fname
  */
 function downloadBuf(buf, fname) {
@@ -176,38 +177,85 @@ function pickFile() {
         input.click();
     });
 }
+
+/**
+ *
+ * @returns { Promise<File[]> }
+ */
+function pickFolder() {
+    return new Promise((resolve, reject) => {
+        // Create hidden file input
+        const input = document.createElement("input");
+        input.type = "file";
+        input.webkitdirectory = true;
+        /** @type {any} */ (input).directory = true; // some browsers require this too
+        input.multiple = true;
+        input.style.display = "none";
+
+        // When user picks a folder
+        input.onchange = () => {
+            if (!input.files) {
+                reject("No files selected");
+                return;
+            }
+            const files = Array.from(input.files);
+            document.body.removeChild(input);
+            resolve(files);
+        };
+
+        // Add to DOM and trigger click
+        document.body.appendChild(input);
+        input.click();
+    });
+}
+
+/**
+ * @typedef {{path: string, data: Uint8Array | null}} InMemoryFile
+ */
+
+/**
+ *
+ * @param {File} tarFile
+ */
+async function tarToFiles(tarFile) {
+    setStatusText(`Loading file...`);
+    const url = URL.createObjectURL(tarFile);
+    const raw = await fetch(url).then((x) => x.arrayBuffer());
+    URL.revokeObjectURL(url);
+
+    const tar =
+        tarFile.name.endsWith(".gz") || tarFile.name.endsWith(".tgz")
+            ? inflate(new Uint8Array(raw))
+            : new Uint8Array(raw);
+
+    /** @type {InMemoryFile[]} */
+    const files = [];
+    let buf = tar;
+    while (1) {
+        const [tarFile, rest] = tarReadFile(buf);
+        if (!tarFile) {
+            break;
+        }
+        buf = rest;
+        files.push(tarFile);
+    }
+    return files;
+}
+
 /**
  *
  * @param {IDBDatabase} database
  * @param {string} folderName
  * @param {string} slotFolderName
- * @param {File} file
+ * @param {InMemoryFile[]} files
  */
-async function uploadSavegame(database, folderName, slotFolderName, file) {
-    setStatusText(`Loading file...`);
-    const url = URL.createObjectURL(file);
-    const raw = await fetch(url).then((x) => x.arrayBuffer());
-    URL.revokeObjectURL(url);
-
-    const tar =
-        file.name.endsWith(".gz") || file.name.endsWith(".tgz")
-            ? inflate(new Uint8Array(raw))
-            : new Uint8Array(raw);
-
-    setStatusText(`Checking tar file...`);
+async function uploadSavegame(database, folderName, slotFolderName, files) {
     let commonPrefix = "";
+
     {
-        /** @type {string[]} */
-        const seenFiles = [];
-        let buf = tar;
-        while (1) {
-            const [tarFile, rest] = tarReadFile(buf);
-            if (!tarFile) {
-                break;
-            }
-            buf = rest;
-            seenFiles.push(tarFile.path);
-        }
+        setStatusText(`Checking files...`);
+
+        const seenFiles = files.map((f) => f.path);
 
         const saveDatFile = seenFiles.find(
             (x) => x === "SAVE.DAT" || x.endsWith("/SAVE.DAT"),
@@ -254,15 +302,8 @@ async function uploadSavegame(database, folderName, slotFolderName, file) {
 
     {
         setStatusText(`Pushing file into database...`);
-        let buf = tar;
-        while (1) {
-            const [tarFile, rest] = tarReadFile(buf);
-            if (!tarFile) {
-                break;
-            }
-            buf = rest;
-
-            const path = tarFile.path.slice(commonPrefix.length);
+        for (const file of files) {
+            const path = file.path.slice(commonPrefix.length);
 
             const fullPath = prefix + path;
 
@@ -298,11 +339,9 @@ async function uploadSavegame(database, folderName, slotFolderName, file) {
 
                 /** @type {IdbFileData} */
                 const value = {
-                    mode: tarFile.data ? 33206 : 16877,
+                    mode: file.data ? 33206 : 16877,
                     timestamp: new Date(),
-                    contents: tarFile.data
-                        ? new Int8Array(tarFile.data)
-                        : undefined,
+                    contents: file.data ? new Int8Array(file.data) : undefined,
                 };
                 const request = transaction
                     .objectStore(IDBFS_STORE_NAME)
@@ -376,71 +415,112 @@ async function renderGameSlots(gameFolder, slotsDiv, lang) {
         }
 
         slotDiv.innerHTML = `
-            <div class="game_slot_id">${lang.slot} ${i}</div>
+            <a class="game_slot_id" href="#"  id="showmenu_${gameFolder}_${slotFolderName}">${
+                lang.slot
+            } ${i}</a>
             
             
-                ${
-                    saveName !== null
-                        ? `<a class="game_slot_name" href="#" id="download_${gameFolder}_${slotFolderName}">[${
-                              saveName || lang.noName
-                          }]</a>`
-                        : ""
-                }
+                <div class="game_slot_name" >${
+                    saveName !== null ? saveName || lang.noName : ""
+                }</div>
 
-                <a class="game_slot_upload" href="#" id="upload_${gameFolder}_${slotFolderName}">${
-                    lang.import
-                }</a>
-               
             
         `;
 
         slotsDiv.appendChild(slotDiv);
 
-        const uploadButton = document.getElementById(
-            `upload_${gameFolder}_${slotFolderName}`,
+        const showMenuButton = document.getElementById(
+            `showmenu_${gameFolder}_${slotFolderName}`,
         );
-        if (!uploadButton) {
-            throw new Error(`No upload button!`);
+        if (!showMenuButton) {
+            throw new Error(`No show menu button!`);
         }
-        uploadButton.addEventListener("click", (e) => {
+        showMenuButton.addEventListener("click", (e) => {
             e.preventDefault();
+            showContextMenu(
+                showMenuButton,
+                [
+                    {
+                        id: /** @type {const} */ ("download"),
+                        label: lang.downloadSave,
+                        hidden: saveName === null,
+                    },
+                    {
+                        id: /** @type {const} */ ("uploadFile"),
+                        label: lang.importFromFile,
+                    },
+                    {
+                        id: /** @type {const} */ ("uploadFolder"),
+                        label: lang.importFromFolder,
+                    },
+                ],
+                (id) => {
+                    if (id === "uploadFile") {
+                        preventAutoreload();
 
-            preventAutoreload();
-
-            setStatusText(`Pick a file...`);
-            pickFile() // Ensure that file picker is called on user gesture
-                .then(async (file) => {
-                    setStatusText(`Loading file...`);
-                    const reopenedDb = await initDb(gameFolder);
-                    await uploadSavegame(
-                        reopenedDb,
-                        gameFolder,
-                        slotFolderName,
-                        file,
-                    );
-                    setStatusText(`Done, refreshing page...`);
-                    window.location.reload();
-                })
-                .catch((e) => {
-                    setStatusText(null);
-                    console.warn(e);
-                    setErrorState(e);
-                });
-        });
-
-        if (saveName !== null) {
-            const downloadButton = document.getElementById(
-                `download_${gameFolder}_${slotFolderName}`,
+                        setStatusText(`Pick a file...`);
+                        pickFile() // Ensure that file picker is called on user gesture
+                            .then(async (file) => {
+                                setStatusText(`Loading file...`);
+                                const files = await tarToFiles(file);
+                                const reopenedDb = await initDb(gameFolder);
+                                await uploadSavegame(
+                                    reopenedDb,
+                                    gameFolder,
+                                    slotFolderName,
+                                    files,
+                                );
+                                setStatusText(`Done, refreshing page...`);
+                                window.location.reload();
+                            })
+                            .catch((e) => {
+                                setStatusText(null);
+                                console.warn(e);
+                                setErrorState(e);
+                            });
+                    } else if (id === "uploadFolder") {
+                        preventAutoreload();
+                        setStatusText(`Pick a folder...`);
+                        pickFolder()
+                            .then(async (filesBlobs) => {
+                                const files = await Promise.all(
+                                    filesBlobs.map(async (fileBlob) => {
+                                        const data =
+                                            await fileBlob.arrayBuffer();
+                                        return {
+                                            path: fileBlob.webkitRelativePath,
+                                            data: new Uint8Array(data),
+                                        };
+                                    }),
+                                );
+                                const reopenedDb = await initDb(gameFolder);
+                                await uploadSavegame(
+                                    reopenedDb,
+                                    gameFolder,
+                                    slotFolderName,
+                                    files,
+                                );
+                                setStatusText(`Done, refreshing page...`);
+                                window.location.reload();
+                            })
+                            .catch((e) => {
+                                setStatusText(null);
+                                console.warn(e);
+                                setErrorState(e);
+                            });
+                    } else if (id === "download") {
+                        if (saveName !== null) {
+                            downloadSlot(
+                                files,
+                                gameFolder,
+                                slotFolderName,
+                                saveName,
+                            );
+                        }
+                    }
+                },
             );
-            if (!downloadButton) {
-                throw new Error(`No download button`);
-            }
-
-            downloadButton.addEventListener("click", (e) => {
-                e.preventDefault();
-                downloadSlot(files, gameFolder, slotFolderName, saveName);
-            });
-        }
+        });
     }
 
     database.close();
@@ -547,7 +627,8 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
         } else if (enableHiResCheckboxLocalStorageValue === "yes") {
             enableHiResCheckbox.checked = true;
         } else {
-            // Keep some default value
+            // Default value is checked
+            enableHiResCheckbox.checked = true;
         }
         enableHiResCheckbox.addEventListener("change", () => {
             if (enableHiResCheckbox.checked) {
@@ -1052,7 +1133,9 @@ const langData = /** @type {const} */ ({
         startGame: "Запустить игру",
         slot: "Слот",
         noName: "Нет имени",
-        import: "Импорт",
+        importFromFile: "Импорт из файла",
+        importFromFolder: "Импорт из папки",
+        downloadSave: "Скачать сохранение",
         downloadGame: "Загрузить в оффлайн",
         clearCache: "Очистить кэш",
         clearCacheConfirm:
@@ -1081,7 +1164,9 @@ const langData = /** @type {const} */ ({
         startGame: "Start game",
         slot: "Slot",
         noName: "No name",
-        import: "Import",
+        importFromFile: "Import from file",
+        importFromFolder: "Import from folder",
+        downloadSave: "Download save",
         downloadGame: "Download to offline",
         clearCache: "Clear cache",
         clearCacheConfirm:
