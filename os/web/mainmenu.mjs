@@ -627,7 +627,8 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
         } else if (enableHiResCheckboxLocalStorageValue === "yes") {
             enableHiResCheckbox.checked = true;
         } else {
-            // Keep some default value
+            // Default value is checked
+            enableHiResCheckbox.checked = true;
         }
         enableHiResCheckbox.addEventListener("change", () => {
             if (enableHiResCheckbox.checked) {
