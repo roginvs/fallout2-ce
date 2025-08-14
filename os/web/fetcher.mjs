@@ -67,7 +67,7 @@ function encodeFalloutPathToUrl(path) {
  * @param {string} urlPrefix
  * @param {string | null} cacheName
  * @param {boolean} useGzip
- * @param {(msg: string|null) => void} onFetching
+ * @param {(filePath: string, status: string | null) => void} onFetching
  * @param {FileTransformer?} fileTransformer
  * @param {string} [filesVersion]
  */
@@ -90,8 +90,6 @@ export function createFetcher(
         /** @type {number|undefined} */ expectedSize = undefined,
         /** @type {string|undefined} */ expectedSha256hash = undefined,
     ) => {
-        onFetching(filePath);
-
         const fullUrl =
             urlPrefix +
             encodeFalloutPathToUrl(filePath) +
@@ -103,16 +101,14 @@ export function createFetcher(
         /** @type {Uint8Array | null} */
         let data = null;
         while (1) {
-            onFetching(filePath);
+            onFetching(filePath, "");
             try {
                 const newData = await fetchArrayBufProgress(
                     fullUrl,
                     useGzip,
                     (downloadedBytes, contentLength) => {
                         const progress = downloadedBytes / contentLength;
-                        onFetching(
-                            `${filePath} ${Math.floor(progress * 100)}%`,
-                        );
+                        onFetching(filePath, `${Math.floor(progress * 100)}%`);
                     },
                     cachingFetch,
                 );
@@ -121,7 +117,8 @@ export function createFetcher(
             } catch (e) {
                 console.warn(e);
                 onFetching(
-                    `${filePath}: ${
+                    filePath,
+                    `${
                         e instanceof Error ? e.name + " " + e.message : e
                     }, retrying...`,
                 );
@@ -131,10 +128,11 @@ export function createFetcher(
         if (!data) {
             throw new Error(`Internal error`);
         }
-        onFetching(`${filePath} ...`);
+        onFetching(filePath, `...`);
         if (expectedSize !== undefined && expectedSize !== data.byteLength) {
             onFetching(
-                `Error with size of ${filePath}, expected=${expectedSize} received=${data.byteLength}`,
+                filePath,
+                `Error with size expected=${expectedSize} received=${data.byteLength}`,
             );
 
             throw new Error(`Data file size mismatch on file '${filePath}'`);
@@ -150,6 +148,7 @@ export function createFetcher(
                 .join("")
                 .toLowerCase();
             if (expectedSha256hash.toLowerCase() !== calculatedHex) {
+                onFetching(filePath, `Error file hash`);
                 throw new Error(`Data hash mismatch on file '${filePath}'`);
             }
         }
@@ -157,7 +156,7 @@ export function createFetcher(
         if (fileTransformer) {
             data = await fileTransformer(filePath, data);
         }
-        onFetching(null);
+        onFetching(filePath, null);
 
         return data;
     };

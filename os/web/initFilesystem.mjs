@@ -135,7 +135,9 @@ export async function initFilesystem(
         GAME_PATH + folderName + "/",
         getCacheName(folderName, filesVersion),
         configuration.useGzip,
-        setStatusText,
+        (filePath, status) => {
+            setStatusText(status !== null ? `${filePath} ${status}` : null);
+        },
         fileTransformer,
         filesVersion,
     );
@@ -156,7 +158,25 @@ export async function initFilesystem(
         {
             files: filesIndex,
             options: {
-                fetcher,
+                fetcher: (
+                    /** @type {string} */
+                    filePath,
+                    /** @type {number|undefined} */ expectedSize = undefined,
+                    /** @type {string|undefined} */ expectedSha256hash = undefined,
+                ) => {
+                    // Use this to collect information about startup files
+                    if (false) {
+                        // @ts-ignore
+                        window.files = window.files || {};
+                        // @ts-ignore
+                        window.files[folderName] =
+                            // @ts-ignore
+                            window.files[folderName] || [];
+                        // @ts-ignore
+                        window.files[folderName].push(path);
+                    }
+                    return fetcher(filePath, expectedSize, expectedSha256hash);
+                },
             },
         },
         "/" + folderName,
