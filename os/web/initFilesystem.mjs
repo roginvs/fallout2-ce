@@ -148,7 +148,7 @@ function usePreloadingFetcher(
 
     const MAX_TOTAL_SLOTS = 5;
     const PRELOADING_SLOTS = MAX_TOTAL_SLOTS - 1;
-    const ALL_LOADING_SLOTS = 2;
+    const ALL_LOADING_SLOTS = 3;
 
     /**
      * Slot 0 is the main game downloading slot
@@ -182,6 +182,11 @@ function usePreloadingFetcher(
         );
         if (existingDownloading) {
             if (slotIndex === 0) {
+                console.info(
+                    `Game download file ${filePath} re-using slot ${slots.indexOf(
+                        existingDownloading,
+                    )}`,
+                );
                 existingDownloading.isGameWaitingOnThisSlotToo = true;
             }
             return existingDownloading.onReady;
@@ -211,11 +216,15 @@ function usePreloadingFetcher(
     /** How long it should be idle to start background download */
     const GAME_DOWNLOAD_IDLE_TIME = 5000;
     let lastTimeGameDownloadEnded = -Infinity;
+    let waitingIdleTimerId = 0;
     let nextPreloadIndex = 0;
     let nextAllFilesIndex = 0;
     const onFreeSlot = () => {
-        const freeSlotIndex = slots.findIndex((slot) => slot === null);
+        const freeSlotIndex = slots.findIndex(
+            (slot, index) => index !== 0 && slot === null,
+        );
         if (freeSlotIndex === -1) {
+            console.info(`onFreeSlot: no free slots available`);
             return;
         }
 
@@ -224,11 +233,20 @@ function usePreloadingFetcher(
         if (nextPreloadIndex < preloadFiles.length) {
             // Initial pre-loading phase
             if (busySlotsAmount >= PRELOADING_SLOTS) {
+                console.info(
+                    `onFreeSlot: phase 1 limit reached busy=${busySlotsAmount} limit=${PRELOADING_SLOTS}`,
+                );
                 return;
             }
 
             const fetcherArgs = preloadFiles[nextPreloadIndex];
+            console.info(
+                `onFreeSlot: phase 1 downloading ${fetcherArgs[0]} slot=${freeSlotIndex} n=${nextPreloadIndex}/${preloadFiles.length}`,
+            );
             nextPreloadIndex++;
+            if (nextPreloadIndex === preloadFiles.length) {
+                console.info(`onFreeSlot: initial preloading last file`);
+            }
 
             downloadUsingSlot(freeSlotIndex, fetcherArgs);
 
@@ -237,30 +255,46 @@ function usePreloadingFetcher(
             });
         } else if (nextAllFilesIndex < allFiles.length) {
             if (slots[0]) {
+                console.info(`onFreeSlot: phase 2 game is downloading`);
+
                 // Game is downloading, let's leave traffic for that downloads
                 return;
             }
-            if (
-                new Date().getTime() - lastTimeGameDownloadEnded <
-                GAME_DOWNLOAD_IDLE_TIME
-            ) {
-                // Game is not idle enough
-                setTimeout(
-                    () => {
-                        onFreeSlot();
-                    },
-                    GAME_DOWNLOAD_IDLE_TIME -
-                        (new Date().getTime() - lastTimeGameDownloadEnded),
+            const lastTimeGameDownloadEndedDiff =
+                new Date().getTime() - lastTimeGameDownloadEnded;
+            if (lastTimeGameDownloadEndedDiff < GAME_DOWNLOAD_IDLE_TIME) {
+                console.info(
+                    `onFreeSlot: phase 2 not enough idle, diff=${lastTimeGameDownloadEndedDiff}`,
                 );
+
+                // Game is not idle enough
+                if (!waitingIdleTimerId) {
+                    waitingIdleTimerId = setTimeout(() => {
+                        waitingIdleTimerId = 0;
+                        onFreeSlot();
+                    }, GAME_DOWNLOAD_IDLE_TIME - lastTimeGameDownloadEndedDiff);
+                }
                 return;
             }
             // Game is idle enough, we can try to start preloading
-            if (busySlotsAmount >= PRELOADING_SLOTS) {
+            if (busySlotsAmount >= ALL_LOADING_SLOTS) {
+                console.info(
+                    `onFreeSlot: phase 2 limit reached busy=${busySlotsAmount} limit=${ALL_LOADING_SLOTS}`,
+                );
+
                 return;
             }
 
             const fetcherArgs = allFiles[nextAllFilesIndex];
+            console.info(
+                `onFreeSlot: phase 2 downloading ${fetcherArgs[0]} slot=${freeSlotIndex} n=${nextAllFilesIndex}/${allFiles.length}`,
+            );
+
             nextAllFilesIndex++;
+
+            if (nextAllFilesIndex === allFiles.length) {
+                console.info("Second preloading phase downloading last file");
+            }
 
             downloadUsingSlot(freeSlotIndex, fetcherArgs);
 
@@ -377,9 +411,13 @@ export async function initFilesystem(
                 filesIndex.find((file) => file.name === fileName),
             )
             .filter(isNonNullable)
+            // Some files are not in the game but added in index transformer
+            .filter((f) => f.contents === null)
             .map((file) => [file.name, file.size, file.sha256hash]),
         filesIndex
             .sort((a, b) => a.size - b.size)
+            // Some files are not in the game but added in index transformer
+            .filter((f) => f.contents === null)
             .map((file) => [file.name, file.size, file.sha256hash]),
         setStatusText,
     );
