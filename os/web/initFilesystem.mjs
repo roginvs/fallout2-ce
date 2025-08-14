@@ -311,7 +311,7 @@ function usePreloadingFetcher(
                             slot &&
                             (index === 0 || slot?.isGameWaitingOnThisSlotToo)
                         ) {
-                            return `DEBUG${index} ${slot.filePath} ${slot.status}`;
+                            return `${slot.filePath} ${slot.status}`;
                         }
                         return "";
                     })
