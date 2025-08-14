@@ -136,14 +136,85 @@ function usePreloadingFetcher(
     When it went through all preloadFiles it will continue downloading allFiles,
       but only when fetcher is calm for few seconds
 
+    It also will not download the same file simultaneously
+
     onFetching = function which original fetcher should call
     Returns [newFetcher, onFetching]
     */
 
+    const MAX_TOTAL_SLOTS = 5;
+    const PRELOADING_SLOTS = MAX_TOTAL_SLOTS - 1;
+    const ALL_LOADING_SLOTS = 2;
+
+    /**
+     * Slot 0 is the main game downloading slot
+     *
+     * @type {(
+     *   {
+     *      filePath: string,
+     *      status: string | null,
+     *      onReady: Promise<Uint8Array>
+     *   }
+     *   | null
+     * )[]}
+     */
+    const slots = Array.from({ length: MAX_TOTAL_SLOTS }).fill(null);
+
+    /** @type {ReturnType<typeof createFetcher>} */
+    const gameFetcher = (filePath, expectedSize, expectedHash) => {
+        if (slots[0] !== null) {
+            throw new Error("Internal error: game downloadin slot is occupied");
+        }
+
+        const existingDownloading = slots.find(
+            (slot) => slot && slot.filePath === filePath,
+        );
+        if (existingDownloading) {
+            return existingDownloading.onReady;
+        }
+
+        const downloaded = Promise.resolve().then(() =>
+            fetcher(filePath, expectedSize, expectedHash),
+        );
+        slots[0] = {
+            filePath,
+            status: "",
+            onReady: downloaded,
+        };
+
+        return downloaded;
+    };
+
     return [
-        fetcher,
+        gameFetcher,
         (fileName, status) => {
-            setStatusText(status !== null ? `${fileName} ${status}` : null);
+            const slotIndex = slots.findIndex(
+                (slot) => slot && slot.filePath === fileName,
+            );
+            if (slotIndex === -1) {
+                throw new Error(`Internal error: not found in slots`);
+            }
+            if (status === null) {
+                slots[slotIndex] = null;
+            } else {
+                const slot = slots[slotIndex];
+                if (slot === null) {
+                    throw new Error(
+                        "Never happens: we already checked that slot is not null",
+                    );
+                }
+                slot.status = status;
+            }
+
+            setStatusText(
+                slots
+                    .map(
+                        (slot, index) =>
+                            slot && `${index} ${slot.filePath} ${slot.status}`,
+                    )
+                    .filter((x) => x)
+                    .join("\n"),
+            );
         },
     ];
 }
@@ -176,7 +247,7 @@ export async function initFilesystem(
         getCacheName(folderName, filesVersion),
         configuration.useGzip,
         (filePath, status) => {
-            setStatusText(status !== null ? `${filePath} ${status}` : null);
+            onFetching(filePath, status);
         },
         fileTransformer,
         filesVersion,
