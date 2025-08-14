@@ -1,3 +1,4 @@
+/** @type {Record<string, string[] | undefined>} */
 export const knownInitialFiles = {
     Fallout_Sonora_1_14_dlc_eng: [
         "ddraw.ini",

@@ -1,4 +1,5 @@
 import { ASYNCFETCHFS } from "./asyncfetchfs.mjs";
+import { knownInitialFiles } from "./config.initialFiles.mjs";
 import { configuration } from "./config.mjs";
 import { createFetcher } from "./fetcher.mjs";
 import { getCacheName } from "./gamecache.mjs";
@@ -112,6 +113,33 @@ export async function downloadAllGameFiles(folderName, filesVersion) {
     setStatusText(null);
 }
 
+function usePreloadingFetcher(
+    /** @type {ReturnType<typeof createFetcher>} */
+    fetcher,
+    /** @type {string[]} */
+    preloadFiles,
+    /** @type {string[]} */
+    allFiles,
+    /** @type {(text: string | null) => void} */
+    setStatusText,
+) {
+    /*
+    Given the original fetcher it will return a pre-loading fetcher
+
+    It will keep 1 downloading slot for original requests (i.e. made from returned func)
+
+    Besides this, it will immeditely download preloadFiles in several slots
+
+    When it went through all preloadFiles it will continue downloading allFiles,
+      but only when fetcher is calm for few seconds
+
+    onFetching = function which original fetcher should call
+    Returns [newFetcher, onFetching]
+    */
+
+    return /** @type {const} */ ([fetcher, setStatusText]);
+}
+
 /**
  * @typedef { (index: ReturnType<typeof parseIndex>) => Promise<ReturnType<typeof parseIndex>> } FileIndexTransformer
  */
@@ -131,7 +159,11 @@ export async function initFilesystem(
 ) {
     setStatusText("Fetching files index");
 
-    const fetcher = createFetcher(
+    /** @type {import("./fetcher.mjs").OnFetching} */
+    let onFetching = (fileName, status) => {
+        setStatusText(status !== null ? `${fileName} ${status}` : "");
+    };
+    let fetcher = createFetcher(
         GAME_PATH + folderName + "/",
         getCacheName(folderName, filesVersion),
         configuration.useGzip,
@@ -146,6 +178,13 @@ export async function initFilesystem(
 
     const parsedUntransformedIndex = parseIndex(indexUnpackedRaw);
     const filesIndex = await fileIndexTransformer(parsedUntransformedIndex);
+
+    [fetcher, onFetching] = usePreloadingFetcher(
+        fetcher,
+        knownInitialFiles[folderName] || [],
+        [],
+        setStatusText,
+    );
 
     setStatusText("Mounting file systems");
 

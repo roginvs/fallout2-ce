@@ -63,11 +63,15 @@ function encodeFalloutPathToUrl(path) {
 }
 
 /**
+ * @typedef {(filePath: string, status: string | null) => void} OnFetching
+ */
+
+/**
  *
  * @param {string} urlPrefix
  * @param {string | null} cacheName
  * @param {boolean} useGzip
- * @param {(filePath: string, status: string | null) => void} onFetching
+ * @param {OnFetching} onFetching
  * @param {FileTransformer?} fileTransformer
  * @param {string} [filesVersion]
  */
