@@ -113,6 +113,9 @@ export async function downloadAllGameFiles(folderName, filesVersion) {
     setStatusText(null);
 }
 
+/**
+ * @returns {[ReturnType<typeof createFetcher>, import("./fetcher.mjs").OnFetching]}
+ */
 function usePreloadingFetcher(
     /** @type {ReturnType<typeof createFetcher>} */
     fetcher,
@@ -137,7 +140,12 @@ function usePreloadingFetcher(
     Returns [newFetcher, onFetching]
     */
 
-    return /** @type {const} */ ([fetcher, setStatusText]);
+    return [
+        fetcher,
+        (fileName, status) => {
+            setStatusText(status !== null ? `${fileName} ${status}` : null);
+        },
+    ];
 }
 
 /**
