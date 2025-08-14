@@ -114,10 +114,14 @@ export async function downloadAllGameFiles(folderName, filesVersion) {
 }
 
 /**
- * @returns {[ReturnType<typeof createFetcher>, import("./fetcher.mjs").OnFetching]}
+ * @typedef {ReturnType<typeof createFetcher>} Fetcher
+ */
+
+/**
+ * @returns {[Fetcher, import("./fetcher.mjs").OnFetching]}
  */
 function usePreloadingFetcher(
-    /** @type {ReturnType<typeof createFetcher>} */
+    /** @type {Fetcher} */
     fetcher,
     /** @type {string[]} */
     preloadFiles,
@@ -160,11 +164,17 @@ function usePreloadingFetcher(
      */
     const slots = Array.from({ length: MAX_TOTAL_SLOTS }).fill(null);
 
-    /** @type {ReturnType<typeof createFetcher>} */
-    const gameFetcher = (filePath, expectedSize, expectedHash) => {
-        if (slots[0] !== null) {
-            throw new Error("Internal error: game downloadin slot is occupied");
+    const downloadUsingSlot = (
+        /** @type {number} */
+        slotIndex,
+        /** @type {Parameters<Fetcher>} */
+        fetcherArgs,
+    ) => {
+        if (slots[slotIndex] !== null) {
+            throw new Error(`Internal error: slot ${slotIndex} is occupied`);
         }
+
+        const filePath = fetcherArgs[0];
 
         const existingDownloading = slots.find(
             (slot) => slot && slot.filePath === filePath,
@@ -174,15 +184,24 @@ function usePreloadingFetcher(
         }
 
         const downloaded = Promise.resolve().then(() =>
-            fetcher(filePath, expectedSize, expectedHash),
+            fetcher(...fetcherArgs),
         );
-        slots[0] = {
+        slots[slotIndex] = {
             filePath,
             status: "",
             onReady: downloaded,
         };
 
         return downloaded;
+    };
+
+    /** @type {Fetcher} */
+    const gameFetcher = (filePath, expectedSize, expectedHash) => {
+        if (slots[0] !== null) {
+            throw new Error("Internal error: game downloadin slot is occupied");
+        }
+
+        return downloadUsingSlot(0, [filePath, expectedSize, expectedHash]);
     };
 
     return [
