@@ -123,9 +123,9 @@ export async function downloadAllGameFiles(folderName, filesVersion) {
 function usePreloadingFetcher(
     /** @type {Fetcher} */
     fetcher,
-    /** @type {string[]} */
+    /** @type {Parameters<Fetcher>[]} */
     preloadFiles,
-    /** @type {string[]} */
+    /** @type {Parameters<Fetcher>[]} */
     allFiles,
     /** @type {(text: string | null) => void} */
     setStatusText,
@@ -157,7 +157,8 @@ function usePreloadingFetcher(
      *   {
      *      filePath: string,
      *      status: string | null,
-     *      onReady: Promise<Uint8Array>
+     *      onReady: Promise<Uint8Array>,
+     *      isGameWaitingOnThisSlotToo?: boolean
      *   }
      *   | null
      * )[]}
@@ -180,6 +181,9 @@ function usePreloadingFetcher(
             (slot) => slot && slot.filePath === filePath,
         );
         if (existingDownloading) {
+            if (slotIndex === 0) {
+                existingDownloading.isGameWaitingOnThisSlotToo = true;
+            }
             return existingDownloading.onReady;
         }
 
@@ -204,6 +208,73 @@ function usePreloadingFetcher(
         return downloadUsingSlot(0, [filePath, expectedSize, expectedHash]);
     };
 
+    /** How long it should be idle to start background download */
+    const GAME_DOWNLOAD_IDLE_TIME = 5000;
+    let lastTimeGameDownloadEnded = -Infinity;
+    let nextPreloadIndex = 0;
+    let nextAllFilesIndex = 0;
+    const onFreeSlot = () => {
+        const freeSlotIndex = slots.findIndex((slot) => slot === null);
+        if (freeSlotIndex === -1) {
+            return;
+        }
+
+        const busySlotsAmount = slots.filter((slot) => slot !== null).length;
+
+        if (nextPreloadIndex < preloadFiles.length) {
+            // Initial pre-loading phase
+            if (busySlotsAmount >= PRELOADING_SLOTS) {
+                return;
+            }
+
+            const fetcherArgs = preloadFiles[nextPreloadIndex];
+            nextPreloadIndex++;
+
+            downloadUsingSlot(freeSlotIndex, fetcherArgs);
+
+            Promise.resolve().then(() => {
+                onFreeSlot();
+            });
+        } else if (nextAllFilesIndex < allFiles.length) {
+            if (slots[0]) {
+                // Game is downloading, let's leave traffic for that downloads
+                return;
+            }
+            if (
+                new Date().getTime() - lastTimeGameDownloadEnded <
+                GAME_DOWNLOAD_IDLE_TIME
+            ) {
+                // Game is not idle enough
+                setTimeout(
+                    () => {
+                        onFreeSlot();
+                    },
+                    GAME_DOWNLOAD_IDLE_TIME -
+                        (new Date().getTime() - lastTimeGameDownloadEnded),
+                );
+                return;
+            }
+            // Game is idle enough, we can try to start preloading
+            if (busySlotsAmount >= PRELOADING_SLOTS) {
+                return;
+            }
+
+            const fetcherArgs = allFiles[nextAllFilesIndex];
+            nextAllFilesIndex++;
+
+            downloadUsingSlot(freeSlotIndex, fetcherArgs);
+
+            Promise.resolve().then(() => {
+                onFreeSlot();
+            });
+        } else {
+            // Nothing to preload
+        }
+    };
+    Promise.resolve().then(() => {
+        onFreeSlot();
+    });
+
     return [
         gameFetcher,
         (fileName, status) => {
@@ -214,7 +285,14 @@ function usePreloadingFetcher(
                 throw new Error(`Internal error: not found in slots`);
             }
             if (status === null) {
+                if (
+                    slotIndex === 0 ||
+                    slots[slotIndex]?.isGameWaitingOnThisSlotToo
+                ) {
+                    lastTimeGameDownloadEnded = new Date().getTime();
+                }
                 slots[slotIndex] = null;
+                Promise.resolve().then(() => onFreeSlot());
             } else {
                 const slot = slots[slotIndex];
                 if (slot === null) {
@@ -227,10 +305,16 @@ function usePreloadingFetcher(
 
             setStatusText(
                 slots
-                    .map(
-                        (slot, index) =>
-                            slot && `${index} ${slot.filePath} ${slot.status}`,
-                    )
+                    .map((slot, index) => {
+                        // At this point showing only game downloading slots
+                        if (
+                            slot &&
+                            (index === 0 || slot?.isGameWaitingOnThisSlotToo)
+                        ) {
+                            return `DEBUG${index} ${slot.filePath} ${slot.status}`;
+                        }
+                        return "";
+                    })
                     .filter((x) => x)
                     .join("\n"),
             );
@@ -241,6 +325,15 @@ function usePreloadingFetcher(
 /**
  * @typedef { (index: ReturnType<typeof parseIndex>) => Promise<ReturnType<typeof parseIndex>> } FileIndexTransformer
  */
+
+/**
+ * @template T
+ * @param {T} value
+ * @returns {value is NonNullable<T>}
+ */
+function isNonNullable(value) {
+    return value !== null && value !== undefined;
+}
 
 /**
  *
@@ -279,8 +372,15 @@ export async function initFilesystem(
 
     [fetcher, onFetching] = usePreloadingFetcher(
         fetcher,
-        knownInitialFiles[folderName] || [],
-        [],
+        (knownInitialFiles[folderName] || [])
+            .map((fileName) =>
+                filesIndex.find((file) => file.name === fileName),
+            )
+            .filter(isNonNullable)
+            .map((file) => [file.name, file.size, file.sha256hash]),
+        filesIndex
+            .sort((a, b) => a.size - b.size)
+            .map((file) => [file.name, file.size, file.sha256hash]),
         setStatusText,
     );
 
