@@ -87,7 +87,7 @@ void _gmouse_handle_event(int mouseX, int mouseY, int mouseState);
 int gameMouseSetCursor(int cursor);
 int gameMouseGetCursor();
 void gmouse_set_mapper_mode(int mode);
-void gameMouseSetMode(int modified_ini);
+void gameMouseSetMode(int mode);
 int gameMouseGetMode();
 void gameMouseCycleMode();
 void _gmouse_3d_refresh();
