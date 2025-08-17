@@ -1059,7 +1059,7 @@ int itemGetQuantity(Object* obj, Object* item)
     return quantity;
 }
 
-// Returns true if [a1] posesses an item with 0x2000 flag.
+// Returns true if [obj] posesses an item with 0x2000 flag.
 //
 // 0x4780E4
 int itemIsQueued(Object* obj)

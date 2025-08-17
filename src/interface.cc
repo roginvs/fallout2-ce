@@ -99,8 +99,8 @@ typedef struct InterfaceItemState {
     int itemFid;
 } InterfaceItemState;
 
-static int _intface_redraw_items_callback(Object* a1, Object* a2);
-static int _intface_change_fid_callback(Object* a1, Object* a2);
+static int _intface_redraw_items_callback(Object* _, Object* __);
+static int _intface_change_fid_callback(Object* _, Object* __);
 static void interfaceBarSwapHandsAnimatePutAwayTakeOutSequence(int previousWeaponAnimationCode, int weaponAnimationCode);
 static int intface_init_items();
 static int interfaceBarRefreshMainAction();
@@ -1793,14 +1793,14 @@ static int interfaceBarRefreshMainAction()
 }
 
 // 0x460658
-static int _intface_redraw_items_callback(Object* a1, Object* a2)
+static int _intface_redraw_items_callback(Object* _, Object* __)
 {
     interfaceBarRefreshMainAction();
     return 0;
 }
 
 // 0x460660
-static int _intface_change_fid_callback(Object* a1, Object* a2)
+static int _intface_change_fid_callback(Object* _, Object* __)
 {
     gInterfaceBarSwapHandsInProgress = false;
     return 0;

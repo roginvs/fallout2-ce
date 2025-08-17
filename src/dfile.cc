@@ -37,7 +37,7 @@ namespace fallout {
 // Specifies that [DFile] has unget compressed character.
 #define DFILE_HAS_COMPRESSED_UNGETC (0x10)
 
-static int dbaseFindEntryByFilePath(const void* a1, const void* a2);
+static int dbaseFindEntryByFilePath(const void* file, const void* entryName);
 static DFile* dfileOpenInternal(DBase* dbase, const char* filename, const char* mode, DFile* a4);
 static int dfileReadCharInternal(DFile* stream);
 static bool dfileReadCompressed(DFile* stream, void* ptr, size_t size);
@@ -627,10 +627,10 @@ int dfileEof(DFile* stream)
 // specified [filePath].
 //
 // 0x4E5D70
-static int dbaseFindEntryByFilePath(const void* a1, const void* a2)
+static int dbaseFindEntryByFilePath(const void* file, const void* entryName)
 {
-    const char* filePath = (const char*)a1;
-    DBaseEntry* entry = (DBaseEntry*)a2;
+    const char* filePath = (const char*)file;
+    DBaseEntry* entry = (DBaseEntry*)entryName;
 
     return compat_stricmp(filePath, entry->path);
 }
