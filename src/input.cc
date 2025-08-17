@@ -527,7 +527,7 @@ int screenshotHandlerPngImpl(int width, int height, unsigned char* data, unsigne
     fclose(stream);
 
     int imgLen = width * height;
-    unsigned char* image = new unsigned char[imgLen * 3];
+    std::vector<unsigned char> image(imgLen * 3);
 
     for (size_t i = 0; i < imgLen; i++) {
         image[i * 3] = palette[data[i] * 3] << 2;
@@ -535,7 +535,7 @@ int screenshotHandlerPngImpl(int width, int height, unsigned char* data, unsigne
         image[i * 3 + 2] = palette[data[i] * 3 + 2] << 2;
     }
 
-    unsigned error = lodepng_encode_file(fileName, image, width, height, LCT_RGB, 8);
+    unsigned error = lodepng::encode(fileName, image, width, height, LCT_RGB, 8);
     if (error) {
         return -1;
     }
