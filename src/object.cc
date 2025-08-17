@@ -2668,6 +2668,7 @@ bool objectWithinWalkDistance(Object* critter, Object* target)
 {
     int walkDistance = 5;
     configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_USE_WALK_DISTANCE, &walkDistance);
+    debugPrint("objectWithinWalkDistance: distance = %d path length = %d", objectGetDistanceBetween(critter, target), _make_path(critter, critter->tile, target->tile, nullptr, 0));
     if (objectGetDistanceBetween(critter, target) >= walkDistance) {
         return false;
     }
