@@ -1157,10 +1157,10 @@ static int gameTakeScreenshot(int width, int height, unsigned char* buffer, unsi
 
     ScreenshotHandler* handler = screenshotHandlerDefaultImpl;
 
-    bool isPng = false;
-    configGetBool(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_PNG_SCREENSHOTS, &isPng);
+    char* formatName = nullptr;
+    configGetString(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_SCREENSHOTS_FORMAT, &formatName);
 
-    if (isPng) {
+    if (compat_stricmp(formatName, "png") == 0) {
         handler = screenshotHandlerPngImpl;
     }
 
