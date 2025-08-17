@@ -46,6 +46,7 @@
 #include "random.h"
 #include "scripts.h"
 #include "settings.h"
+#include "sfall_behaviours.h"
 #include "sfall_config.h"
 #include "sfall_global_scripts.h"
 #include "sfall_global_vars.h"
@@ -1931,6 +1932,9 @@ static int lsgLoadGameInSlot(int slot)
         gameMouseSetCursor(MOUSE_CURSOR_WAIT_PLANET);
     }
 
+    // SFALL: Call "before start" event
+    sfallOnBeforeGameStart();
+
     snprintf(_gmpath, sizeof(_gmpath), "%s\\%s%.2d\\", "SAVEGAME", "SLOT", _slot_cursor + 1);
     strcat(_gmpath, "SAVE.DAT");
 
@@ -2008,6 +2012,8 @@ static int lsgLoadGameInSlot(int slot)
 
     // SFALL: Start global scripts.
     sfall_gl_scr_exec_start_proc();
+    // SFALL: Call "after start" event
+    sfallOnAfterGameStarted();
 
     return 0;
 }
