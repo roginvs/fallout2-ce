@@ -1,6 +1,7 @@
 #include "input.h"
 
 #include <SDL.h>
+#include <lodepng.h>
 
 #include "audio_engine.h"
 #include "color.h"
@@ -14,7 +15,6 @@
 #include "text_font.h"
 #include "touch.h"
 #include "win32.h"
-#include "lodepng.h"
 
 namespace fallout {
 

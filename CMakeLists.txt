@@ -291,9 +291,10 @@ target_sources(${EXECUTABLE_NAME} PUBLIC
     "src/touch.cc"
     "src/touch.h"
     "src/scan_unimplemented.cc"
-	"src/lodepng.cpp"
-	"src/lodepng.h"
+	"third_party/lodepng/lodepng.cpp"
 )
+
+target_include_directories(${EXECUTABLE_NAME} PUBLIC "third_party/lodepng")
 
 if(IOS)
     target_sources(${EXECUTABLE_NAME} PUBLIC
