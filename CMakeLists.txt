@@ -291,6 +291,8 @@ target_sources(${EXECUTABLE_NAME} PUBLIC
     "src/touch.cc"
     "src/touch.h"
     "src/scan_unimplemented.cc"
+	"src/lodepng.cpp"
+	"src/lodepng.h"
 )
 
 if(IOS)
