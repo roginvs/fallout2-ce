@@ -64,7 +64,7 @@ int _critter_sneak_clear(Object* obj, void* data);
 bool dudeIsSneaking();
 int knockoutEventProcess(Object* obj, void* data);
 int _critter_wake_clear(Object* obj, void* data);
-int _critter_set_who_hit_me(Object* a1, Object* a2);
+int _critter_set_who_hit_me(Object* critter, Object* hitMe);
 bool _critter_can_obj_dude_rest();
 int critterGetMovementPointCostAdjustedForCrippledLegs(Object* critter, int distance);
 bool critterIsEncumbered(Object* critter);
