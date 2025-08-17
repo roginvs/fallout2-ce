@@ -8,42 +8,41 @@ namespace fallout {
 
 void sfallOnBeforeGameInit()
 {
-
+    return;
 }
 
 void sfallOnGameInit()
 {
-
+    return;
 }
 
 void sfallOnAfterGameInit()
 {
-
+    return;
 }
 
 void sfallOnGameExit()
 {
-
+    return;
 }
 
 void sfallOnGameReset()
 {
-
+    return;
 }
 
 void sfallOnBeforeGameStart()
 {
-
+    return;
 }
 
 void sfallOnAfterGameStarted()
 {
-    //Disable Horrigan Patch
+    // Disable Horrigan Patch
     bool isDisableHorrigan = false;
     configGetBool(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_DISABLE_HORRIGAN, &isDisableHorrigan);
 
-    if (isDisableHorrigan)
-    {
+    if (isDisableHorrigan) {
         didMeetFrankHorrigan = true;
         displayMonitorAddMessage(SFALL_CONFIG_DISABLE_HORRIGAN);
     }
@@ -51,32 +50,32 @@ void sfallOnAfterGameStarted()
 
 void sfallOnAfterNewGame()
 {
-
+    return;
 }
 
 void sfallOnGameModeChange()
 {
-
+    return;
 }
 
 void sfallOnBeforeGameClose()
 {
-
+    return;
 }
 
 void sfallOnCombatStart()
 {
-
+    return;
 }
 
 void sfallOnCombatEnd()
 {
-
+    return;
 }
 
 void sfallOnBeforeMapLoad()
 {
-
+    return;
 }
 
 } // namespace fallout
