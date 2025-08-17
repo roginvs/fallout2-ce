@@ -1,6 +1,7 @@
 #include "input.h"
 
 #include <SDL.h>
+#include <lodepng.h>
 
 #include "audio_engine.h"
 #include "color.h"
@@ -494,6 +495,50 @@ int screenshotHandlerDefaultImpl(int width, int height, unsigned char* data, uns
 
     fflush(stream);
     fclose(stream);
+
+    return 0;
+}
+
+int screenshotHandlerPngImpl(int width, int height, unsigned char* data, unsigned char* palette)
+{
+    char fileName[16];
+    FILE* stream;
+    int fileIndex;
+
+    for (fileIndex = 0; fileIndex < 100000; fileIndex++) {
+        snprintf(fileName, sizeof(fileName), "scr%.5d.png", fileIndex);
+
+        stream = compat_fopen(fileName, "rb");
+        if (stream == nullptr) {
+            break;
+        }
+
+        fclose(stream);
+    }
+
+    if (fileIndex == 100000) {
+        return -1;
+    }
+
+    stream = compat_fopen(fileName, "wb");
+    if (stream == nullptr) {
+        return -1;
+    }
+    fclose(stream);
+
+    int imgLen = width * height;
+    std::vector<unsigned char> image(imgLen * 3);
+
+    for (size_t i = 0; i < imgLen; i++) {
+        image[i * 3] = palette[data[i] * 3] << 2;
+        image[i * 3 + 1] = palette[data[i] * 3 + 1] << 2;
+        image[i * 3 + 2] = palette[data[i] * 3 + 2] << 2;
+    }
+
+    unsigned error = lodepng::encode(fileName, image, width, height, LCT_RGB, 8);
+    if (error) {
+        return -1;
+    }
 
     return 0;
 }

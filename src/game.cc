@@ -1155,7 +1155,16 @@ static int gameTakeScreenshot(int width, int height, unsigned char* buffer, unsi
 {
     MessageListItem messageListItem;
 
-    if (screenshotHandlerDefaultImpl(width, height, buffer, palette) != 0) {
+    ScreenshotHandler* handler = screenshotHandlerDefaultImpl;
+
+    char* formatName = nullptr;
+    configGetString(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_SCREENSHOTS_FORMAT, &formatName);
+
+    if (compat_stricmp(formatName, "png") == 0) {
+        handler = screenshotHandlerPngImpl;
+    }
+
+    if (handler(width, height, buffer, palette) != 0) {
         // Error saving screenshot.
         messageListItem.num = 8;
         if (messageListGetItem(&gMiscMessageList, &messageListItem)) {
