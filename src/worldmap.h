@@ -236,7 +236,7 @@ typedef enum Map {
 #define ENCOUNTER_FLAG_FADEOUT 0x10
 
 extern unsigned char* circleBlendTable;
-extern bool didMeetFrankHorrigan;
+extern bool gDidMeetFrankHorrigan;
 
 int wmWorldMap_init();
 void wmWorldMap_exit();

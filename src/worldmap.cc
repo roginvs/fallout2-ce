@@ -797,7 +797,7 @@ static int wmTownMapButtonId[ENTRANCE_LIST_CAPACITY];
 // 0x672E00
 
 static bool mousePressed;
-bool didMeetFrankHorrigan;
+bool gDidMeetFrankHorrigan;
 
 static WmGenData wmGenData;
 
@@ -914,7 +914,7 @@ int wmWorldMap_init()
 // 0x4BC984
 static int wmGenDataInit()
 {
-    didMeetFrankHorrigan = false;
+    gDidMeetFrankHorrigan = false;
     wmGenData.currentAreaId = -1;
     wmGenData.worldPosX = 173;
     wmGenData.worldPosY = 122;
@@ -968,7 +968,7 @@ static int wmGenDataInit()
 // 0x4BCBFC
 static int wmGenDataReset()
 {
-    didMeetFrankHorrigan = false;
+    gDidMeetFrankHorrigan = false;
     wmGenData.currentSubtile = nullptr;
     wmGenData.dword_672E18 = 0;
     wmGenData.isWalking = false;
@@ -1094,7 +1094,7 @@ int wmWorldMap_save(File* stream)
     EncounterTable* encounter_table;
     EncounterTableEntry* encounter_entry;
 
-    if (fileWriteBool(stream, didMeetFrankHorrigan) == -1) return -1;
+    if (fileWriteBool(stream, gDidMeetFrankHorrigan) == -1) return -1;
     if (fileWriteInt32(stream, wmGenData.currentAreaId) == -1) return -1;
     if (fileWriteInt32(stream, wmGenData.worldPosX) == -1) return -1;
     if (fileWriteInt32(stream, wmGenData.worldPosY) == -1) return -1;
@@ -1171,7 +1171,7 @@ int wmWorldMap_save(File* stream)
 // 0x4BD28C
 int wmWorldMap_load(File* stream)
 {
-    if (fileReadBool(stream, &didMeetFrankHorrigan) == -1) return -1;
+    if (fileReadBool(stream, &gDidMeetFrankHorrigan) == -1) return -1;
     if (fileReadInt32(stream, &(wmGenData.currentAreaId)) == -1) return -1;
     if (fileReadInt32(stream, &(wmGenData.worldPosX)) == -1) return -1;
     if (fileReadInt32(stream, &(wmGenData.worldPosY)) == -1) return -1;
@@ -3366,14 +3366,14 @@ static int wmRndEncounterOccurred()
         return 0;
     }
 
-    if (!didMeetFrankHorrigan) {
+    if (!gDidMeetFrankHorrigan) {
         unsigned int gameTime = gameTimeGetTime();
         if (gameTime / GAME_TIME_TICKS_PER_DAY > 35) {
             // SFALL: Add a flashing icon to the Horrigan encounter.
             wmBlinkRndEncounterIcon(true);
 
             wmGenData.encounterMapId = -1;
-            didMeetFrankHorrigan = true;
+            gDidMeetFrankHorrigan = true;
             if (wmGenData.isInCar) {
                 wmMatchAreaContainingMapIdx(MAP_IN_GAME_MOVIE1, &(wmGenData.currentCarAreaId));
             }

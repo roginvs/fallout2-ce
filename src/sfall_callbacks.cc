@@ -43,7 +43,7 @@ void sfallOnAfterGameStarted()
     configGetBool(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_DISABLE_HORRIGAN, &isDisableHorrigan);
 
     if (isDisableHorrigan) {
-        didMeetFrankHorrigan = true;
+        gDidMeetFrankHorrigan = true;
         displayMonitorAddMessage(SFALL_CONFIG_DISABLE_HORRIGAN);
     }
 }
