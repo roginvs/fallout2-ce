@@ -36,6 +36,7 @@
 #include "random.h"
 #include "scripts.h"
 #include "settings.h"
+#include "sfall_callbacks.h"
 #include "sfall_config.h"
 #include "sfall_global_scripts.h"
 #include "skill.h"
@@ -2632,6 +2633,7 @@ static void _combat_begin(Object* attacker)
                 _process_bk();
             }
         }
+        sfallOnCombatStart();
     }
 }
 
@@ -2841,6 +2843,8 @@ static void _combat_over()
         queueRemoveEventsByType(gDude, EVENT_TYPE_KNOCKOUT);
         knockoutEventProcess(gDude, nullptr);
     }
+
+    sfallOnCombatEnd();
 }
 
 // 0x422194

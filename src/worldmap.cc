@@ -378,9 +378,6 @@ typedef struct CitySizeDescription {
 } CitySizeDescription;
 
 typedef struct WmGenData {
-    bool mousePressed;
-    bool didMeetFrankHorrigan;
-
     int currentAreaId;
     int worldPosX;
     int worldPosY;
@@ -798,6 +795,10 @@ static int wmTownMapButtonId[ENTRANCE_LIST_CAPACITY];
 // struct.
 //
 // 0x672E00
+
+static bool mousePressed;
+bool gDidMeetFrankHorrigan;
+
 static WmGenData wmGenData;
 
 // worldmap.msg
@@ -913,7 +914,7 @@ int wmWorldMap_init()
 // 0x4BC984
 static int wmGenDataInit()
 {
-    wmGenData.didMeetFrankHorrigan = false;
+    gDidMeetFrankHorrigan = false;
     wmGenData.currentAreaId = -1;
     wmGenData.worldPosX = 173;
     wmGenData.worldPosY = 122;
@@ -943,7 +944,7 @@ static int wmGenDataInit()
     wmGenData.carImageFrmWidth = 0;
     wmGenData.carImageFrmHeight = 0;
     wmGenData.carImageCurrentFrameIndex = 0;
-    wmGenData.mousePressed = false;
+    mousePressed = false;
     wmGenData.walkWorldPosCrossAxisStepX = 0;
     wmGenData.carImageFrm = nullptr;
 
@@ -967,7 +968,7 @@ static int wmGenDataInit()
 // 0x4BCBFC
 static int wmGenDataReset()
 {
-    wmGenData.didMeetFrankHorrigan = false;
+    gDidMeetFrankHorrigan = false;
     wmGenData.currentSubtile = nullptr;
     wmGenData.dword_672E18 = 0;
     wmGenData.isWalking = false;
@@ -979,7 +980,7 @@ static int wmGenDataReset()
     wmGenData.walkWorldPosMainAxisStepY = 0;
     wmGenData.walkWorldPosCrossAxisStepY = 0;
     wmGenData.encounterIconIsVisible = false;
-    wmGenData.mousePressed = false;
+    mousePressed = false;
     wmGenData.currentAreaId = -1;
     wmGenData.worldPosX = 173;
     wmGenData.worldPosY = 122;
@@ -1093,7 +1094,7 @@ int wmWorldMap_save(File* stream)
     EncounterTable* encounter_table;
     EncounterTableEntry* encounter_entry;
 
-    if (fileWriteBool(stream, wmGenData.didMeetFrankHorrigan) == -1) return -1;
+    if (fileWriteBool(stream, gDidMeetFrankHorrigan) == -1) return -1;
     if (fileWriteInt32(stream, wmGenData.currentAreaId) == -1) return -1;
     if (fileWriteInt32(stream, wmGenData.worldPosX) == -1) return -1;
     if (fileWriteInt32(stream, wmGenData.worldPosY) == -1) return -1;
@@ -1170,7 +1171,7 @@ int wmWorldMap_save(File* stream)
 // 0x4BD28C
 int wmWorldMap_load(File* stream)
 {
-    if (fileReadBool(stream, &(wmGenData.didMeetFrankHorrigan)) == -1) return -1;
+    if (fileReadBool(stream, &gDidMeetFrankHorrigan) == -1) return -1;
     if (fileReadInt32(stream, &(wmGenData.currentAreaId)) == -1) return -1;
     if (fileReadInt32(stream, &(wmGenData.worldPosX)) == -1) return -1;
     if (fileReadInt32(stream, &(wmGenData.worldPosY)) == -1) return -1;
@@ -3146,8 +3147,8 @@ static int wmWorldMapFunc(int a1)
 
         if ((mouseEvent & MOUSE_EVENT_LEFT_BUTTON_DOWN) != 0 && (mouseEvent & MOUSE_EVENT_LEFT_BUTTON_REPEAT) == 0) {
             if (mouseHitTestInWindow(wmBkWin, WM_VIEW_X, WM_VIEW_Y, WM_VIEW_WIDTH + WM_VIEW_X, WM_VIEW_HEIGHT + WM_VIEW_Y)) {
-                if (!wmGenData.isWalking && !wmGenData.mousePressed && abs(wmGenData.worldPosX - worldX) < 5 && abs(wmGenData.worldPosY - worldY) < 5) {
-                    wmGenData.mousePressed = true;
+                if (!wmGenData.isWalking && !mousePressed && abs(wmGenData.worldPosX - worldX) < 5 && abs(wmGenData.worldPosY - worldY) < 5) {
+                    mousePressed = true;
                     wmInterfaceRefresh();
                     renderPresent();
                 }
@@ -3157,8 +3158,8 @@ static int wmWorldMapFunc(int a1)
         }
 
         if ((mouseEvent & MOUSE_EVENT_LEFT_BUTTON_UP) != 0) {
-            if (wmGenData.mousePressed) {
-                wmGenData.mousePressed = false;
+            if (mousePressed) {
+                mousePressed = false;
                 wmInterfaceRefresh();
 
                 if (abs(wmGenData.worldPosX - worldX) < 5 && abs(wmGenData.worldPosY - worldY) < 5) {
@@ -3201,7 +3202,7 @@ static int wmWorldMapFunc(int a1)
                     wmPartyInitWalking(worldX, worldY);
                 }
 
-                wmGenData.mousePressed = false;
+                mousePressed = false;
             }
         }
 
@@ -3268,7 +3269,7 @@ static int wmWorldMapFunc(int a1)
                         int destX = city->x + citySizeDescription->frmImage.getWidth() / 2 - WM_VIEW_X;
                         int destY = city->y + citySizeDescription->frmImage.getHeight() / 2 - WM_VIEW_Y;
                         wmPartyInitWalking(destX, destY);
-                        wmGenData.mousePressed = 0;
+                        mousePressed = 0;
                     }
                 }
             }
@@ -3365,14 +3366,14 @@ static int wmRndEncounterOccurred()
         return 0;
     }
 
-    if (!wmGenData.didMeetFrankHorrigan) {
+    if (!gDidMeetFrankHorrigan) {
         unsigned int gameTime = gameTimeGetTime();
         if (gameTime / GAME_TIME_TICKS_PER_DAY > 35) {
             // SFALL: Add a flashing icon to the Horrigan encounter.
             wmBlinkRndEncounterIcon(true);
 
             wmGenData.encounterMapId = -1;
-            wmGenData.didMeetFrankHorrigan = true;
+            gDidMeetFrankHorrigan = true;
             if (wmGenData.isInCar) {
                 wmMatchAreaContainingMapIdx(MAP_IN_GAME_MOVIE1, &(wmGenData.currentCarAreaId));
             }
@@ -5705,7 +5706,7 @@ static int wmDrawCursorStopped()
             width = wmGenData.encounterCursorFrmImages[wmGenData.encounterCursorId].getWidth();
             height = wmGenData.encounterCursorFrmImages[wmGenData.encounterCursorId].getHeight();
         } else {
-            src = wmGenData.mousePressed ? wmGenData.hotspotPressedFrmImage.getData() : wmGenData.hotspotNormalFrmImage.getData();
+            src = mousePressed ? wmGenData.hotspotPressedFrmImage.getData() : wmGenData.hotspotNormalFrmImage.getData();
             width = wmGenData.hotspotNormalFrmImage.getWidth();
             height = wmGenData.hotspotNormalFrmImage.getHeight();
         }
@@ -6072,7 +6073,7 @@ static int wmTownMapFunc(int* mapIdxPtr)
                         int destY = city->y + citySizeDescription->frmImage.getHeight() / 2 - WM_VIEW_Y;
                         wmPartyInitWalking(destX, destY);
 
-                        wmGenData.mousePressed = false;
+                        mousePressed = false;
 
                         break;
                     }

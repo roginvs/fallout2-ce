@@ -37,6 +37,7 @@
 #include "random.h"
 #include "scripts.h"
 #include "settings.h"
+#include "sfall_callbacks.h"
 #include "sfall_config.h"
 #include "svga.h"
 #include "text_object.h"
@@ -1007,6 +1008,8 @@ err:
     } else {
         _obj_preload_art_cache(gMapHeader.flags);
     }
+
+    sfallOnBeforeMapLoad();
 
     _partyMemberRecoverLoad();
     interfaceBarShow();
