@@ -533,6 +533,27 @@ async function renderGameSlots(gameFolder, slotsDiv, lang) {
  * @param {HTMLElement} elem
  */
 function goFullscreen(elem) {
+    {
+        const supportsKeyboardLock =
+            // @ts-ignore
+            "keyboard" in navigator && "lock" in navigator.keyboard;
+
+        if (supportsKeyboardLock) {
+            document.addEventListener("fullscreenchange", async () => {
+                if (document.fullscreenElement) {
+                    // The magic happens here...
+                    // @ts-ignore
+                    await navigator.keyboard.lock(["Escape"]);
+                    console.log("Keyboard locked.");
+                    return;
+                }
+                // @ts-ignore
+                navigator.keyboard.unlock();
+                console.log("Keyboard unlocked.");
+            });
+        }
+    }
+
     if (elem.requestFullscreen) {
         return elem.requestFullscreen({
             navigationUI: "hide",
