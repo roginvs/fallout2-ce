@@ -105,17 +105,6 @@ jobs:
           clean: false
           single-commit: true
 
-      - name: Update deployment status
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: bobheadxi/deployments@v1
-        with:
-          step: finish
-          status: success
-          debug: true
-          env: ${{ steps.deployment.outputs.env }}
-          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
-          ref: ${{ github.event.pull_request.head.sha }}
-          env_url: https://${{ github.repository_owner }}.github.io/fallout2-ce/PR-${{ github.event.pull_request.number }}/
 
 
       - name: Check that site is deployed
@@ -123,7 +112,7 @@ jobs:
         run: |
           URL="$SITE_ORIGIN""$SITE_BASE""site_hash.txt"
           echo "Expecting $GITHUB_SHA from $URL"
-          for i in `seq 1 60`; do
+          for i in `seq 1 80`; do
             got="$(curl -fsSL --max-time 10 "$URL" | tr -d '\r\n' || true)"
             if [ "$got" = "$GITHUB_SHA" ]; then
               echo "✅ Match on attempt $i: ${got}"
@@ -137,4 +126,16 @@ jobs:
         env:
           SITE_ORIGIN: https://${{ github.repository_owner }}.github.io
           SITE_BASE: ${{ steps.set-path.outputs.SITE_BASE }}
+
+      - name: Update deployment status
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: bobheadxi/deployments@v1
+        with:
+          step: finish
+          status: success
+          debug: true
+          env: ${{ steps.deployment.outputs.env }}
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          env_url: https://${{ github.repository_owner }}.github.io/fallout2-ce/PR-${{ github.event.pull_request.number }}/
 
