@@ -542,10 +542,14 @@ function goFullscreen(elem) {
             document.addEventListener("fullscreenchange", async () => {
                 if (document.fullscreenElement) {
                     // The magic happens here...
-                    // @ts-ignore
-                    await navigator.keyboard.lock(["Escape"]);
-                    console.log("Keyboard locked.");
-                    return;
+                    try {
+                        // @ts-ignore
+                        await navigator.keyboard.lock(["Escape"]);
+                        console.log("Keyboard locked.");
+                        return;
+                    } catch (e) {
+                        console.warn("Failed to lock keyboard.", e);
+                    }
                 }
                 // @ts-ignore
                 navigator.keyboard.unlock();
