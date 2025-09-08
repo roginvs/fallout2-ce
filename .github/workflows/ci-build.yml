@@ -23,8 +23,6 @@ jobs:
     outputs:
       deployment_id: ${{ steps.start.outputs.deployment_id }}
       env: ${{ steps.start.outputs.env }}
-    if: false
-    # if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     steps:    
       - name: start deployment
         id: start
@@ -392,7 +390,6 @@ jobs:
       deployments: write
       contents: read    
     needs: [mark_deployment_as_started, android, ios, linux, linux-armhf, linux-arm64, macos, windows]
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     steps:    
       - name: Update deployment status        
         uses: bobheadxi/deployments@v1
