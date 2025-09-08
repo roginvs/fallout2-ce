@@ -14,6 +14,29 @@ defaults:
     shell: bash
 
 jobs:
+  mark_deployment_as_started:
+    name: Mark deployment as started
+    runs-on: ubuntu-latest
+    permissions:
+      deployments: write
+      contents: read
+    outputs:
+      deployment_id: ${{ steps.start.outputs.deployment_id }}
+      env: ${{ steps.start.outputs.env }}
+    if: false
+    # if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    steps:    
+      - name: start deployment
+        id: start
+        uses: bobheadxi/deployments@v1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          step: start
+          debug: true
+          env: artifacts-${{ github.event.pull_request.number }}
+
+
+
   static-analysis:
     name: Static analysis
 
@@ -361,6 +384,26 @@ jobs:
           name: fallout2-ce-windows-${{ matrix.arch }}
           path:  out/build/windows-${{ matrix.arch }}/RelWithDebInfo/fallout2-ce-${{ matrix.arch }}.exe
           retention-days: 7
+
+  mark_deployment_as_completed:
+    name: Mark deployment as completed
+    runs-on: ubuntu-latest
+    permissions:
+      deployments: write
+      contents: read    
+    needs: [mark_deployment_as_started, android, ios, linux, linux-armhf, linux-arm64, macos, windows]
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    steps:    
+      - name: Update deployment status        
+        uses: bobheadxi/deployments@v1
+        with:
+          step: finish
+          status: success
+          debug: true
+          ref: ${{ github.event.pull_request.head.sha }}
+          env: ${{ needs.mark_deployment_as_started.outputs.env }}
+          deployment_id: ${{ needs.mark_deployment_as_started.outputs.deployment_id }}
+          env_url: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
 
   release:
