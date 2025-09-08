@@ -16,6 +16,7 @@ defaults:
 jobs:
   mark_deployment_as_started:
     name: Mark deployment as started
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       deployments: write
@@ -389,6 +390,7 @@ jobs:
     permissions:
       deployments: write
       contents: read    
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     needs: [mark_deployment_as_started, android, ios, linux, linux-armhf, linux-arm64, macos, windows]
     steps:    
       - name: Update deployment status        
