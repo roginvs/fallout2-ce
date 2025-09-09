@@ -673,7 +673,7 @@ void _mouse_get_raw_state(int* out_x, int* out_y, int* out_buttons)
 // 0x4CAC3C
 void mouseSetSensitivity(double value)
 {
-    if (value >= 1.0 && value <= 2.5) {
+    if (value >= MOUSE_SENSIVITY_MIN && value <= MOUSE_SENSIVITY_MAX) {
         gMouseSensitivity = value;
     }
 }
