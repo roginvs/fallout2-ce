@@ -386,7 +386,7 @@ static PreferenceDescription gPreferenceDescriptions[PREF_COUNT] = {
     { 4, 0, 374, 298, 0, 0, { 202, 221, 209, 222 }, 0, GAME_CONFIG_SNDFX_VOLUME_KEY, 0, 32767.0, &gPreferencesSoundEffectsVolume1 },
     { 4, 0, 374, 349, 0, 0, { 202, 221, 209, 222 }, 0, GAME_CONFIG_SPEECH_VOLUME_KEY, 0, 32767.0, &gPreferencesSpeechVolume1 },
     { 2, 0, 374, 400, 0, 0, { 207, 223, 0, 0 }, 0, GAME_CONFIG_BRIGHTNESS_KEY, 1.0, 1.17999267578125, nullptr },
-    { 2, 0, 374, 451, 0, 0, { 207, 218, 0, 0 }, 0, GAME_CONFIG_MOUSE_SENSITIVITY_KEY, MOUSE_SENSIVITY_MIN, MOUSE_SENSIVITY_MAX, nullptr },
+    { 2, 0, 374, 451, 0, 0, { 207, 218, 0, 0 }, 0, GAME_CONFIG_MOUSE_SENSITIVITY_KEY, MOUSE_SENSITIVITY_MIN, MOUSE_SENSITIVITY_MAX, nullptr },
 };
 
 static FrmImage _preferencesFrmImages[PREFERENCES_WINDOW_FRM_COUNT];
@@ -540,7 +540,7 @@ static void _JustUpdate_()
     gPreferencesSoundEffectsVolume1 = std::clamp(gPreferencesSoundEffectsVolume1, 0, VOLUME_MAX);
     gPreferencesSpeechVolume1 = std::clamp(gPreferencesSpeechVolume1, 0, VOLUME_MAX);
     gPreferencesBrightness1 = std::clamp(gPreferencesBrightness1, 1.0, 1.17999267578125);
-    gPreferencesMouseSensitivity1 = std::clamp(gPreferencesMouseSensitivity1, MOUSE_SENSIVITY_MIN, MOUSE_SENSIVITY_MAX);
+    gPreferencesMouseSensitivity1 = std::clamp(gPreferencesMouseSensitivity1, MOUSE_SENSITIVITY_MIN, MOUSE_SENSITIVITY_MAX);
 
     textObjectsSetBaseDelay(gPreferencesTextBaseDelay1);
     gameMouseLoadItemHighlight();
