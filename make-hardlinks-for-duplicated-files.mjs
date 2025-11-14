@@ -20,7 +20,11 @@ const DEBUG_SKIPPING = false;
 console.info("Scanning directory: ", DIR);
 const allFiles = scanFiles(DIR);
 // console.info(allFiles);
-console.info("Total files scanned: " + allFiles.length);
+console.info(
+    "Total files scanned: " +
+        allFiles.length +
+        ", finding duplicates by hash..."
+);
 const duplicates = getGzDuplicates(DIR, allFiles);
 // console.info(duplicates);
 
