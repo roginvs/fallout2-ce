@@ -18,6 +18,7 @@ if (!fs.existsSync(DIR) || !fs.statSync(DIR).isDirectory()) {
 for (const dir of fs.readdirSync(DIR)) {
     const dirPath = path.join(DIR, dir);
     if (!fs.statSync(dirPath).isDirectory()) {
+        console.info(`  - Skipping ${dirPath}, not a directory`);
         continue;
     }
     validateGameDir(dirPath);
