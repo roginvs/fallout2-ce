@@ -31,6 +31,7 @@ console.info("Done");
  */
 async function validateGameDir(gameDir) {
     console.info(`  - Validating ${path.basename(gameDir)}`);
+    let validatedOkCount = 0;
     const indexTxtGzPath = path.join(gameDir, "index.txt.gz");
     if (!fs.existsSync(indexTxtGzPath)) {
         console.warn(`    index.txt.gz not found in ${gameDir}, skipping`);
@@ -73,8 +74,12 @@ async function validateGameDir(gameDir) {
             console.info("    - ERROR: Checksum mismatch for file:", filePath);
             continue;
         }
+
+        validatedOkCount++;
         // console.info("      OK");
     }
+
+    console.info(`    - Validated OK: ${validatedOkCount} files`);
 }
 
 /**
