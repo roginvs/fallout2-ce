@@ -1,6 +1,17 @@
 export const configuration = {
     games: [
         {
+            name: "Fallout: Nevada 3.4 090725 Foxx",
+            folder: "FalloutNevadaFoxx070925",
+            lang: "ru",
+            gameType: "nevada",
+            links: [
+                "https://fallout-nevada.ucoz.ru/",
+                "https://vk.com/rebuild_by_foxx",
+            ],
+            filesVersion: "1",
+        },
+        {
             name: "Fallout: Nevada 2.4.1 Foxx",
             folder: "FalloutOfNevada",
             lang: "ru",
@@ -60,6 +71,18 @@ export const configuration = {
             ],
             filesVersion: "1",
         },
+        {
+            name: "Fallout: Sonora English 1.15 (+ DLC) by Cambragol 1.05",
+            folder: "Fallout_Sonora_1_15_dlc_eng",
+            lang: "en",
+            gameType: "sonora",
+            links: [
+                "https://fallout-nevada.ucoz.ru/index/opisanie_fallout_sonora/0-59",
+                "https://cambragol.github.io/Fallout-Sonora/",
+            ],
+            filesVersion: "3",
+        },
+
         {
             name: "Fallout: Sonora English 1.14 (+ DLC) by Cambragol 1.03",
             folder: "Fallout_Sonora_1_14_dlc_eng",
