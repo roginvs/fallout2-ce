@@ -87,6 +87,10 @@ jobs:
           SITE_BASE:  ${{ steps.set-path.outputs.SITE_BASE }}
           F2_GAME_VERSION: Game=${{github.event.pull_request.head.sha || github.sha }}
 
+      - name: Place hash file
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+        run: echo "$GITHUB_SHA" > fallout2-ce-ems/dist/site_hash.txt
+
       - name: Install rsync (required for the next step)
         if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         run: |
@@ -101,6 +105,28 @@ jobs:
           target-folder: ${{ steps.set-path.outputs.DEST_DIR }}
           clean: false
           single-commit: true
+
+
+
+      - name: Check that site is deployed
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+        run: |
+          URL="$SITE_ORIGIN""$SITE_BASE""site_hash.txt"
+          echo "Expecting $GITHUB_SHA from $URL"
+          for i in `seq 1 80`; do
+            got="$(curl -fsSL --max-time 10 "$URL" | tr -d '\r\n' || true)"
+            if [ "$got" = "$GITHUB_SHA" ]; then
+              echo "✅ Match on attempt $i: ${got}"
+              exit 0
+            fi
+            echo "Received $got, waiting"
+            sleep 5
+          done
+          exit 1
+
+        env:
+          SITE_ORIGIN: https://${{ github.repository_owner }}.github.io
+          SITE_BASE: ${{ steps.set-path.outputs.SITE_BASE }}
 
       - name: Update deployment status
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository

@@ -72,6 +72,9 @@ bool sfallConfigInit(int argc, char** argv)
     configSetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_GAPLESS_MUSIC, 0);
     configSetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_WORLDMAP_TRAIL_MARKERS, 0);
 
+    configSetString(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_SCREENSHOTS_FORMAT, "png");
+    configSetBool(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_DISABLE_HORRIGAN, false);
+
     configSetBool(&gSfallConfig, SFALL_CONFIG_MAIN_KEY, SFALL_CONFIG_ENABLE_HIRES_STENCIL, true);
 
     char path[COMPAT_MAX_PATH];
