@@ -15,6 +15,13 @@ if (!fs.existsSync(DIR) || !fs.statSync(DIR).isDirectory()) {
     process.exit(1);
 }
 
+const isDryRun = !(process.argv[3] === "nodry");
+if (isDryRun) {
+    console.info("Running in DRY-RUN mode, no files will be changed.");
+} else {
+    console.info("NOT a dry-run, files will be changed!");
+}
+
 const DEBUG_SKIPPING = false;
 
 console.info("Scanning directory: ", DIR);
@@ -55,9 +62,13 @@ function makeDuplicatesSymlinks(startingDir, hash, files) {
     for (let i = 1; i < files.length; i++) {
         const duplicateFile = files[i];
         const duplicateFilePath = path.join(startingDir, duplicateFile.relPath);
-        console.info(` - [duplicate] ${duplicateFile.relPath}`);
-        fs.unlinkSync(duplicateFilePath);
-        fs.linkSync(originalFilePath, duplicateFilePath);
+        if (!isDryRun) {
+            console.info(` - [duplicate] ${duplicateFile.relPath}`);
+            fs.unlinkSync(duplicateFilePath);
+            fs.linkSync(originalFilePath, duplicateFilePath);
+        } else {
+            console.info(` - [dry-run] would link ${duplicateFile.relPath}`);
+        }
     }
 }
 
@@ -336,13 +347,15 @@ function getGzDuplicates(startingDir, fileList) {
 
     // Now, for each list remove inode duplicates (hardlinks)
     for (const [sha256, files] of sha256filesMap.entries()) {
-        /** @type {typeof files} */
-        const filteredList = [];
-        for (const file of files) {
-            if (!filteredList.find((f) => f.inode === file.inode)) {
-                filteredList.push(file);
-            }
+        if (files.length < 2) {
+            throw new Error("Logic error");
         }
+        const firstInode = files[0].inode;
+        const filteredList = [
+            files[0],
+            ...files.filter((f) => f.inode !== firstInode),
+        ];
+
         if (filteredList.length < 2) {
             sha256filesMap.delete(sha256);
         } else {
