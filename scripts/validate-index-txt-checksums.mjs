@@ -61,6 +61,7 @@ async function validateGameDir(gameDir) {
             continue;
         }
 
+        // console.info("    - Validating file:", filePath);
         const { size, hash } = await getGzipInfo(filePath);
 
         if (sizeStr !== size.toString()) {
@@ -72,6 +73,7 @@ async function validateGameDir(gameDir) {
             console.info("    - ERROR: Checksum mismatch for file:", filePath);
             continue;
         }
+        // console.info("      OK");
     }
 }
 
