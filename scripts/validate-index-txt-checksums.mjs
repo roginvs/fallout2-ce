@@ -21,7 +21,7 @@ for (const dir of fs.readdirSync(DIR)) {
         console.info(`  - Skipping ${dirPath}, not a directory`);
         continue;
     }
-    validateGameDir(dirPath);
+    await validateGameDir(dirPath);
 }
 
 console.info("Done");
@@ -29,7 +29,7 @@ console.info("Done");
 /**
  * @param {string} gameDir
  */
-function validateGameDir(gameDir) {
+async function validateGameDir(gameDir) {
     console.info(`  - Validating ${path.basename(gameDir)}`);
     const indexTxtGzPath = path.join(gameDir, "index.txt.gz");
     if (!fs.existsSync(indexTxtGzPath)) {
@@ -61,20 +61,45 @@ function validateGameDir(gameDir) {
             continue;
         }
 
-        const dataCompressed = fs.readFileSync(filePath);
-        const data = zlib.unzipSync(dataCompressed);
-        const size = data.length;
+        const { size, hash } = await getGzipInfo(filePath);
 
         if (sizeStr !== size.toString()) {
             console.info("    - ERROR: Size mismatch for file:", filePath);
             continue;
         }
 
-        const hash = crypto.createHash("sha256").update(data).digest("hex");
-
         if (hash !== sha256hash) {
             console.info("    - ERROR: Checksum mismatch for file:", filePath);
             continue;
         }
     }
+}
+
+/**
+ *
+ * @param {string} filePath
+ * @returns {Promise<{size: number, hash: string}>}
+ */
+function getGzipInfo(filePath) {
+    return new Promise((resolve, reject) => {
+        const hash = crypto.createHash("sha256");
+        let size = 0;
+
+        const input = fs.createReadStream(filePath);
+        const gunzip = zlib.createUnzip();
+
+        input
+            .pipe(gunzip)
+            .on("data", (chunk) => {
+                size += chunk.length; // count decompressed bytes
+                hash.update(chunk); // hash decompressed data
+            })
+            .on("end", () => {
+                resolve({
+                    size,
+                    hash: hash.digest("hex"),
+                });
+            })
+            .on("error", reject);
+    });
 }
