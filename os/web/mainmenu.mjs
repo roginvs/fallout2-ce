@@ -138,7 +138,7 @@ function downloadSlot(files, folderName, slotFolderName, saveName) {
 
         tarBlocks.push(
             packTarFile(
-                fName.slice(prefix.length),
+                slotFolderName + "/" + fName.slice(prefix.length),
                 entry ? entry.contents : null,
             ),
         );
