@@ -3767,7 +3767,24 @@ static void objectDeallocate(Object** objectPtr)
         return;
     }
 
-    internal_free(*objectPtr);
+    {
+        // Sometimes game scripts are using object after it has been
+        // destroyed which causes crashes when address sanitizer is enabled.
+        //
+        // To mitigate this issue, a simple delayed free queue is implemented.
+        //
+        // Delay value of 10 objects has been chosen arbitrarily.
+        // Is seems that value of 3 was not sufficient to avoid all use-after-free issues.
+        //
+        constexpr int DELAY = 10;
+        static Object* deleteQueue[DELAY] = { nullptr };
+        static int deleteQueueIndex = 0;
+        if (deleteQueue[deleteQueueIndex] != nullptr) {
+            internal_free(deleteQueue[deleteQueueIndex]);
+        }
+        deleteQueue[deleteQueueIndex] = *objectPtr;
+        deleteQueueIndex = (deleteQueueIndex + 1) % DELAY;
+    }
 
     *objectPtr = nullptr;
 }
@@ -4026,7 +4043,7 @@ static int _obj_adjust_light(Object* obj, int a2, Rect* rect)
         obj->lightIntensity = 65536;
     }
 
-    int(*v70)[36] = _light_offsets[obj->tile & 1];
+    int (*v70)[36] = _light_offsets[obj->tile & 1];
     int v7 = (obj->lightIntensity - 655) / (obj->lightDistance + 1);
     int v28[36];
     v28[0] = obj->lightIntensity - v7;
