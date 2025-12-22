@@ -1,4 +1,9 @@
 #!/bin/bash
+set -e
+
+echo "=== Js prettier and checks ==="
+(cd os/web && npx prettier -w .)
+(cd os/web && npx -p typescript tsc)
 
 echo "=== Release build ==="
 
