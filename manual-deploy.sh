@@ -19,7 +19,7 @@ echo "=== Deploy to server (dry run) ==="
 cd build/web
 
 RSYNC_ARGS=(
-  -avz --dry-run --progress --info=progress2
+  -avz --progress --info=progress2
   -f '+ *.mjs' -f '+ *.css' -f '+ *.wasm' -f '+ *.wasm.map'
   -f '+ *.ico' -f '+ *.png' -f '+ *.js' -f '+ *.html' -f '+ manifest.json'
   -f '- *' --checksum ./ root@fallout-nevada.ru:/var/www/html/
