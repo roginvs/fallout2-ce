@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+export LC_TIME=en_US.UTF-8
+export LANG=en_US.UTF-8
+
 echo "=== Js prettier and checks ==="
 (cd os/web && npx prettier -w .)
 (cd os/web && npx -p typescript tsc)
