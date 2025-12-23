@@ -533,7 +533,7 @@ async function renderGameSlots(gameFolder, slotsDiv, lang) {
  * @param {HTMLElement} elem
  */
 function goFullscreen(elem) {
-    {
+    function requestKeyboardLock() {
         const supportsKeyboardLock =
             // @ts-ignore
             "keyboard" in navigator && "lock" in navigator.keyboard;
@@ -558,26 +558,44 @@ function goFullscreen(elem) {
         }
     }
 
-    if (elem.requestFullscreen) {
-        return elem.requestFullscreen({
-            navigationUI: "hide",
-        });
-        // @ts-ignore
-    } else if (elem.mozRequestFullScreen) {
-        // @ts-ignore
-        return elem.mozRequestFullScreen({
-            navigationUI: "hide",
-        });
-        // @ts-ignore
-    } else if (elem.webkitRequestFullScreen) {
-        // @ts-ignore
-        return elem.webkitRequestFullScreen({
-            navigationUI: "hide",
-        });
-        // @ts-ignore
-    } else if (elem.webkitEnterFullscreen) {
-        // @ts-ignore
-        return elem.webkitEnterFullscreen();
+    function goFullscreenImpl(/** @type {HTMLElement} */ elem) {
+        if (elem.requestFullscreen) {
+            return elem.requestFullscreen({
+                navigationUI: "hide",
+            });
+            // @ts-ignore
+        } else if (elem.mozRequestFullScreen) {
+            // @ts-ignore
+            return elem.mozRequestFullScreen({
+                navigationUI: "hide",
+            });
+            // @ts-ignore
+        } else if (elem.webkitRequestFullScreen) {
+            // @ts-ignore
+            return elem.webkitRequestFullScreen({
+                navigationUI: "hide",
+            });
+            // @ts-ignore
+        } else if (elem.webkitEnterFullscreen) {
+            // @ts-ignore
+            return elem.webkitEnterFullscreen();
+        }
+    }
+
+    requestKeyboardLock();
+
+    try {
+        const p = goFullscreenImpl(elem);
+        // It might be Promise or not so we normalize it into Promise
+        return Promise.resolve()
+            .then(() => {
+                return p;
+            })
+            .catch((e) => {
+                console.info("Ignoring fullscreen request error", e);
+            });
+    } catch (e) {
+        console.info("Ignoring fullscreen request error", e);
     }
 }
 
