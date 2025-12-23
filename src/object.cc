@@ -3768,7 +3768,7 @@ static void objectDeallocate(Object** objectPtr)
     }
 
     {
-        // Sometimes game scripts are using object 
+        // Sometimes game scripts are using object
         // after it has been destroyed.
         //
         // Usually it does not bring any issues, but it
@@ -3777,7 +3777,7 @@ static void objectDeallocate(Object** objectPtr)
         // To mitigate this issue, a simple delayed free queue is implemented.
         //
         // If the game still access this memory then let's at least ensure
-        // that this memory is not reallocated for something else right away. 
+        // that this memory is not reallocated for something else right away.
         //
         // Delay value of 10 objects has been chosen arbitrarily.
         // Is seems that value of 3 was not sufficient to avoid all use-after-free issues.
