@@ -3768,10 +3768,16 @@ static void objectDeallocate(Object** objectPtr)
     }
 
     {
-        // Sometimes game scripts are using object after it has been
-        // destroyed which causes crashes when address sanitizer is enabled.
+        // Sometimes game scripts are using object 
+        // after it has been destroyed.
+        //
+        // Usually it does not bring any issues, but it
+        // causes crashes when address sanitizer is enabled.
         //
         // To mitigate this issue, a simple delayed free queue is implemented.
+        //
+        // If the game still access this memory then let's at least ensure
+        // that this memory is not reallocated for something else right away. 
         //
         // Delay value of 10 objects has been chosen arbitrarily.
         // Is seems that value of 3 was not sufficient to avoid all use-after-free issues.
