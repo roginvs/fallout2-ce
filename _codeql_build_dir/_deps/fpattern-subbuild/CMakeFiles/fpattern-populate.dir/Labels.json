@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/fpattern-subbuild/CMakeFiles/fpattern-populate"
+		},
+		{
+			"file" : "/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/fpattern-subbuild/CMakeFiles/fpattern-populate.rule"
+		},
+		{
+			"file" : "/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/fpattern-subbuild/CMakeFiles/fpattern-populate-complete.rule"
+		},
+		{
+			"file" : "/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/fpattern-subbuild/fpattern-populate-prefix/src/fpattern-populate-stamp/fpattern-populate-build.rule"
+		},
+		{
+			"file" : "/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/fpattern-subbuild/fpattern-populate-prefix/src/fpattern-populate-stamp/fpattern-populate-configure.rule"
+		},
+		{
+			"file" : "/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/fpattern-subbuild/fpattern-populate-prefix/src/fpattern-populate-stamp/fpattern-populate-download.rule"
+		},
+		{
+			"file" : "/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/fpattern-subbuild/fpattern-populate-prefix/src/fpattern-populate-stamp/fpattern-populate-install.rule"
+		},
+		{
+			"file" : "/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/fpattern-subbuild/fpattern-populate-prefix/src/fpattern-populate-stamp/fpattern-populate-mkdir.rule"
+		},
+		{
+			"file" : "/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/fpattern-subbuild/fpattern-populate-prefix/src/fpattern-populate-stamp/fpattern-populate-patch.rule"
+		},
+		{
+			"file" : "/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/fpattern-subbuild/fpattern-populate-prefix/src/fpattern-populate-stamp/fpattern-populate-test.rule"
+		},
+		{
+			"file" : "/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/fpattern-subbuild/fpattern-populate-prefix/src/fpattern-populate-stamp/fpattern-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"fpattern-populate"
+		],
+		"name" : "fpattern-populate"
+	}
+}
