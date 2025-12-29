@@ -396,6 +396,8 @@ FodyWeavers.xsd
 /out
 /build
 /build.debug
+/_codeql_build_dir
+/_codeql_detected_source_root
 
 # versioning header
 src/platform/git_version.h
