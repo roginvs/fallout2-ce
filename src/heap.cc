@@ -429,7 +429,17 @@ bool heapBlockDeallocate(Heap* heap, int* handleIndexPtr)
 
     int handleIndex = *handleIndexPtr;
 
+    if (handleIndex < 0 || handleIndex >= heap->handlesLength) {
+        debugPrint("Heap Error: Invalid handle index %d during deallocate.\n", handleIndex);
+        return false;
+    }
+
     HeapHandle* handle = &(heap->handles[handleIndex]);
+
+    if (handle->data == nullptr) {
+        debugPrint("Heap Error: Handle data is null during deallocate.\n");
+        return false;
+    }
 
     HeapBlockHeader* blockHeader = (HeapBlockHeader*)handle->data;
     if (blockHeader->guard != HEAP_BLOCK_HEADER_GUARD) {
@@ -498,7 +508,17 @@ bool heapLock(Heap* heap, int handleIndex, unsigned char** bufferPtr)
         return false;
     }
 
+    if (handleIndex < 0 || handleIndex >= heap->handlesLength) {
+        debugPrint("Heap Error: Invalid handle index %d during lock.\n", handleIndex);
+        return false;
+    }
+
     HeapHandle* handle = &(heap->handles[handleIndex]);
+
+    if (handle->data == nullptr) {
+        debugPrint("Heap Error: Handle data is null during lock.\n");
+        return false;
+    }
 
     HeapBlockHeader* blockHeader = (HeapBlockHeader*)handle->data;
     if (blockHeader->guard != HEAP_BLOCK_HEADER_GUARD) {
@@ -559,7 +579,17 @@ bool heapUnlock(Heap* heap, int handleIndex)
         return false;
     }
 
+    if (handleIndex < 0 || handleIndex >= heap->handlesLength) {
+        debugPrint("Heap Error: Invalid handle index %d during unlock.\n", handleIndex);
+        return false;
+    }
+
     HeapHandle* handle = &(heap->handles[handleIndex]);
+
+    if (handle->data == nullptr) {
+        debugPrint("Heap Error: Handle data is null during unlock.\n");
+        return false;
+    }
 
     HeapBlockHeader* blockHeader = (HeapBlockHeader*)handle->data;
     if (blockHeader->guard != HEAP_BLOCK_HEADER_GUARD) {
