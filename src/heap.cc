@@ -304,6 +304,11 @@ static bool heapHandleListInit(Heap* heap)
 // Returns true if the handle is valid, false otherwise.
 static bool heapValidateHandle(Heap* heap, int handleIndex, const char* operation)
 {
+    if (heap == nullptr) {
+        debugPrint("Heap Error: Heap is null during %s.\n", operation);
+        return false;
+    }
+
     if (handleIndex < 0 || handleIndex >= heap->handlesLength) {
         debugPrint("Heap Error: Invalid handle index %d during %s.\n", handleIndex, operation);
         return false;
