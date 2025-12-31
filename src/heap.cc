@@ -81,6 +81,7 @@ static int heapMoveableExtentsCompareBySize(const void* a1, const void* a2);
 static bool heapBuildMoveableExtentsList(Heap* heap, int* moveableExtentsLengthPtr, int* maxBlocksLengthPtr);
 static bool heapBuildFreeBlocksList(Heap* heap);
 static bool heapBuildMoveableBlocksList(int extentIndex);
+static bool heapValidateHandle(Heap* heap, int handleIndex, const char* operation);
 
 // An array of pointers to free heap blocks.
 //
@@ -299,6 +300,29 @@ static bool heapHandleListInit(Heap* heap)
     return true;
 }
 
+// Validates that a handle index is valid and the handle data is not null.
+// Returns true if the handle is valid, false otherwise.
+static bool heapValidateHandle(Heap* heap, int handleIndex, const char* operation)
+{
+    if (heap == nullptr) {
+        debugPrint("Heap Error: Heap is null during %s.\n", operation);
+        return false;
+    }
+
+    if (handleIndex < 0 || handleIndex >= heap->handlesLength) {
+        debugPrint("Heap Error: Invalid handle index %d during %s.\n", handleIndex, operation);
+        return false;
+    }
+
+    HeapHandle* handle = &(heap->handles[handleIndex]);
+    if (handle->data == nullptr) {
+        debugPrint("Heap Error: Handle data is null during %s.\n", operation);
+        return false;
+    }
+
+    return true;
+}
+
 // 0x452AD0
 bool heapBlockAllocate(Heap* heap, int* handleIndexPtr, int size, int a4)
 {
@@ -429,8 +453,11 @@ bool heapBlockDeallocate(Heap* heap, int* handleIndexPtr)
 
     int handleIndex = *handleIndexPtr;
 
-    HeapHandle* handle = &(heap->handles[handleIndex]);
+    if (!heapValidateHandle(heap, handleIndex, "deallocate")) {
+        return false;
+    }
 
+    HeapHandle* handle = &(heap->handles[handleIndex]);
     HeapBlockHeader* blockHeader = (HeapBlockHeader*)handle->data;
     if (blockHeader->guard != HEAP_BLOCK_HEADER_GUARD) {
         debugPrint("Heap Error: Bad guard begin detected during deallocate.\n");
@@ -498,8 +525,11 @@ bool heapLock(Heap* heap, int handleIndex, unsigned char** bufferPtr)
         return false;
     }
 
-    HeapHandle* handle = &(heap->handles[handleIndex]);
+    if (!heapValidateHandle(heap, handleIndex, "lock")) {
+        return false;
+    }
 
+    HeapHandle* handle = &(heap->handles[handleIndex]);
     HeapBlockHeader* blockHeader = (HeapBlockHeader*)handle->data;
     if (blockHeader->guard != HEAP_BLOCK_HEADER_GUARD) {
         debugPrint("Heap Error: Bad guard begin detected during lock.\n");
@@ -559,8 +589,11 @@ bool heapUnlock(Heap* heap, int handleIndex)
         return false;
     }
 
-    HeapHandle* handle = &(heap->handles[handleIndex]);
+    if (!heapValidateHandle(heap, handleIndex, "unlock")) {
+        return false;
+    }
 
+    HeapHandle* handle = &(heap->handles[handleIndex]);
     HeapBlockHeader* blockHeader = (HeapBlockHeader*)handle->data;
     if (blockHeader->guard != HEAP_BLOCK_HEADER_GUARD) {
         debugPrint("Heap Error: Bad guard begin detected during unlock.\n");

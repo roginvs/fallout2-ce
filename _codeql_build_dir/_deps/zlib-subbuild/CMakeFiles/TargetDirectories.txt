@@ -1,0 +1,3 @@
+/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/zlib-subbuild/CMakeFiles/zlib-populate.dir
+/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/zlib-subbuild/CMakeFiles/edit_cache.dir
+/home/runner/work/fallout2-ce/fallout2-ce/_codeql_build_dir/_deps/zlib-subbuild/CMakeFiles/rebuild_cache.dir
