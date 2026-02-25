@@ -59,6 +59,7 @@ static int _obj_adjust_light(Object* obj, int a2, Rect* rect);
 static void objectDrawOutline(Object* object, Rect* rect);
 static void _obj_render_object(Object* object, Rect* rect, int light);
 static int _obj_preload_sort(const void* a1, const void* a2);
+static int objectGetPreloadTypeOrder(int fid);
 
 // 0x5195F8
 static bool gObjectsInitialized = false;
@@ -124,6 +125,9 @@ static int* gObjectFids = nullptr;
 
 // 0x519640
 static int gObjectFidsLength = 0;
+
+// Capacity of gObjectFids.
+static int gObjectFidsCapacity = 0;
 
 // 0x51964C
 static Rect _light_rect[9] = {
@@ -493,15 +497,20 @@ static int objectLoadAllInternal(File* stream)
 
     if (gObjectFids != nullptr) {
         internal_free(gObjectFids);
+        gObjectFids = nullptr;
     }
+
+    gObjectFidsLength = 0;
+    gObjectFidsCapacity = 0;
 
     if (objectCount != 0) {
         gObjectFids = (int*)internal_malloc(sizeof(*gObjectFids) * objectCount);
-        memset(gObjectFids, 0, sizeof(*gObjectFids) * objectCount);
         if (gObjectFids == nullptr) {
             return -1;
         }
-        gObjectFidsLength = 0;
+
+        memset(gObjectFids, 0, sizeof(*gObjectFids) * objectCount);
+        gObjectFidsCapacity = objectCount;
     }
 
     for (int elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
@@ -535,7 +544,11 @@ static int objectLoadAllInternal(File* stream)
             }
 
             objectListNode->obj->outline = 0;
-            gObjectFids[gObjectFidsLength++] = objectListNode->obj->fid;
+            if (gObjectFids != nullptr && gObjectFidsLength < gObjectFidsCapacity) {
+                gObjectFids[gObjectFidsLength++] = objectListNode->obj->fid;
+            } else {
+                debugPrint("\nError: object fid preload list overflow");
+            }
 
             if (objectListNode->obj->sid != -1) {
                 Script* script;
@@ -3180,6 +3193,13 @@ void _obj_preload_art_cache(int flags)
         return;
     }
 
+    if (gObjectFidsLength <= 0) {
+        internal_free(gObjectFids);
+        gObjectFids = nullptr;
+        gObjectFidsCapacity = 0;
+        return;
+    }
+
     unsigned char arr[4096];
     memset(arr, 0, sizeof(arr));
 
@@ -3210,16 +3230,8 @@ void _obj_preload_art_cache(int flags)
     qsort(gObjectFids, gObjectFidsLength, sizeof(*gObjectFids), _obj_preload_sort);
 
     int v11 = gObjectFidsLength;
-    int v12 = gObjectFidsLength;
-
-    if (FID_TYPE(gObjectFids[v12 - 1]) == OBJ_TYPE_WALL) {
-        int objectType = OBJ_TYPE_ITEM;
-        do {
-            v11--;
-            objectType = FID_TYPE(gObjectFids[v12 - 1]);
-            v12--;
-        } while (objectType == OBJ_TYPE_WALL);
-        v11++;
+    while (v11 > 0 && FID_TYPE(gObjectFids[v11 - 1]) == OBJ_TYPE_WALL) {
+        v11--;
     }
 
     CacheEntry* cache_handle;
@@ -3244,7 +3256,7 @@ void _obj_preload_art_cache(int flags)
         }
     }
 
-    for (int i = v11; i < gObjectFidsLength; i++) {
+    for (int i = std::max(v11, 1); i < gObjectFidsLength; i++) {
         if (gObjectFids[i - 1] != gObjectFids[i]) {
             if (artLock(gObjectFids[i], &cache_handle) != nullptr) {
                 artUnlock(cache_handle);
@@ -3256,6 +3268,7 @@ void _obj_preload_art_cache(int flags)
     gObjectFids = nullptr;
 
     gObjectFidsLength = 0;
+    gObjectFidsCapacity = 0;
 }
 
 // 0x48CB88
@@ -5205,8 +5218,8 @@ static int _obj_preload_sort(const void* a1, const void* a2)
     int v1 = *(int*)a1;
     int v2 = *(int*)a2;
 
-    int v3 = _cd_order[FID_TYPE(v1)];
-    int v4 = _cd_order[FID_TYPE(v2)];
+    int v3 = objectGetPreloadTypeOrder(v1);
+    int v4 = objectGetPreloadTypeOrder(v2);
 
     int cmp = v3 - v4;
     if (cmp != 0) {
@@ -5225,6 +5238,16 @@ static int _obj_preload_sort(const void* a1, const void* a2)
 
     cmp = ((v1 & 0xFF0000) >> 16) - (((v2 & 0xFF0000) >> 16));
     return cmp;
+}
+
+static int objectGetPreloadTypeOrder(int fid)
+{
+    int fidType = FID_TYPE(fid);
+    if (fidType < 0 || fidType >= static_cast<int>(sizeof(_cd_order) / sizeof(_cd_order[0]))) {
+        return 0;
+    }
+
+    return _cd_order[fidType];
 }
 
 Object* objectTypedFindById(int id, int type)
