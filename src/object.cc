@@ -3193,7 +3193,7 @@ void _obj_preload_art_cache(int flags)
         return;
     }
 
-    if (gObjectFidsLength <= 0) {
+    if (gObjectFidsLength == 0) {
         internal_free(gObjectFids);
         gObjectFids = nullptr;
         gObjectFidsCapacity = 0;
