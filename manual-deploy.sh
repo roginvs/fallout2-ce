@@ -15,7 +15,7 @@ docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) \
   sh -c 'mkdir -p build && cd build && 
         export SOURCE_MAP_BASE=https://fallout-nevada.ru/ &&
         export EM_CACHE=$(pwd)/build/emcache && 
-        emcmake cmake -DCMAKE_BUILD_TYPE="Release" ../ && 
+        emcmake cmake -DCMAKE_BUILD_TYPE="Release" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ../ && 
         emmake make VERBOSE=1 -j 8'
 
 echo ""
@@ -28,7 +28,7 @@ docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) \
   sh -c 'mkdir -p build.debug && cd build.debug && 
         export SOURCE_MAP_BASE=https://fallout-nevada.ru/ &&
         export EM_CACHE=$(pwd)/build.debug/emcache && 
-        emcmake cmake -DCMAKE_BUILD_TYPE="Debug" ../ && 
+        emcmake cmake -DCMAKE_BUILD_TYPE="Debug" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ../ && 
         emmake make VERBOSE=1 -j 8'
 
 echo ""
