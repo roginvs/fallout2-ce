@@ -3131,6 +3131,11 @@ int _check_move(int* actionPointsPtr)
                     }
                 }
 
+                // Callers expect AP back, but this hands back hexes. Both
+                // callers only pass the value on to animateMoveObjectToTile,
+                // which uses it to cap `sad->length`, a hex count. A step can
+                // cost more than 1 AP (crippled legs), so `steps` is the
+                // number that cap needs.
                 *actionPointsPtr = steps;
             }
         }
