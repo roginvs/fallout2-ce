@@ -9,12 +9,12 @@
 namespace fallout {
 
 // strParseInt
-// 0x4AFD10
+// 0x4AFD10 strParseValue
 int strParseInt(char** stringPtr, int* valuePtr)
 {
     char *str, *remaining_str;
-    size_t v1, v2, v3;
-    char tmp;
+    size_t leadingSpacesLength, tokenLength, consumedLength;
+    char savedDelimiter;
 
     if (*stringPtr == nullptr) {
         return 0;
@@ -24,41 +24,41 @@ int strParseInt(char** stringPtr, int* valuePtr)
 
     compat_strlwr(str);
 
-    v1 = strspn(str, " ");
-    str += v1;
+    leadingSpacesLength = strspn(str, " ");
+    str += leadingSpacesLength;
 
-    v2 = strcspn(str, ",");
-    v3 = v1 + v2;
+    tokenLength = strcspn(str, ",");
+    consumedLength = leadingSpacesLength + tokenLength;
 
-    remaining_str = *stringPtr + v3;
+    remaining_str = *stringPtr + consumedLength;
     *stringPtr = remaining_str;
 
     if (*remaining_str != '\0') {
         *stringPtr = remaining_str + 1;
     }
 
-    if (v2 != 0) {
-        tmp = *(str + v2);
-        *(str + v2) = '\0';
+    if (tokenLength != 0) {
+        savedDelimiter = *(str + tokenLength);
+        *(str + tokenLength) = '\0';
     }
 
     *valuePtr = atoi(str);
 
-    if (v2 != 0) {
-        *(str + v2) = tmp;
+    if (tokenLength != 0) {
+        *(str + tokenLength) = savedDelimiter;
     }
 
     return 0;
 }
 
 // strParseStrFromList
-// 0x4AFE08
+// 0x4AFE08 strParseStrFromList
 int strParseStrFromList(char** stringPtr, int* valuePtr, const char** stringList, int stringListLength)
 {
     int i;
     char *str, *remaining_str;
-    size_t v1, v2, v3;
-    char tmp;
+    size_t leadingSpacesLength, tokenLength, consumedLength;
+    char savedDelimiter;
 
     if (*stringPtr == nullptr) {
         return 0;
@@ -68,22 +68,22 @@ int strParseStrFromList(char** stringPtr, int* valuePtr, const char** stringList
 
     compat_strlwr(str);
 
-    v1 = strspn(str, " ");
-    str += v1;
+    leadingSpacesLength = strspn(str, " ");
+    str += leadingSpacesLength;
 
-    v2 = strcspn(str, ",");
-    v3 = v1 + v2;
+    tokenLength = strcspn(str, ",");
+    consumedLength = leadingSpacesLength + tokenLength;
 
-    remaining_str = *stringPtr + v3;
+    remaining_str = *stringPtr + consumedLength;
     *stringPtr = remaining_str;
 
     if (*remaining_str != '\0') {
         *stringPtr = remaining_str + 1;
     }
 
-    if (v2 != 0) {
-        tmp = *(str + v2);
-        *(str + v2) = '\0';
+    if (tokenLength != 0) {
+        savedDelimiter = *(str + tokenLength);
+        *(str + tokenLength) = '\0';
     }
 
     for (i = 0; i < stringListLength; i++) {
@@ -92,8 +92,8 @@ int strParseStrFromList(char** stringPtr, int* valuePtr, const char** stringList
         }
     }
 
-    if (v2 != 0) {
-        *(str + v2) = tmp;
+    if (tokenLength != 0) {
+        *(str + tokenLength) = savedDelimiter;
     }
 
     if (i == stringListLength) {
@@ -108,12 +108,12 @@ int strParseStrFromList(char** stringPtr, int* valuePtr, const char** stringList
 }
 
 // strParseStrFromFunc
-// 0x4AFEDC
+// 0x4AFEDC strParseStrFromFunc
 int strParseStrFromFunc(char** stringPtr, int* valuePtr, StringParserCallback* callback)
 {
     char *str, *remaining_str;
-    size_t v1, v2, v3;
-    char tmp;
+    size_t leadingSpacesLength, tokenLength, consumedLength;
+    char savedDelimiter;
     int result;
 
     if (*stringPtr == nullptr) {
@@ -124,28 +124,28 @@ int strParseStrFromFunc(char** stringPtr, int* valuePtr, StringParserCallback* c
 
     compat_strlwr(str);
 
-    v1 = strspn(str, " ");
-    str += v1;
+    leadingSpacesLength = strspn(str, " ");
+    str += leadingSpacesLength;
 
-    v2 = strcspn(str, ",");
-    v3 = v1 + v2;
+    tokenLength = strcspn(str, ",");
+    consumedLength = leadingSpacesLength + tokenLength;
 
-    remaining_str = *stringPtr + v3;
+    remaining_str = *stringPtr + consumedLength;
     *stringPtr = remaining_str;
 
     if (*remaining_str != '\0') {
         *stringPtr = remaining_str + 1;
     }
 
-    if (v2 != 0) {
-        tmp = *(str + v2);
-        *(str + v2) = '\0';
+    if (tokenLength != 0) {
+        savedDelimiter = *(str + tokenLength);
+        *(str + tokenLength) = '\0';
     }
 
     result = callback(str, valuePtr);
 
-    if (v2 != 0) {
-        *(str + v2) = tmp;
+    if (tokenLength != 0) {
+        *(str + tokenLength) = savedDelimiter;
     }
 
     if (result != 0) {
@@ -157,12 +157,12 @@ int strParseStrFromFunc(char** stringPtr, int* valuePtr, StringParserCallback* c
     return 0;
 }
 
-// 0x4AFF7C
+// 0x4AFF7C strParseStrSepVal
 int strParseIntWithKey(char** stringPtr, const char* key, int* valuePtr, const char* delimeter)
 {
     char* str;
-    size_t v1, v2, v3, v4, v5;
-    char tmp1, tmp2;
+    size_t leadingSpacesLength, segmentLength, consumedLength, keyLength;
+    char savedSegmentDelimiter, savedKeyDelimiter;
     int result;
 
     result = -1;
@@ -184,29 +184,28 @@ int strParseIntWithKey(char** stringPtr, const char* key, int* valuePtr, const c
         *stringPtr = *stringPtr + 1;
     }
 
-    v1 = strspn(str, " ");
-    str += v1;
+    leadingSpacesLength = strspn(str, " ");
+    str += leadingSpacesLength;
 
-    v2 = strcspn(str, ",");
-    v3 = v1 + v2;
+    segmentLength = strcspn(str, ",");
+    consumedLength = leadingSpacesLength + segmentLength;
 
-    tmp1 = *(str + v2);
-    *(str + v2) = '\0';
+    savedSegmentDelimiter = *(str + segmentLength);
+    *(str + segmentLength) = '\0';
 
-    v4 = strcspn(str, delimeter);
-    v5 = v1 + v4;
+    keyLength = strcspn(str, delimeter);
 
-    tmp2 = *(str + v4);
-    *(str + v4) = '\0';
+    savedKeyDelimiter = *(str + keyLength);
+    *(str + keyLength) = '\0';
 
     if (strcmp(str, key) == 0) {
-        *stringPtr = *stringPtr + v3;
-        *valuePtr = atoi(str + v4 + 1);
+        *stringPtr = *stringPtr + consumedLength;
+        *valuePtr = atoi(str + keyLength + 1);
         result = 0;
     }
 
-    *(str + v4) = tmp2;
-    *(str + v2) = tmp1;
+    *(str + keyLength) = savedKeyDelimiter;
+    *(str + segmentLength) = savedSegmentDelimiter;
 
     if (**stringPtr == ',') {
         *stringPtr = *stringPtr + 1;
@@ -215,12 +214,12 @@ int strParseIntWithKey(char** stringPtr, const char* key, int* valuePtr, const c
     return result;
 }
 
-// 0x4B005C
+// 0x4B005C strParseStrAndSepVal
 int strParseKeyValue(char** stringPtr, char* key, int* valuePtr, const char* delimiter)
 {
     char* str;
-    size_t v1, v2, v3, v4, v5;
-    char tmp1, tmp2;
+    size_t leadingSpacesLength, segmentLength, consumedLength, keyLength;
+    char savedSegmentDelimiter, savedKeyDelimiter;
 
     if (*stringPtr == nullptr) {
         return 0;
@@ -239,28 +238,27 @@ int strParseKeyValue(char** stringPtr, char* key, int* valuePtr, const char* del
         *stringPtr = *stringPtr + 1;
     }
 
-    v1 = strspn(str, " ");
-    str += v1;
+    leadingSpacesLength = strspn(str, " ");
+    str += leadingSpacesLength;
 
-    v2 = strcspn(str, ",");
-    v3 = v1 + v2;
+    segmentLength = strcspn(str, ",");
+    consumedLength = leadingSpacesLength + segmentLength;
 
-    tmp1 = *(str + v2);
-    *(str + v2) = '\0';
+    savedSegmentDelimiter = *(str + segmentLength);
+    *(str + segmentLength) = '\0';
 
-    v4 = strcspn(str, delimiter);
-    v5 = v1 + v4;
+    keyLength = strcspn(str, delimiter);
 
-    tmp2 = *(str + v4);
-    *(str + v4) = '\0';
+    savedKeyDelimiter = *(str + keyLength);
+    *(str + keyLength) = '\0';
 
     strcpy(key, str);
 
-    *stringPtr = *stringPtr + v3;
-    *valuePtr = atoi(str + v4 + 1);
+    *stringPtr = *stringPtr + consumedLength;
+    *valuePtr = atoi(str + keyLength + 1);
 
-    *(str + v4) = tmp2;
-    *(str + v2) = tmp1;
+    *(str + keyLength) = savedKeyDelimiter;
+    *(str + segmentLength) = savedSegmentDelimiter;
 
     return 0;
 }

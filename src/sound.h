@@ -46,7 +46,13 @@ typedef enum SoundError {
     SOUND_ERR_COUNT,
 } SoundError;
 
-typedef int SoundOpenProc(const char* filePath, int* sampleRate);
+typedef struct AudioFileInfo {
+    int channels;
+    int sampleRate;
+    int bitsPerSample;
+} AudioFileInfo;
+
+typedef int SoundOpenProc(const char* filePath, AudioFileInfo* info, bool* isMemoryBackedPtr);
 typedef int SoundCloseProc(int fileHandle);
 typedef int SoundReadProc(int fileHandle, void* buf, unsigned int size);
 typedef int SoundWriteProc(int fileHandle, const void* buf, unsigned int size);
@@ -84,7 +90,12 @@ typedef enum SoundFlags {
     SOUND_FLAG_0x200 = 0x200,
 } SoundFlags;
 
-typedef void SoundCallback(void* userData, int a2);
+typedef enum SoundCallbackEvent {
+    SOUND_CALLBACK_EVENT_DONE = 0x0001,
+    SOUND_CALLBACK_EVENT_LOOP = 0x0400,
+} SoundCallbackEvent;
+
+typedef void SoundCallback(void* userData, int event);
 typedef void SoundDeleteCallback(void* userData);
 
 typedef struct Sound {
@@ -122,7 +133,7 @@ typedef struct Sound {
 
 void soundSetMemoryProcs(MallocProc* mallocProc, ReallocProc* reallocProc, FreeProc* freeProc);
 const char* soundGetErrorDescription(int err);
-int soundInit(int _, int numBuffers, int __, int dataSize, int rate);
+int soundInit(int _, int numBuffers, int __, int dataSize, int rate, int channelCount);
 void soundExit();
 Sound* soundAllocate(int type, int soundFlags);
 int soundLoad(Sound* sound, char* filePath);

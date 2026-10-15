@@ -11,70 +11,70 @@
 
 namespace fallout {
 
-static void _setIntensityTableColor(int a1);
+static void _setIntensityTableColor(Color color);
 static void _setIntensityTables();
-static void _setMixTableColor(int a1);
-static void _buildBlendTable(unsigned char* ptr, unsigned char ch);
+static void _setMixTableColor(Color color);
+static void _buildBlendTable(Color* ptr, Color ch);
 static void _rebuildColorBlendTables();
 
-// 0x50F930
+// 0x50F930 aColor_cNoError
 static char _aColor_cNoError[] = "color.c: No errors\n";
 
-// 0x50F95C
+// 0x50F95C aColor_cColorTa
 static char _aColor_cColorTa[] = "color.c: color table not found\n";
 
-// 0x50F984
+// 0x50F984 aColor_cColorpa
 static char _aColor_cColorpa[] = "color.c: colorpalettestack overflow";
 
-// 0x50F9AC
+// 0x50F9AC aColor_cColor_0
 static char aColor_cColor_0[] = "color.c: colorpalettestack underflow";
 
-// 0x51DF10
+// 0x51DF10 errorStr
 static char* _errorStr = _aColor_cNoError;
 
-// 0x51DF14
+// 0x51DF14 colorsInited
 static bool _colorsInited = false;
 
-// 0x51DF18
+// 0x51DF18 currentGamma
 static double gBrightness = 1.0;
 
-// 0x51DF20
+// 0x51DF20 colorFadeBkFuncP
 static ColorTransitionCallback* gColorPaletteTransitionCallback = nullptr;
 
-// 0x51DF30
+// 0x51DF30 colorNameMangler
 static ColorFileNameManger* gColorFileNameMangler = nullptr;
 
-// 0x51DF34
-unsigned char _cmap[768] = {
+// 0x51DF34 cmap
+unsigned char _cmap[COLOR_MAP_SIZE] = {
     0x3F, 0x3F, 0x3F
 };
 
-// 0x673090
-unsigned char _systemCmap[256 * 3];
+// 0x673090 systemCmap1
+unsigned char _systemCmap[COLOR_MAP_SIZE];
 
-// 0x673390
+// 0x673390 currentGammaTable
 unsigned char _currentGammaTable[64];
 
-// 0x6733D0
-unsigned char* _blendTable[256];
+// 0x6733D0 blendTable
+Color* _blendTable[COLOR_COUNT];
 
-// 0x6737D0
-unsigned char _mappedColor[256];
+// 0x6737D0 mappedColor
+unsigned char _mappedColor[COLOR_COUNT];
 
-// 0x6738D0
-Color colorMixAddTable[256][256];
+// 0x6738D0 colorMixAddTable
+Color colorMixAddTable[COLOR_COUNT][COLOR_COUNT];
 
-// 0x6838D0
-Color intensityColorTable[256][256];
+// 0x6838D0 intensityColorTable
+Color intensityColorTable[COLOR_COUNT][COLOR_COUNT];
 
-// 0x6938D0
-Color colorMixMulTable[256][256];
+// 0x6938D0 colorMixMulTable
+Color colorMixMulTable[COLOR_COUNT][COLOR_COUNT];
 
-// 0x6A38D0
-unsigned char _colorTable[32768];
+// 0x6A38D0 colorTable
+Color _colorTable[COLOR_PALETTE_SIZE_15BIT];
 
-// 0x4C72B4
-int _calculateColor(int intensity, Color color)
+// 0x4C72B4 calculateColor
+Color _calculateColor(int intensity, Color color)
 {
     return intensityColorTable[color][intensity / 512];
 }
@@ -91,15 +91,15 @@ int Color2RGB(Color c)
 
 // Performs animated palette transition.
 //
-// 0x4C7320
+// 0x4C7320 fadeSystemPalette
 void colorPaletteFadeBetween(unsigned char* oldPalette, unsigned char* newPalette, int steps)
 {
     for (int step = 0; step < steps; step++) {
         sharedFpsLimiter.mark();
 
-        unsigned char palette[768];
+        unsigned char palette[COLOR_MAP_SIZE];
 
-        for (int index = 0; index < 768; index++) {
+        for (int index = 0; index < COLOR_MAP_SIZE; index++) {
             palette[index] = oldPalette[index] - (oldPalette[index] - newPalette[index]) * step / steps;
         }
 
@@ -120,18 +120,18 @@ void colorPaletteFadeBetween(unsigned char* oldPalette, unsigned char* newPalett
     sharedFpsLimiter.throttle();
 }
 
-// 0x4C73D4
+// 0x4C73D4 colorSetFadeBkFunc
 void colorPaletteSetTransitionCallback(ColorTransitionCallback* callback)
 {
     gColorPaletteTransitionCallback = callback;
 }
 
-// 0x4C73E4
+// 0x4C73E4 setSystemPalette
 void _setSystemPalette(unsigned char* palette)
 {
-    unsigned char newPalette[768];
+    unsigned char newPalette[COLOR_MAP_SIZE];
 
-    for (int index = 0; index < 768; index++) {
+    for (int index = 0; index < COLOR_MAP_SIZE; index++) {
         newPalette[index] = _currentGammaTable[palette[index]];
         _systemCmap[index] = palette[index];
     }
@@ -139,16 +139,16 @@ void _setSystemPalette(unsigned char* palette)
     directDrawSetPalette(newPalette);
 }
 
-// 0x4C7420
+// 0x4C7420 getSystemPalette
 unsigned char* _getSystemPalette()
 {
     return _systemCmap;
 }
 
-// 0x4C7428
+// 0x4C7428 setSystemPaletteEntries
 void _setSystemPaletteEntries(unsigned char* palette, int start, int end)
 {
-    unsigned char newPalette[768];
+    unsigned char newPalette[COLOR_MAP_SIZE];
 
     int length = end - start + 1;
     for (int index = 0; index < length; index++) {
@@ -164,133 +164,123 @@ void _setSystemPaletteEntries(unsigned char* palette, int start, int end)
     directDrawSetPaletteInRange(newPalette, start, end - start + 1);
 }
 
-// 0x4C7550
-static void _setIntensityTableColor(int cc)
+// 0x4C7550 setIntensityTableColor
+static void _setIntensityTableColor(Color color)
 {
     int shift = 0;
+    int rgb = Color2RGB(color);
 
     for (int index = 0; index < 128; index++) {
-        int r = (Color2RGB(cc) & 0x7C00) >> 10;
-        int g = (Color2RGB(cc) & 0x3E0) >> 5;
-        int b = (Color2RGB(cc) & 0x1F);
+        int r = (rgb & 0x7C00) >> 10;
+        int g = (rgb & 0x3E0) >> 5;
+        int b = (rgb & 0x1F);
 
         int darkerR = ((r * shift) >> 16);
         int darkerG = ((g * shift) >> 16);
         int darkerB = ((b * shift) >> 16);
         int darkerColor = (darkerR << 10) | (darkerG << 5) | darkerB;
-        intensityColorTable[cc][index] = _colorTable[darkerColor];
+        intensityColorTable[color][index] = _colorTable[darkerColor];
 
         int lighterR = r + (((0x1F - r) * shift) >> 16);
         int lighterG = g + (((0x1F - g) * shift) >> 16);
         int lighterB = b + (((0x1F - b) * shift) >> 16);
         int lighterColor = (lighterR << 10) | (lighterG << 5) | lighterB;
-        intensityColorTable[cc][128 + index] = _colorTable[lighterColor];
+        intensityColorTable[color][128 + index] = _colorTable[lighterColor];
 
         shift += 512;
     }
 }
 
-// 0x4C7658
+// 0x4C7658 setIntensityTables
 static void _setIntensityTables()
 {
-    for (int index = 0; index < 256; index++) {
+    for (int index = COLOR_FIRST; index < COLOR_COUNT; index++) {
         if (_mappedColor[index] != 0) {
-            _setIntensityTableColor(index);
+            _setIntensityTableColor(static_cast<Color>(index & COLOR_LAST));
         } else {
-            memset(intensityColorTable[index], 0, 256);
+            memset(intensityColorTable[index], COLOR_FIRST, COLOR_COUNT);
         }
     }
 }
 
-// 0x4C769C
-static void _setMixTableColor(int a1)
+// 0x4C769C setMixTableColor
+static void _setMixTableColor(Color color)
 {
-    int i;
-    int v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19;
-    int v20, v21, v22, v23, v24, v25, v26, v27, v28, v29;
+    int colorRgb = Color2RGB(color);
+    for (int otherColorIndex = COLOR_FIRST; otherColorIndex < COLOR_COUNT; otherColorIndex++) {
+        Color otherColor = static_cast<Color>(otherColorIndex & COLOR_LAST);
+        if (_mappedColor[color] && _mappedColor[otherColorIndex]) {
+            int otherColorRgb = Color2RGB(otherColor);
 
-    for (i = 0; i < 256; i++) {
-        if (_mappedColor[a1] && _mappedColor[i]) {
-            v2 = (Color2RGB(a1) & 0x7C00) >> 10;
-            v3 = (Color2RGB(a1) & 0x3E0) >> 5;
-            v4 = (Color2RGB(a1) & 0x1F);
+            int colorR = (colorRgb & 0x7C00) >> 10;
+            int colorG = (colorRgb & 0x3E0) >> 5;
+            int colorB = colorRgb & 0x1F;
 
-            v5 = (Color2RGB(i) & 0x7C00) >> 10;
-            v6 = (Color2RGB(i) & 0x3E0) >> 5;
-            v7 = (Color2RGB(i) & 0x1F);
+            int otherColorR = (otherColorRgb & 0x7C00) >> 10;
+            int otherColorG = (otherColorRgb & 0x3E0) >> 5;
+            int otherColorB = otherColorRgb & 0x1F;
 
-            v8 = v2 + v5;
-            v9 = v3 + v6;
-            v10 = v4 + v7;
+            int addedR = colorR + otherColorR;
+            int addedG = colorG + otherColorG;
+            int addedB = colorB + otherColorB;
 
-            v11 = v8;
-
-            if (v9 > v11) {
-                v11 = v9;
+            int maxAddedChannel = addedR;
+            if (addedG > maxAddedChannel) {
+                maxAddedChannel = addedG;
+            }
+            if (addedB > maxAddedChannel) {
+                maxAddedChannel = addedB;
             }
 
-            if (v10 > v11) {
-                v11 = v10;
-            }
-
-            if (v11 <= 0x1F) {
-                int paletteIndex = (v8 << 10) | (v9 << 5) | v10;
-                v12 = _colorTable[paletteIndex];
+            Color additiveColor;
+            if (maxAddedChannel <= 0x1F) {
+                int paletteIndex = (addedR << 10) | (addedG << 5) | addedB;
+                additiveColor = _colorTable[paletteIndex];
             } else {
-                v13 = v11 - 0x1F;
+                int overflow = maxAddedChannel - 0x1F;
 
-                v14 = v8 - v13;
-                v15 = v9 - v13;
-                v16 = v10 - v13;
+                int normalizedR = addedR - overflow;
+                int normalizedG = addedG - overflow;
+                int normalizedB = addedB - overflow;
 
-                if (v14 < 0) {
-                    v14 = 0;
+                if (normalizedR < 0) {
+                    normalizedR = 0;
+                }
+                if (normalizedG < 0) {
+                    normalizedG = 0;
+                }
+                if (normalizedB < 0) {
+                    normalizedB = 0;
                 }
 
-                if (v15 < 0) {
-                    v15 = 0;
-                }
+                int saturatedPaletteIndex = (normalizedR << 10) | (normalizedG << 5) | normalizedB;
+                Color saturatedColor = _colorTable[saturatedPaletteIndex];
 
-                if (v16 < 0) {
-                    v16 = 0;
-                }
-
-                v17 = (v14 << 10) | (v15 << 5) | v16;
-                v18 = _colorTable[v17];
-
-                v19 = (int)((((double)v11 + (-31.0)) * 0.0078125 + 1.0) * 65536.0);
-                v12 = _calculateColor(v19, v18);
+                int intensity = (int)((((double)maxAddedChannel + (-31.0)) * 0.0078125 + 1.0) * 65536.0);
+                additiveColor = _calculateColor(intensity, saturatedColor);
             }
 
-            colorMixAddTable[a1][i] = v12;
+            colorMixAddTable[color][otherColorIndex] = additiveColor;
 
-            v20 = (Color2RGB(a1) & 0x7C00) >> 10;
-            v21 = (Color2RGB(a1) & 0x3E0) >> 5;
-            v22 = (Color2RGB(a1) & 0x1F);
+            int multipliedR = (colorR * otherColorR) >> 5;
+            int multipliedG = (colorG * otherColorG) >> 5;
+            int multipliedB = (colorB * otherColorB) >> 5;
 
-            v23 = (Color2RGB(i) & 0x7C00) >> 10;
-            v24 = (Color2RGB(i) & 0x3E0) >> 5;
-            v25 = (Color2RGB(i) & 0x1F);
-
-            v26 = (v20 * v23) >> 5;
-            v27 = (v21 * v24) >> 5;
-            v28 = (v22 * v25) >> 5;
-
-            v29 = (v26 << 10) | (v27 << 5) | v28;
-            colorMixMulTable[a1][i] = _colorTable[v29];
+            int multiplyPaletteIndex = (multipliedR << 10) | (multipliedG << 5) | multipliedB;
+            colorMixMulTable[color][otherColorIndex] = _colorTable[multiplyPaletteIndex];
         } else {
-            if (_mappedColor[i]) {
-                colorMixAddTable[a1][i] = i;
-                colorMixMulTable[a1][i] = i;
+            if (_mappedColor[otherColorIndex]) {
+                colorMixAddTable[color][otherColorIndex] = otherColor;
+                colorMixMulTable[color][otherColorIndex] = otherColor;
             } else {
-                colorMixAddTable[a1][i] = a1;
-                colorMixMulTable[a1][i] = a1;
+                colorMixAddTable[color][otherColorIndex] = color;
+                colorMixMulTable[color][otherColorIndex] = color;
             }
         }
     }
 }
 
-// 0x4C78E4
+// 0x4C78E4 loadColorTable
 bool colorPaletteLoad(const char* path)
 {
     if (gColorFileNameMangler != nullptr) {
@@ -303,7 +293,7 @@ bool colorPaletteLoad(const char* path)
         return false;
     }
 
-    for (int index = 0; index < 256; index++) {
+    for (int index = COLOR_FIRST; index < COLOR_COUNT; index++) {
         unsigned char r;
         unsigned char g;
         unsigned char b;
@@ -332,9 +322,9 @@ bool colorPaletteLoad(const char* path)
     }
 
     // NOTE: Uninline.
-    fileRead(_colorTable, 0x8000, 1, stream);
+    fileRead(_colorTable, COLOR_PALETTE_SIZE_15BIT, 1, stream);
 
-    unsigned int type;
+    unsigned int type = 0;
     // NOTE: Uninline.
     fileRead(&type, sizeof(type), 1, stream);
 
@@ -352,8 +342,8 @@ bool colorPaletteLoad(const char* path)
     } else {
         _setIntensityTables();
 
-        for (int index = 0; index < 256; index++) {
-            _setMixTableColor(index);
+        for (int index = COLOR_FIRST; index < COLOR_COUNT; index++) {
+            _setMixTableColor(static_cast<Color>(index & COLOR_LAST));
         }
     }
 
@@ -365,19 +355,18 @@ bool colorPaletteLoad(const char* path)
     return true;
 }
 
-// 0x4C7AB4
+// 0x4C7AB4 colorError
 char* _colorError()
 {
     return _errorStr;
 }
 
-// 0x4C7B44
-static void _buildBlendTable(unsigned char* ptr, unsigned char ch)
+// 0x4C7B44 buildBlendTable
+static void _buildBlendTable(Color* ptr, Color ch)
 {
     int r, g, b;
-    int i, j;
-    int v12, v14, v16;
-    unsigned char* beg;
+    int mixedR, mixedG, mixedB;
+    Color* beg;
 
     beg = ptr;
 
@@ -385,14 +374,14 @@ static void _buildBlendTable(unsigned char* ptr, unsigned char ch)
     g = (Color2RGB(ch) & 0x3E0) >> 5;
     b = (Color2RGB(ch) & 0x1F);
 
-    for (i = 0; i < 256; i++) {
-        ptr[i] = i;
+    for (int i = COLOR_FIRST; i < COLOR_COUNT; i++) {
+        ptr[i] = static_cast<Color>(i & COLOR_LAST);
     }
 
-    ptr += 256;
+    ptr += COLOR_COUNT;
 
     int b_1 = b;
-    int v31 = 6;
+    int blendWeight = 6;
     int g_1 = g;
     int r_1 = r;
 
@@ -400,56 +389,55 @@ static void _buildBlendTable(unsigned char* ptr, unsigned char ch)
     int g_2 = g_1;
     int r_2 = r_1;
 
-    for (j = 0; j < 7; j++) {
-        for (i = 0; i < 256; i++) {
-            v12 = (Color2RGB(i) & 0x7C00) >> 10;
-            v14 = (Color2RGB(i) & 0x3E0) >> 5;
-            v16 = (Color2RGB(i) & 0x1F);
+    for (int j = 0; j < 7; j++) {
+        for (int i = COLOR_FIRST; i < COLOR_COUNT; i++) {
+            int iColorRgb = Color2RGB(static_cast<Color>(i & COLOR_LAST));
+            mixedR = (iColorRgb & 0x7C00) >> 10;
+            mixedG = (iColorRgb & 0x3E0) >> 5;
+            mixedB = (iColorRgb & 0x1F);
             int index = 0;
-            index |= (r_2 + v12 * v31) / 7 << 10;
-            index |= (g_2 + v14 * v31) / 7 << 5;
-            index |= (b_2 + v16 * v31) / 7;
+            index |= (r_2 + mixedR * blendWeight) / 7 << 10;
+            index |= (g_2 + mixedG * blendWeight) / 7 << 5;
+            index |= (b_2 + mixedB * blendWeight) / 7;
             ptr[i] = _colorTable[index];
         }
-        v31--;
-        ptr += 256;
+        blendWeight--;
+        ptr += COLOR_COUNT;
         r_2 += r_1;
         g_2 += g_1;
         b_2 += b_1;
     }
 
-    int v18 = 0;
-    for (j = 0; j < 6; j++) {
-        int v20 = v18 / 7 + 0xFFFF;
+    int shadeStep = 0;
+    for (int j = 0; j < 6; j++) {
+        int shadeIntensity = shadeStep / 7 + 0xFFFF;
 
-        for (i = 0; i < 256; i++) {
-            ptr[i] = _calculateColor(v20, ch);
+        for (int i = COLOR_FIRST; i < COLOR_COUNT; i++) {
+            ptr[i] = _calculateColor(shadeIntensity, ch);
         }
 
-        v18 += 0x10000;
-        ptr += 256;
+        shadeStep += 0x10000;
+        ptr += COLOR_COUNT;
     }
 }
 
-// 0x4C7D90
+// 0x4C7D90 rebuildColorBlendTables
 static void _rebuildColorBlendTables()
 {
-    int i;
-
-    for (i = 0; i < 256; i++) {
+    for (int i = COLOR_FIRST; i < COLOR_COUNT; i++) {
         if (_blendTable[i]) {
-            _buildBlendTable(_blendTable[i], i);
+            _buildBlendTable(_blendTable[i], static_cast<Color>(i & COLOR_LAST));
         }
     }
 }
 
-// 0x4C7DC0
-unsigned char* _getColorBlendTable(int ch)
+// 0x4C7DC0 getColorBlendTable
+Color* _getColorBlendTable(Color ch)
 {
-    unsigned char* ptr;
+    Color* ptr;
 
     if (_blendTable[ch] == nullptr) {
-        ptr = (unsigned char*)internal_malloc(4100);
+        ptr = (Color*)internal_malloc(4100);
         *(int*)ptr = 1;
         _blendTable[ch] = ptr + 4;
         _buildBlendTable(_blendTable[ch], ch);
@@ -461,21 +449,21 @@ unsigned char* _getColorBlendTable(int ch)
     return ptr;
 }
 
-// 0x4C7E20
-void _freeColorBlendTable(int a1)
+// 0x4C7E20 freeColorBlendTable
+void _freeColorBlendTable(Color color)
 {
-    unsigned char* v2 = _blendTable[a1];
-    if (v2 != nullptr) {
-        int* count = (int*)(v2 - sizeof(int));
+    Color* blendTable = _blendTable[color];
+    if (blendTable != nullptr) {
+        int* count = (int*)(blendTable - sizeof(int));
         *count -= 1;
         if (*count == 0) {
             internal_free(count);
-            _blendTable[a1] = nullptr;
+            _blendTable[color] = nullptr;
         }
     }
 }
 
-// 0x4C7E6C
+// 0x4C7E6C colorGamma
 void colorSetBrightness(double value)
 {
     gBrightness = value;
@@ -488,7 +476,7 @@ void colorSetBrightness(double value)
     _setSystemPalette(_systemCmap);
 }
 
-// 0x4C89CC
+// 0x4C89CC initColors
 bool _initColors()
 {
     if (_colorsInited) {
@@ -508,11 +496,11 @@ bool _initColors()
     return true;
 }
 
-// 0x4C8A18
+// 0x4C8A18 colorsClose
 void _colorsClose()
 {
-    for (int index = 0; index < 256; index++) {
-        _freeColorBlendTable(index);
+    for (int index = COLOR_FIRST; index < COLOR_COUNT; index++) {
+        _freeColorBlendTable(static_cast<Color>(index & COLOR_LAST));
     }
 }
 

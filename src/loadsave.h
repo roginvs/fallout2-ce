@@ -18,10 +18,13 @@ void _InitLoadSave();
 void _ResetLoadSave();
 int lsgSaveGame(int mode);
 int lsgLoadGame(int mode);
+void lsgDevSetLoadGameSlot(int slot);
+int lsgGetTotalSlotCount();
 bool _isLoadingGame();
+int mapIdBeingLoaded();
 void lsgInit();
 int MapDirErase(const char* path, const char* extension);
-int _MapDirEraseFile_(const char* a1, const char* a2);
+int _MapDirEraseFile_(const char* relativePath, const char* fileName);
 
 } // namespace fallout
 

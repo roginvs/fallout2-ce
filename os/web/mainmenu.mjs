@@ -792,11 +792,16 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
             await requestPointerLockPromise;
 
+            let gameConfigFileName = "fallout2.cfg";
+
             /** @type {import("./fetcher.mjs").FileTransformer} */
             const fileTransformer = async (filePath, data) => {
-                if (filePath.toLowerCase() === "f2_res.ini") {
+                if (
+                    filePath.toLowerCase() === "f2_res.ini" ||
+                    filePath.toLowerCase() === gameConfigFileName.toLowerCase()
+                ) {
                     //
-                    // When f2_res.ini is requested we need to
+                    // When the game configuration is requested we need to
                     // provide screen size to the game
                     //
                     // We calculate it based on the canvas size
@@ -900,6 +905,55 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
                     const iniParser = new IniParser(data);
 
+                    if (filePath.toLowerCase() !== "f2_res.ini") {
+                        // Current CE reads screen settings from fallout2.cfg.
+                        // Set them directly even if legacy migration has run.
+                        const scaling = isUsingHiRes
+                            ? Math.max(
+                                  1,
+                                  Math.min(
+                                      Math.floor(gameScreenWidth / 640),
+                                      Math.floor(gameScreenHeight / 480),
+                                  ),
+                              )
+                            : 1;
+                        iniParser.setValue("screen", "windowed", "1");
+                        iniParser.setValue(
+                            "screen",
+                            "resolution_x",
+                            isUsingHiRes ? `${gameScreenWidth}` : "640",
+                        );
+                        iniParser.setValue(
+                            "screen",
+                            "resolution_y",
+                            isUsingHiRes ? `${gameScreenHeight}` : "480",
+                        );
+                        iniParser.setValue("screen", "scale", `${scaling}`);
+                        iniParser.setValue(
+                            "ui",
+                            "enable_high_resolution_stencil",
+                            isUsingHiRes ? "1" : "0",
+                        );
+                        if (isUsingHiRes) {
+                            iniParser.setValue("ui", "iface_bar_mode", "0");
+                            iniParser.setValue(
+                                "ui",
+                                "iface_bar_width",
+                                gameScreenWidth / scaling >= 800
+                                    ? "800"
+                                    : "640",
+                            );
+                            iniParser.setValue("ui", "iface_bar_side_art", "2");
+                            iniParser.setValue(
+                                "ui",
+                                "iface_bar_sides_ori",
+                                "0",
+                            );
+                            iniParser.setValue("ui", "splash_screen_size", "1");
+                        }
+                        return iniParser.pack();
+                    }
+
                     iniParser.setValue("MAIN", "WINDOWED", "1");
 
                     if (!isUsingHiRes) {
@@ -953,6 +1007,10 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                 } else if (filePath.toLowerCase() === "ddraw.ini") {
                     const iniParser = new IniParser(data);
 
+                    gameConfigFileName =
+                        iniParser.getValue("Misc", "ConfigFile")?.trim() ||
+                        "fallout2.cfg";
+
                     iniParser.setValue(
                         "Main",
                         "EnableHighResolutionStencil",
@@ -961,6 +1019,11 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
                     // I like this feature but it it is not visible in Sonora
                     iniParser.setValue("Misc", "WorldMapTravelMarkers", "0");
+                    iniParser.setValue(
+                        "Interface",
+                        "WorldMapTravelMarkers",
+                        "0",
+                    );
 
                     const iniData = iniParser.pack();
                     console.info(
@@ -1006,6 +1069,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     const index = [...indexOriginal];
 
                     for (const filePath of [
+                        "fallout2.cfg",
                         "f2_res.ini",
                         "ddraw.ini",
 

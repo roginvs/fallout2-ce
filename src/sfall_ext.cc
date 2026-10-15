@@ -1,11 +1,15 @@
 #include "sfall_ext.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <string>
 
 #include "db.h"
 #include "debug.h"
 #include "platform_compat.h"
+#include "scripts.h"
+#include "sfall_arrays.h"
+#include "sfall_global_vars.h"
 
 namespace fallout {
 
@@ -31,7 +35,7 @@ void sfallLoadMods()
         File* stream = fileOpen(loadOrderFilepath, "wt");
         if (stream != nullptr) {
             char** fileList;
-            int fileListLength = fileNameListInit("mods\\*.dat", &fileList, 0, 0);
+            int fileListLength = fileNameListInit("mods\\*.dat", &fileList);
 
             for (int index = 0; index < fileListLength; index++) {
                 fileWriteString(fileList[index], stream);
@@ -45,6 +49,7 @@ void sfallLoadMods()
     // Add mods from load order file.
     File* stream = fileOpen(loadOrderFilepath, "r");
     if (stream != nullptr) {
+        int numMods = 0;
         char mod[COMPAT_MAX_PATH];
         while (fileReadString(mod, COMPAT_MAX_PATH, stream)) {
             std::string modPath { mod };
@@ -71,15 +76,95 @@ void sfallLoadMods()
 
             if (compat_access(normalizedModPath, 0) == 0) {
                 debugPrint("Loading mod %s\n", normalizedModPath);
-                dbOpen(normalizedModPath, 0, nullptr, 1);
+                if (dbOpen(normalizedModPath, nullptr) != -1) {
+                    numMods++;
+                } else {
+                    debugPrint("Error opening mod %s\n", normalizedModPath);
+                }
             } else {
                 debugPrint("Skipping invalid mod entry %s in %s\n", normalizedModPath, loadOrderFilepath);
             }
         }
         fileClose(stream);
+        debugPrint("Loaded %d mods from %s\n", numMods, loadOrderFilepath);
     } else {
         debugPrint("Error opening %s for read\n", loadOrderFilepath);
     }
+}
+
+// Binary layout of sfallgv.sav (must match sfall's SaveGame2 / LoadGame_Before order):
+//   global vars | nextObjectId(4) | addedYears(4) | fakeTraitsCount(4) |
+//   fakePerksCount(4) | fakeSelectablePerksCount(4) | arrays | drugPidsCount(4)
+//
+// Sections that CE doesn't implement are written/read as zero.
+
+bool sfallSaveGameData(File* stream)
+{
+    if (!sfall_gl_vars_save(stream)) {
+        debugPrint("LOADSAVE (SFALL): ** Error saving global vars **\n");
+        return false;
+    }
+
+    if (fileWriteInt32(stream, scriptsGetUniqueObjectIdCounter()) == -1) {
+        debugPrint("LOADSAVE (SFALL): ** Error saving next object id **\n");
+        return false;
+    }
+
+    // Write zeros for CE-unimplemented fields: addedYears, fakeTraitsCount,
+    // fakePerksCount, fakeSelectablePerksCount
+    int32_t zero = 0;
+    for (int32_t i = 0; i < 4; i++) {
+        if (fileWrite(&zero, sizeof(zero), 1, stream) != 1) {
+            debugPrint("LOADSAVE (SFALL): ** Error saving stub fields **\n");
+            return false;
+        }
+    }
+
+    if (!sfallArraysSave(stream)) {
+        debugPrint("LOADSAVE (SFALL): ** Error saving arrays **\n");
+        return false;
+    }
+
+    if (fileWrite(&zero, sizeof(zero), 1, stream) != 1) { // drugPidsCount
+        debugPrint("LOADSAVE (SFALL): ** Error saving drug pids **\n");
+        return false;
+    }
+
+    return true;
+}
+
+bool sfallLoadGameData(File* stream)
+{
+    if (!sfall_gl_vars_load(stream)) {
+        debugPrint("LOADSAVE (SFALL): ** Error loading global vars **\n");
+        return false;
+    }
+
+    int32_t nextObjectId;
+    if (fileReadInt32(stream, &nextObjectId) == -1) {
+        scriptsRestoreUniqueObjectIdCounter(OBJECT_ID_UNIQUE_START);
+        return true; // old save, stop gracefully
+    }
+
+    // Skip sections CE doesn't implement: addedYears, fakeTraitsCount,
+    // fakePerksCount, fakeSelectablePerksCount
+    int32_t ignored;
+    for (int32_t i = 0; i < 4; i++) {
+        if (fileRead(&ignored, sizeof(ignored), 1, stream) != 1) {
+            scriptsRestoreUniqueObjectIdCounter(nextObjectId);
+            return true; // old save, stop gracefully
+        }
+    }
+
+    if (!sfallArraysLoad(stream)) {
+        // Corrupted save.
+        debugPrint("LOADSAVE (SFALL): ** Error loading arrays **\n");
+        return false;
+    }
+
+    scriptsRestoreUniqueObjectIdCounter(nextObjectId);
+
+    return true;
 }
 
 } // namespace fallout

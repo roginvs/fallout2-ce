@@ -305,6 +305,11 @@ void touch_set_touchscreen_mode(const bool value)
     gUseTouchscreenMode = true;
 }
 
+bool touch_get_touchscreen_mode()
+{
+    return gUseTouchscreenMode;
+}
+
 void touch_set_pan_mode(const bool value)
 {
     gUsePanMode = value;

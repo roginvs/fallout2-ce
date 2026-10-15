@@ -4,8 +4,9 @@
 namespace fallout {
 
 int showOptions();
-int showPause(bool a1);
+int showPause(bool preserveWorldState);
 int _init_options_menu();
+int optionsGetWindow();
 
 } // namespace fallout
 

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 
 #include "animation.h"
 #include "color.h"
@@ -35,14 +36,8 @@
 
 namespace fallout {
 
-// SFALL: Enable party members with level 6 protos to reach level 6.
-// CE: There are several party members who have 6 pids, but for unknown reason
-// the original code cap was 5. This fix affects:
-// - Dogmeat
-// - Goris
-// - Sulik
-// - Vik
-#define PARTY_MEMBER_MAX_LEVEL 6
+// SFALL: Increase the maximum party member level from vanilla's 5 to 10.
+#define PARTY_MEMBER_MAX_LEVEL 10
 
 typedef struct PartyMemberDescription {
     bool areaAttackMode[AREA_ATTACK_MODE_COUNT];
@@ -82,242 +77,211 @@ static int _partyMemberItemSave(Object* object);
 static int _partyMemberItemRecover(PartyMemberListItem* a1);
 static int _partyMemberClearItemList();
 static int partyFixMultipleMembers();
-static int _partyMemberCopyLevelInfo(Object* object, int a2);
+static int _partyMemberCopyLevelInfo(Object* object, const ProtoId& stagedProtoId);
 
-// 0x519D9C
+// 0x519D9C partyMemberMaxCount
 int gPartyMemberDescriptionsLength = 0;
 
-// 0x519DA0
-int* gPartyMemberPids = nullptr;
+// 0x519DA0 partyMemberPidList
+std::vector<ProtoId> gPartyMemberProtoIds;
 
-//
 static PartyMemberListItem* _itemSaveListHead = nullptr;
 
 // List of party members, it's length is [gPartyMemberDescriptionsLength] + 20.
 //
-// 0x519DA8
-PartyMemberListItem* gPartyMembers = nullptr;
+// 0x519DA8 partyMemberList
+std::vector<PartyMemberListItem> gPartyMembers;
 
 // Number of critters added to party.
 //
-// 0x519DAC
+// 0x519DAC partyMemberCount
 static int gPartyMembersLength = 0;
 
-// 0x519DB0
+// 0x519DB0 partyMemberItemCount
 static int _partyMemberItemCount = 20000;
 
-// 0x519DB4
+// 0x519DB4 partyStatePrepped
 static int _partyStatePrepped = 0;
 
-// 0x519DB8
-static PartyMemberDescription* gPartyMemberDescriptions = nullptr;
+// 0x519DB8 partyMemberAIOptions
+static std::vector<PartyMemberDescription> gPartyMemberDescriptions;
 
-// 0x519DBC
-static PartyMemberLevelUpInfo* _partyMemberLevelUpInfoList = nullptr;
+// 0x519DBC partyMemberLevelUpInfoList
+static std::vector<PartyMemberLevelUpInfo> _partyMemberLevelUpInfoList;
 
-// 0x519DC0
+// 0x519DC0 curID
 static int _curID = 20000;
 
-// partyMember_init
-// 0x493BC0
-int partyMembersInit()
+static bool npcEngineLevelUp = true;
+
+// CE: extracted from partyMembersInit()
+int partyMembersParseConfig(Config* config, bool reindex)
 {
-    Config config;
-
-    gPartyMemberDescriptionsLength = 0;
-
-    if (!configInit(&config)) {
-        return -1;
-    }
-
-    if (!configRead(&config, "data\\party.txt", true)) {
-        goto err;
-    }
+    if (config == nullptr) return -1;
 
     char section[50];
-    snprintf(section, sizeof(section), "Party Member %d", gPartyMemberDescriptionsLength);
+    int loopSafetyCounter = 0;
 
-    int partyMemberPid;
-    while (configGetInt(&config, section, "party_member_pid", &partyMemberPid)) {
-        gPartyMemberDescriptionsLength++;
-        snprintf(section, sizeof(section), "Party Member %d", gPartyMemberDescriptionsLength);
-    }
+    int searchIdx = reindex ? 0 : static_cast<int>(gPartyMemberDescriptions.size());
 
-    gPartyMemberPids = (int*)internal_malloc(sizeof(*gPartyMemberPids) * gPartyMemberDescriptionsLength);
-    if (gPartyMemberPids == nullptr) {
-        goto err;
-    }
+    while (loopSafetyCounter < 1000) {
+        snprintf(section, sizeof(section), "Party Member %d", searchIdx);
 
-    memset(gPartyMemberPids, 0, sizeof(*gPartyMemberPids) * gPartyMemberDescriptionsLength);
-
-    gPartyMembers = (PartyMemberListItem*)internal_malloc(sizeof(*gPartyMembers) * (gPartyMemberDescriptionsLength + 20));
-    if (gPartyMembers == nullptr) {
-        goto err;
-    }
-
-    memset(gPartyMembers, 0, sizeof(*gPartyMembers) * (gPartyMemberDescriptionsLength + 20));
-
-    gPartyMemberDescriptions = (PartyMemberDescription*)internal_malloc(sizeof(*gPartyMemberDescriptions) * gPartyMemberDescriptionsLength);
-    if (gPartyMemberDescriptions == nullptr) {
-        goto err;
-    }
-
-    memset(gPartyMemberDescriptions, 0, sizeof(*gPartyMemberDescriptions) * gPartyMemberDescriptionsLength);
-
-    _partyMemberLevelUpInfoList = (PartyMemberLevelUpInfo*)internal_malloc(sizeof(*_partyMemberLevelUpInfoList) * gPartyMemberDescriptionsLength);
-    if (_partyMemberLevelUpInfoList == nullptr) goto err;
-
-    memset(_partyMemberLevelUpInfoList, 0, sizeof(*_partyMemberLevelUpInfoList) * gPartyMemberDescriptionsLength);
-
-    for (int index = 0; index < gPartyMemberDescriptionsLength; index++) {
-        snprintf(section, sizeof(section), "Party Member %d", index);
-
-        if (!configGetInt(&config, section, "party_member_pid", &partyMemberPid)) {
+        int partyMemberPid;
+        if (!configGetInt(config, section, "party_member_pid", &partyMemberPid)) {
             break;
         }
 
-        PartyMemberDescription* partyMemberDescription = &(gPartyMemberDescriptions[index]);
+        gPartyMemberProtoIds.push_back(ProtoId(partyMemberPid));
 
-        gPartyMemberPids[index] = partyMemberPid;
-
-        partyMemberDescriptionInit(partyMemberDescription);
+        PartyMemberDescription desc;
+        partyMemberDescriptionInit(&desc);
 
         char* string;
 
-        if (configGetString(&config, section, "area_attack_mode", &string)) {
+        if (configGetString(config, section, "area_attack_mode", &string)) {
             while (*string != '\0') {
                 int areaAttackMode;
-                strParseStrFromList(&string, &areaAttackMode, gAreaAttackModeKeys, AREA_ATTACK_MODE_COUNT);
-                partyMemberDescription->areaAttackMode[areaAttackMode] = true;
+                if (strParseStrFromList(&string, &areaAttackMode, gAreaAttackModeKeys, AREA_ATTACK_MODE_COUNT) == 0) {
+                    desc.areaAttackMode[areaAttackMode] = true;
+                }
             }
         }
 
-        if (configGetString(&config, section, "attack_who", &string)) {
+        if (configGetString(config, section, "attack_who", &string)) {
             while (*string != '\0') {
-                int attachWho;
-                strParseStrFromList(&string, &attachWho, gAttackWhoKeys, ATTACK_WHO_COUNT);
-                partyMemberDescription->attackWho[attachWho] = true;
+                int attackWho;
+                if (strParseStrFromList(&string, &attackWho, gAttackWhoKeys, ATTACK_WHO_COUNT) == 0) {
+                    desc.attackWho[attackWho] = true;
+                }
             }
         }
 
-        if (configGetString(&config, section, "best_weapon", &string)) {
+        if (configGetString(config, section, "best_weapon", &string)) {
             while (*string != '\0') {
                 int bestWeapon;
-                strParseStrFromList(&string, &bestWeapon, gBestWeaponKeys, BEST_WEAPON_COUNT);
-                partyMemberDescription->bestWeapon[bestWeapon] = true;
+                if (strParseStrFromList(&string, &bestWeapon, gBestWeaponKeys, BEST_WEAPON_COUNT) == 0) {
+                    desc.bestWeapon[bestWeapon] = true;
+                }
             }
         }
 
-        if (configGetString(&config, section, "chem_use", &string)) {
+        if (configGetString(config, section, "chem_use", &string)) {
             while (*string != '\0') {
                 int chemUse;
-                strParseStrFromList(&string, &chemUse, gChemUseKeys, CHEM_USE_COUNT);
-                partyMemberDescription->chemUse[chemUse] = true;
+                if (strParseStrFromList(&string, &chemUse, gChemUseKeys, CHEM_USE_COUNT) == 0) {
+                    desc.chemUse[chemUse] = true;
+                }
             }
         }
 
-        if (configGetString(&config, section, "distance", &string)) {
+        if (configGetString(config, section, "distance", &string)) {
             while (*string != '\0') {
                 int distanceMode;
-                strParseStrFromList(&string, &distanceMode, gDistanceModeKeys, DISTANCE_COUNT);
-                partyMemberDescription->distanceMode[distanceMode] = true;
+                if (strParseStrFromList(&string, &distanceMode, gDistanceModeKeys, DISTANCE_COUNT) == 0) {
+                    desc.distanceMode[distanceMode] = true;
+                }
             }
         }
 
-        if (configGetString(&config, section, "run_away_mode", &string)) {
+        if (configGetString(config, section, "run_away_mode", &string)) {
             while (*string != '\0') {
                 int runAwayMode;
-                strParseStrFromList(&string, &runAwayMode, gRunAwayModeKeys, RUN_AWAY_MODE_COUNT);
-                partyMemberDescription->runAwayMode[runAwayMode] = true;
+                if (strParseStrFromList(&string, &runAwayMode, gRunAwayModeKeys, RUN_AWAY_MODE_COUNT) == 0) {
+                    desc.runAwayMode[runAwayMode] = true;
+                }
             }
         }
 
-        if (configGetString(&config, section, "disposition", &string)) {
+        if (configGetString(config, section, "disposition", &string)) {
             while (*string != '\0') {
                 int disposition;
-                strParseStrFromList(&string, &disposition, gDispositionKeys, DISPOSITION_COUNT);
-                partyMemberDescription->disposition[disposition] = true;
+                if (strParseStrFromList(&string, &disposition, gDispositionKeys, DISPOSITION_COUNT) == 0) {
+                    desc.disposition[disposition] = true;
+                }
             }
         }
 
         int levelUpEvery;
-        if (configGetInt(&config, section, "level_up_every", &levelUpEvery)) {
-            partyMemberDescription->level_up_every = levelUpEvery;
+        if (configGetInt(config, section, "level_up_every", &levelUpEvery)) {
+            desc.level_up_every = levelUpEvery;
 
             int levelMinimum;
-            if (configGetInt(&config, section, "level_minimum", &levelMinimum)) {
-                partyMemberDescription->level_minimum = levelMinimum;
+            if (configGetInt(config, section, "level_minimum", &levelMinimum)) {
+                desc.level_minimum = levelMinimum;
             }
 
-            if (configGetString(&config, section, "level_pids", &string)) {
-                while (*string != '\0' && partyMemberDescription->level_pids_num < PARTY_MEMBER_MAX_LEVEL) {
+            if (configGetString(config, section, "level_pids", &string)) {
+                while (*string != '\0' && desc.level_pids_num < PARTY_MEMBER_MAX_LEVEL) {
                     int levelPid;
                     strParseInt(&string, &levelPid);
-                    partyMemberDescription->level_pids[partyMemberDescription->level_pids_num] = levelPid;
-                    partyMemberDescription->level_pids_num++;
+                    desc.level_pids[desc.level_pids_num] = levelPid;
+                    desc.level_pids_num++;
                 }
             }
         }
+
+        gPartyMemberDescriptions.push_back(desc);
+
+        PartyMemberLevelUpInfo levelUpInfo {};
+        _partyMemberLevelUpInfoList.push_back(levelUpInfo);
+
+        searchIdx++;
+        loopSafetyCounter++;
     }
 
-    configFree(&config);
+    gPartyMembers.resize(gPartyMemberDescriptions.size() + 20);
+    gPartyMemberDescriptionsLength = static_cast<int>(gPartyMemberDescriptions.size());
 
     return 0;
-
-err:
-
-    configFree(&config);
-
-    return -1;
 }
 
-// 0x4940E4
-void partyMembersReset()
+// partyMember_init
+// 0x493BC0 partyMember_init
+int partyMembersInit()
 {
-    for (int index = 0; index < gPartyMemberDescriptionsLength; index++) {
-        _partyMemberLevelUpInfoList[index].level = 0;
-        _partyMemberLevelUpInfoList[index].numLevelUps = 0;
-        _partyMemberLevelUpInfoList[index].isEarly = 0;
-    }
-}
-
-// 0x494134
-void partyMembersExit()
-{
-    for (int index = 0; index < gPartyMemberDescriptionsLength; index++) {
-        _partyMemberLevelUpInfoList[index].level = 0;
-        _partyMemberLevelUpInfoList[index].numLevelUps = 0;
-        _partyMemberLevelUpInfoList[index].isEarly = 0;
-    }
-
     gPartyMemberDescriptionsLength = 0;
 
-    if (gPartyMemberPids != nullptr) {
-        internal_free(gPartyMemberPids);
-        gPartyMemberPids = nullptr;
+    ScopedConfig config("data\\party.txt", true);
+    if (!config) {
+        return -1;
     }
 
-    if (gPartyMembers != nullptr) {
-        internal_free(gPartyMembers);
-        gPartyMembers = nullptr;
+    if (partyMembersParseConfig(config.get(), false) == -1) {
+        return -1;
     }
 
-    if (gPartyMemberDescriptions != nullptr) {
-        internal_free(gPartyMemberDescriptions);
-        gPartyMemberDescriptions = nullptr;
-    }
+    return 0;
+}
 
-    if (_partyMemberLevelUpInfoList != nullptr) {
-        internal_free(_partyMemberLevelUpInfoList);
-        _partyMemberLevelUpInfoList = nullptr;
+// 0x4940E4 partyMember_reset
+void partyMembersReset()
+{
+    npcEngineLevelUp = true;
+
+    for (int index = 0; index < gPartyMemberDescriptionsLength; index++) {
+        _partyMemberLevelUpInfoList[index].level = 0;
+        _partyMemberLevelUpInfoList[index].numLevelUps = 0;
+        _partyMemberLevelUpInfoList[index].isEarly = 0;
     }
 }
 
-// 0x4941F0
+// 0x494134 partyMember_exit
+void partyMembersExit()
+{
+    gPartyMemberDescriptionsLength = 0;
+
+    gPartyMemberProtoIds.clear();
+    gPartyMembers.clear();
+    gPartyMemberDescriptions.clear();
+    _partyMemberLevelUpInfoList.clear();
+}
+
+// 0x4941F0 partyMemberGetAIOptions
 static int partyMemberGetDescription(Object* object, PartyMemberDescription** partyMemberDescriptionPtr)
 {
     for (int index = 1; index < gPartyMemberDescriptionsLength; index++) {
-        if (gPartyMemberPids[index] == object->pid) {
+        if (gPartyMemberProtoIds[index] == ProtoId(object)) {
             *partyMemberDescriptionPtr = &(gPartyMemberDescriptions[index]);
             return 0;
         }
@@ -326,34 +290,34 @@ static int partyMemberGetDescription(Object* object, PartyMemberDescription** pa
     return -1;
 }
 
-// 0x49425C
+// 0x49425C partyMemberAISlotInit
 static void partyMemberDescriptionInit(PartyMemberDescription* partyMemberDescription)
 {
-    for (int index = 0; index < AREA_ATTACK_MODE_COUNT; index++) {
+    for (int index = AREA_ATTACK_MODE_FIRST; index < AREA_ATTACK_MODE_COUNT; index++) {
         partyMemberDescription->areaAttackMode[index] = 0;
     }
 
-    for (int index = 0; index < RUN_AWAY_MODE_COUNT; index++) {
+    for (int index = RUN_AWAY_MODE_FIRST; index < RUN_AWAY_MODE_COUNT; index++) {
         partyMemberDescription->runAwayMode[index] = 0;
     }
 
-    for (int index = 0; index < BEST_WEAPON_COUNT; index++) {
+    for (int index = BEST_WEAPON_FIRST; index < BEST_WEAPON_COUNT; index++) {
         partyMemberDescription->bestWeapon[index] = 0;
     }
 
-    for (int index = 0; index < DISTANCE_COUNT; index++) {
+    for (int index = DISTANCE_FIRST; index < DISTANCE_COUNT; index++) {
         partyMemberDescription->distanceMode[index] = 0;
     }
 
-    for (int index = 0; index < ATTACK_WHO_COUNT; index++) {
+    for (int index = ATTACK_WHO_FIRST; index < ATTACK_WHO_COUNT; index++) {
         partyMemberDescription->attackWho[index] = 0;
     }
 
-    for (int index = 0; index < CHEM_USE_COUNT; index++) {
+    for (int index = CHEM_USE_FIRST; index < CHEM_USE_COUNT; index++) {
         partyMemberDescription->chemUse[index] = 0;
     }
 
-    for (int index = 0; index < DISPOSITION_COUNT; index++) {
+    for (int index = DISPOSITION_FIRST; index < DISPOSITION_COUNT; index++) {
         partyMemberDescription->disposition[index] = 0;
     }
 
@@ -371,7 +335,7 @@ static void partyMemberDescriptionInit(PartyMemberDescription* partyMemberDescri
 }
 
 // partyMemberAdd
-// 0x494378
+// 0x494378 partyMemberAdd
 int partyMemberAdd(Object* object)
 {
     if (gPartyMembersLength >= gPartyMemberDescriptionsLength + 20) {
@@ -395,17 +359,17 @@ int partyMemberAdd(Object* object)
     partyMember->script = nullptr;
     partyMember->vars = nullptr;
 
-    object->id = (object->pid & 0xFFFFFF) + 18000;
+    object->id = (object->pid & ProtoId::kMaxProtoId) + 18000;
     object->flags |= (OBJECT_NO_REMOVE | OBJECT_NO_SAVE);
 
     gPartyMembersLength++;
 
     Script* script;
     if (scriptGetScript(object->sid, &script) != -1) {
-        script->flags |= (SCRIPT_FLAG_0x08 | SCRIPT_FLAG_0x10);
+        script->flags |= (SCRIPT_FLAG_NO_SAVE | SCRIPT_FLAG_NO_REMOVE);
         script->ownerId = object->id;
 
-        object->sid = ((object->pid & 0xFFFFFF) + 18000) | (object->sid & 0xFF000000);
+        object->sid = ((object->pid & ProtoId::kMaxProtoId) + 18000) | (object->sid & 0xFF000000);
         script->sid = object->sid;
     }
 
@@ -422,7 +386,7 @@ int partyMemberAdd(Object* object)
 }
 
 // partyMemberRemove
-// 0x4944DC
+// 0x4944DC partyMemberRemove
 int partyMemberRemove(Object* object)
 {
     if (gPartyMembersLength == 0) {
@@ -460,7 +424,7 @@ int partyMemberRemove(Object* object)
 
     Script* script;
     if (scriptGetScript(object->sid, &script) != -1) {
-        script->flags &= ~(SCRIPT_FLAG_0x08 | SCRIPT_FLAG_0x10);
+        script->flags &= ~(SCRIPT_FLAG_NO_SAVE | SCRIPT_FLAG_NO_REMOVE);
     }
 
     queueRemoveEventsByType(object, EVENT_TYPE_SCRIPT);
@@ -474,7 +438,7 @@ int partyMemberRemove(Object* object)
     return 0;
 }
 
-// 0x49460C
+// 0x49460C partyMemberPrepSave
 int _partyMemberPrepSave()
 {
     _partyStatePrepped = 1;
@@ -488,14 +452,14 @@ int _partyMemberPrepSave()
 
         Script* script;
         if (scriptGetScript(ptr->object->sid, &script) != -1) {
-            script->flags &= ~(SCRIPT_FLAG_0x08 | SCRIPT_FLAG_0x10);
+            script->flags &= ~(SCRIPT_FLAG_NO_SAVE | SCRIPT_FLAG_NO_REMOVE);
         }
     }
 
     return 0;
 }
 
-// 0x49466C
+// 0x49466C partyMemberUnPrepSave
 int _partyMemberUnPrepSave()
 {
     for (int index = 0; index < gPartyMembersLength; index++) {
@@ -507,7 +471,7 @@ int _partyMemberUnPrepSave()
 
         Script* script;
         if (scriptGetScript(ptr->object->sid, &script) != -1) {
-            script->flags |= (SCRIPT_FLAG_0x08 | SCRIPT_FLAG_0x10);
+            script->flags |= (SCRIPT_FLAG_NO_SAVE | SCRIPT_FLAG_NO_REMOVE);
         }
     }
 
@@ -516,7 +480,7 @@ int _partyMemberUnPrepSave()
     return 0;
 }
 
-// 0x4946CC
+// 0x4946CC partyMemberSave
 int partyMembersSave(File* stream)
 {
     if (fileWriteInt32(stream, gPartyMembersLength) == -1) return -1;
@@ -537,7 +501,7 @@ int partyMembersSave(File* stream)
     return 0;
 }
 
-// 0x4947AC
+// 0x4947AC partyMemberPrepLoad
 int _partyMemberPrepLoad()
 {
     if (_partyStatePrepped) {
@@ -557,7 +521,7 @@ int _partyMemberPrepLoad()
 }
 
 // partyMemberPrepLoadInstance
-// 0x49480C
+// 0x49480C partyMemberPrepLoadInstance
 static int _partyMemberPrepLoadInstance(PartyMemberListItem* a1)
 {
     Object* obj = a1->object;
@@ -570,7 +534,7 @@ static int _partyMemberPrepLoadInstance(PartyMemberListItem* a1)
         return 0;
     }
 
-    if (PID_TYPE(obj->pid) == OBJ_TYPE_CRITTER) {
+    if (ProtoId(obj).objectType() == OBJ_TYPE_CRITTER) {
         obj->data.critter.combat.whoHitMe = nullptr;
     }
 
@@ -586,7 +550,7 @@ static int _partyMemberPrepLoadInstance(PartyMemberListItem* a1)
 
     a1->script = (Script*)internal_malloc(sizeof(*script));
     if (a1->script == nullptr) {
-        showMesageBox("\n  Error!: partyMemberPrepLoad: Out of memory!");
+        showMessageBox("\n  Error!: partyMemberPrepLoad: Out of memory!");
         exit(1);
     }
 
@@ -595,7 +559,7 @@ static int _partyMemberPrepLoadInstance(PartyMemberListItem* a1)
     if (script->localVarsCount != 0 && script->localVarsOffset != -1) {
         a1->vars = (int*)internal_malloc(sizeof(*a1->vars) * script->localVarsCount);
         if (a1->vars == nullptr) {
-            showMesageBox("\n  Error!: partyMemberPrepLoad: Out of memory!");
+            showMessageBox("\n  Error!: partyMemberPrepLoad: Out of memory!");
             exit(1);
         }
 
@@ -613,19 +577,19 @@ static int _partyMemberPrepLoadInstance(PartyMemberListItem* a1)
         _partyMemberItemSave(inventoryItem->item);
     }
 
-    script->flags &= ~(SCRIPT_FLAG_0x08 | SCRIPT_FLAG_0x10);
+    script->flags &= ~(SCRIPT_FLAG_NO_SAVE | SCRIPT_FLAG_NO_REMOVE);
 
     scriptRemove(script->sid);
 
-    if (PID_TYPE(obj->pid) == OBJ_TYPE_CRITTER) {
-        _dude_stand(obj, obj->rotation, -1);
+    if (ProtoId(obj).objectType() == OBJ_TYPE_CRITTER) {
+        _dude_stand(obj, obj->rotation, FrmId::Empty());
     }
 
     return 0;
 }
 
 // partyMemberRecoverLoad
-// 0x4949C4
+// 0x4949C4 partyMemberRecoverLoad
 int _partyMemberRecoverLoad()
 {
     if (_partyStatePrepped != 1) {
@@ -663,70 +627,70 @@ int _partyMemberRecoverLoad()
 }
 
 // partyMemberRecoverLoadInstance
-// 0x494A88
+// 0x494A88 partyMemberRecoverLoadInstance
 static int _partyMemberRecoverLoadInstance(PartyMemberListItem* a1)
 {
     if (a1->script == nullptr) {
-        showMesageBox("\n  Error!: partyMemberRecoverLoadInstance: No script!");
+        debugPrint("\n  Error!: partyMemberRecoverLoadInstance: No script!");
         return 0;
     }
 
-    int scriptType = SCRIPT_TYPE_CRITTER;
-    if (PID_TYPE(a1->object->pid) != OBJ_TYPE_CRITTER) {
+    ScriptType scriptType = SCRIPT_TYPE_CRITTER;
+    if (ProtoId(a1->object).objectType() != OBJ_TYPE_CRITTER) {
         scriptType = SCRIPT_TYPE_ITEM;
     }
 
     int v1 = -1;
     if (scriptAdd(&v1, scriptType) == -1) {
-        showMesageBox("\n  Error!: partyMemberRecoverLoad: Can't create script!");
+        showMessageBox("\n  Error!: partyMemberRecoverLoad: Can't create script!");
         exit(1);
     }
 
     Script* script;
     if (scriptGetScript(v1, &script) == -1) {
-        showMesageBox("\n  Error!: partyMemberRecoverLoad: Can't find script!");
+        showMessageBox("\n  Error!: partyMemberRecoverLoad: Can't find script!");
         exit(1);
     }
 
     memcpy(script, a1->script, sizeof(*script));
 
-    int sid = (scriptType << 24) | ((a1->object->pid & 0xFFFFFF) + 18000);
+    int sid = (scriptType << 24) | ((a1->object->pid & ProtoId::kMaxProtoId) + 18000);
     a1->object->sid = sid;
     script->sid = sid;
 
-    script->flags &= ~(SCRIPT_FLAG_0x01 | SCRIPT_FLAG_0x04);
+    script->flags &= ~(SCRIPT_FLAG_LOADED | SCRIPT_FLAG_EXECUTED);
 
     internal_free(a1->script);
     a1->script = nullptr;
 
-    script->flags |= (SCRIPT_FLAG_0x08 | SCRIPT_FLAG_0x10);
+    script->flags |= (SCRIPT_FLAG_NO_SAVE | SCRIPT_FLAG_NO_REMOVE);
 
     if (a1->vars != nullptr) {
-        script->localVarsOffset = _map_malloc_local_var(script->localVarsCount);
+        script->localVarsOffset = mapAllocLocalVars(script->localVarsCount);
         memcpy(gMapLocalVars + script->localVarsOffset, a1->vars, sizeof(int) * script->localVarsCount);
+
+        internal_free(a1->vars);
+        a1->vars = nullptr;
     }
 
     return 0;
 }
 
-// 0x494BBC
+// 0x494BBC partyMemberLoad
 int partyMembersLoad(File* stream)
 {
-    int* partyMemberObjectIds = (int*)internal_malloc(sizeof(*partyMemberObjectIds) * (gPartyMemberDescriptionsLength + 20));
-    if (partyMemberObjectIds == nullptr) {
-        return -1;
-    }
-
-    // FIXME: partyMemberObjectIds is never free'd in this function, obviously memory leak.
+    std::vector<int> partyMemberObjectIds(gPartyMemberDescriptionsLength + 20, 0);
 
     if (fileReadInt32(stream, &gPartyMembersLength) == -1) return -1;
     if (fileReadInt32(stream, &_partyMemberItemCount) == -1) return -1;
 
-    gPartyMembers->object = gDude;
+    gPartyMembers.front().object = gDude;
 
     if (gPartyMembersLength != 0) {
         for (int index = 1; index < gPartyMembersLength; index++) {
-            if (fileReadInt32(stream, &(partyMemberObjectIds[index])) == -1) return -1;
+            if (fileReadInt32(stream, &partyMemberObjectIds[index]) == -1) {
+                return -1;
+            }
         }
 
         for (int index = 1; index < gPartyMembersLength; index++) {
@@ -744,11 +708,11 @@ int partyMembersLoad(File* stream)
                 gPartyMembers[index].object = object;
             } else {
                 debugPrint("Couldn't find party member on map...trying to load anyway.\n");
-                if (index + 1 >= gPartyMembersLength) {
-                    partyMemberObjectIds[index] = 0;
-                } else {
-                    memcpy(&(partyMemberObjectIds[index]), &(partyMemberObjectIds[index + 1]), sizeof(*partyMemberObjectIds) * (gPartyMembersLength - (index + 1)));
-                }
+
+                partyMemberObjectIds.erase(partyMemberObjectIds.begin() + index);
+                // Amend original alloc size just in case
+                // (safety push for _partyMemberLevelUpInfoList/gPartyMemberDescriptionsLength loop below)
+                partyMemberObjectIds.push_back(0);
 
                 index--;
                 gPartyMembersLength--;
@@ -773,7 +737,7 @@ int partyMembersLoad(File* stream)
     return 0;
 }
 
-// 0x494D7C
+// 0x494D7C partyMemberClear
 void _partyMemberClear()
 {
     if (_partyStatePrepped) {
@@ -792,19 +756,19 @@ void _partyMemberClear()
     _partyStatePrepped = 0;
 }
 
-// 0x494DD0
+// 0x494DD0 partyMemberSyncPosition
 int _partyMemberSyncPosition()
 {
-    int clockwiseRotation = (gDude->rotation + 2) % ROTATION_COUNT;
-    int counterClockwiseRotation = (gDude->rotation + 4) % ROTATION_COUNT;
+    Rotation clockwiseRotation = (gDude->rotation + 2) % ROTATION_COUNT;
+    Rotation counterClockwiseRotation = (gDude->rotation + 4) % ROTATION_COUNT;
 
     int n = 0;
     int distance = 2;
     for (int index = 1; index < gPartyMembersLength; index++) {
         PartyMemberListItem* partyMember = &(gPartyMembers[index]);
         Object* partyMemberObj = partyMember->object;
-        if ((partyMemberObj->flags & OBJECT_HIDDEN) == 0 && PID_TYPE(partyMemberObj->pid) == OBJ_TYPE_CRITTER) {
-            int rotation;
+        if ((partyMemberObj->flags & OBJECT_HIDDEN) == OBJECT_NONE && ProtoId(partyMemberObj).objectType() == OBJ_TYPE_CRITTER) {
+            Rotation rotation;
             if ((n % 2) != 0) {
                 rotation = clockwiseRotation;
             } else {
@@ -812,7 +776,7 @@ int _partyMemberSyncPosition()
             }
 
             int tile = tileGetTileInDirection(gDude->tile, rotation, distance / 2);
-            _objPMAttemptPlacement(partyMemberObj, tile, gDude->elevation);
+            objectAttemptPlacementPartyMember(partyMemberObj, tile, gDude->elevation);
 
             distance++;
             n++;
@@ -824,31 +788,31 @@ int _partyMemberSyncPosition()
 
 // Heals party members according to their healing rate.
 //
-// 0x494EB8
-int _partyMemberRestingHeal(int a1)
+// 0x494EB8 partyMemberRestingHeal
+int _partyMemberRestingHeal(int hours)
 {
-    int v1 = a1 / 3;
-    if (v1 == 0) {
+    int healingTicks = hours / 3;
+    if (healingTicks == 0) {
         return 0;
     }
 
     for (int index = 0; index < gPartyMembersLength; index++) {
         PartyMemberListItem* partyMember = &(gPartyMembers[index]);
-        if (PID_TYPE(partyMember->object->pid) == OBJ_TYPE_CRITTER) {
+        if (ProtoId(partyMember->object).objectType() == OBJ_TYPE_CRITTER) {
             int healingRate = critterGetStat(partyMember->object, STAT_HEALING_RATE);
-            critterAdjustHitPoints(partyMember->object, v1 * healingRate);
+            critterAdjustHitPoints(partyMember->object, healingTicks * healingRate);
         }
     }
 
     return 1;
 }
 
-// 0x494F24
-Object* partyMemberFindByPid(int pid)
+// 0x494F24 partyMemberFindObjFromPid
+Object* partyMemberFindByProtoId(const ProtoId& protoId)
 {
     for (int index = 0; index < gPartyMembersLength; index++) {
         Object* object = gPartyMembers[index].object;
-        if (object->pid == pid) {
+        if (ProtoId(object) == protoId) {
             return object;
         }
     }
@@ -856,12 +820,12 @@ Object* partyMemberFindByPid(int pid)
     return nullptr;
 }
 
-// 0x494F64
+// 0x494F64 isPotentialPartyMember
 bool _isPotentialPartyMember(Object* object)
 {
     for (int index = 0; index < gPartyMembersLength; index++) {
         PartyMemberListItem* partyMember = &(gPartyMembers[index]);
-        if (partyMember->object->pid == gPartyMemberPids[index]) {
+        if (ProtoId(partyMember->object) == gPartyMemberProtoIds[index]) {
             return true;
         }
     }
@@ -871,7 +835,7 @@ bool _isPotentialPartyMember(Object* object)
 
 // Returns `true` if specified object is a party member.
 //
-// 0x494FC4
+// 0x494FC4 isPartyMember
 bool objectIsPartyMember(Object* object)
 {
     if (object == nullptr) {
@@ -894,9 +858,19 @@ bool objectIsPartyMember(Object* object)
     return isPartyMember;
 }
 
+bool partyMemberProtoIdCanEquipArmor(const ProtoId& protoId)
+{
+    Proto* proto;
+    if (protoGetProto(protoId, &proto) == -1) {
+        return false;
+    }
+
+    return proto->critter.data.bodyType == BODY_TYPE_BIPED && protoId != CritterProtoTypeId::Marcus;
+}
+
 // Returns number of active critters in the party.
 //
-// 0x495010
+// 0x495010 getPartyMemberCount
 int _getPartyMemberCount()
 {
     int count = gPartyMembersLength;
@@ -904,7 +878,7 @@ int _getPartyMemberCount()
     for (int index = 1; index < gPartyMembersLength; index++) {
         Object* object = gPartyMembers[index].object;
 
-        if (PID_TYPE(object->pid) != OBJ_TYPE_CRITTER || critterIsDead(object) || (object->flags & OBJECT_HIDDEN) != 0) {
+        if (ProtoId(object).objectType() != OBJ_TYPE_CRITTER || critterIsDead(object) || (object->flags & OBJECT_HIDDEN) != OBJECT_NONE) {
             count--;
         }
     }
@@ -912,7 +886,7 @@ int _getPartyMemberCount()
     return count;
 }
 
-// 0x495070
+// 0x495070 partyMemberNewObjID
 static int _partyMemberNewObjID()
 {
     Object* object;
@@ -954,7 +928,7 @@ static int _partyMemberNewObjID()
     return _curID;
 }
 
-// 0x4950F4
+// 0x4950F4 partyMemberNewObjIDRecurseFind
 static int _partyMemberNewObjIDRecurseFind(Object* obj, int objectId)
 {
     Inventory* inventory = &(obj->data.inventory);
@@ -972,7 +946,7 @@ static int _partyMemberNewObjIDRecurseFind(Object* obj, int objectId)
     return 0;
 }
 
-// 0x495140
+// 0x495140 partyMemberPrepItemSaveAll
 int _partyMemberPrepItemSaveAll()
 {
     for (int partyMemberIndex = 0; partyMemberIndex < gPartyMembersLength; partyMemberIndex++) {
@@ -994,11 +968,11 @@ static int _partyMemberPrepItemSave(Object* object)
     if (object->sid != -1) {
         Script* script;
         if (scriptGetScript(object->sid, &script) == -1) {
-            showMesageBox("\n  Error!: partyMemberPrepItemSaveAll: Can't find script!");
+            showMessageBox("\n  Error!: partyMemberPrepItemSaveAll: Can't find script!");
             exit(1);
         }
 
-        script->flags |= (SCRIPT_FLAG_0x08 | SCRIPT_FLAG_0x10);
+        script->flags |= (SCRIPT_FLAG_NO_SAVE | SCRIPT_FLAG_NO_REMOVE);
     }
 
     Inventory* inventory = &(object->data.inventory);
@@ -1010,13 +984,13 @@ static int _partyMemberPrepItemSave(Object* object)
     return 0;
 }
 
-// 0x495234
+// 0x495234 partyMemberItemSave
 static int _partyMemberItemSave(Object* object)
 {
     if (object->sid != -1) {
         Script* script;
         if (scriptGetScript(object->sid, &script) == -1) {
-            showMesageBox("\n  Error!: partyMemberItemSave: Can't find script!");
+            showMessageBox("\n  Error!: partyMemberItemSave: Can't find script!");
             exit(1);
         }
 
@@ -1027,7 +1001,7 @@ static int _partyMemberItemSave(Object* object)
 
         PartyMemberListItem* node = (PartyMemberListItem*)internal_malloc(sizeof(*node));
         if (node == nullptr) {
-            showMesageBox("\n  Error!: partyMemberItemSave: Out of memory!");
+            showMessageBox("\n  Error!: partyMemberItemSave: Out of memory!");
             exit(1);
         }
 
@@ -1035,7 +1009,7 @@ static int _partyMemberItemSave(Object* object)
 
         node->script = (Script*)internal_malloc(sizeof(*script));
         if (node->script == nullptr) {
-            showMesageBox("\n  Error!: partyMemberItemSave: Out of memory!");
+            showMessageBox("\n  Error!: partyMemberItemSave: Out of memory!");
             exit(1);
         }
 
@@ -1044,7 +1018,7 @@ static int _partyMemberItemSave(Object* object)
         if (script->localVarsCount != 0 && script->localVarsOffset != -1) {
             node->vars = (int*)internal_malloc(sizeof(*node->vars) * script->localVarsCount);
             if (node->vars == nullptr) {
-                showMesageBox("\n  Error!: partyMemberItemSave: Out of memory!");
+                showMessageBox("\n  Error!: partyMemberItemSave: Out of memory!");
                 exit(1);
             }
 
@@ -1068,18 +1042,18 @@ static int _partyMemberItemSave(Object* object)
 }
 
 // partyMemberItemRecover
-// 0x495388
+// 0x495388 partyMemberItemRecover
 static int _partyMemberItemRecover(PartyMemberListItem* a1)
 {
     int sid = -1;
     if (scriptAdd(&sid, SCRIPT_TYPE_ITEM) == -1) {
-        showMesageBox("\n  Error!: partyMemberItemRecover: Can't create script!");
+        showMessageBox("\n  Error!: partyMemberItemRecover: Can't create script!");
         exit(1);
     }
 
     Script* script;
     if (scriptGetScript(sid, &script) == -1) {
-        showMesageBox("\n  Error!: partyMemberItemRecover: Can't find script!");
+        showMessageBox("\n  Error!: partyMemberItemRecover: Can't find script!");
         exit(1);
     }
 
@@ -1089,7 +1063,7 @@ static int _partyMemberItemRecover(PartyMemberListItem* a1)
     script->sid = _partyMemberItemCount | (SCRIPT_TYPE_ITEM << 24);
 
     script->program = nullptr;
-    script->flags &= ~(SCRIPT_FLAG_0x01 | SCRIPT_FLAG_0x04 | SCRIPT_FLAG_0x08 | SCRIPT_FLAG_0x10);
+    script->flags &= ~(SCRIPT_FLAG_LOADED | SCRIPT_FLAG_EXECUTED | SCRIPT_FLAG_NO_SAVE | SCRIPT_FLAG_NO_REMOVE);
 
     _partyMemberItemCount++;
 
@@ -1097,14 +1071,17 @@ static int _partyMemberItemRecover(PartyMemberListItem* a1)
     a1->script = nullptr;
 
     if (a1->vars != nullptr) {
-        script->localVarsOffset = _map_malloc_local_var(script->localVarsCount);
+        script->localVarsOffset = mapAllocLocalVars(script->localVarsCount);
         memcpy(gMapLocalVars + script->localVarsOffset, a1->vars, sizeof(int) * script->localVarsCount);
+
+        internal_free(a1->vars);
+        a1->vars = nullptr;
     }
 
     return 0;
 }
 
-// 0x4954C4
+// 0x4954C4 partyMemberClearItemList
 static int _partyMemberClearItemList()
 {
     while (_itemSaveListHead != nullptr) {
@@ -1129,21 +1106,17 @@ static int _partyMemberClearItemList()
 
 // Returns best skill of the specified party member.
 //
-// 0x495520
-int partyMemberGetBestSkill(Object* object)
+// 0x495520 partyMemberSkill
+Skill partyMemberGetBestSkill(Object* object)
 {
-    int bestSkill = SKILL_SMALL_GUNS;
+    Skill bestSkill = SKILL_SMALL_GUNS;
 
-    if (object == nullptr) {
-        return bestSkill;
-    }
-
-    if (PID_TYPE(object->pid) != OBJ_TYPE_CRITTER) {
+    if (ProtoId(object).objectType() != OBJ_TYPE_CRITTER) {
         return bestSkill;
     }
 
     int bestValue = 0;
-    for (int skill = 0; skill < SKILL_COUNT; skill++) {
+    for (Skill skill = SKILL_FIRST; skill < SKILL_COUNT; skill++) {
         int value = skillGetValue(object, skill);
         if (value > bestValue) {
             bestSkill = skill;
@@ -1156,15 +1129,15 @@ int partyMemberGetBestSkill(Object* object)
 
 // Returns party member with highest skill level.
 //
-// 0x495560
-Object* partyMemberGetBestInSkill(int skill)
+// 0x495560 partyMemberWithHighestSkill
+Object* partyMemberGetBestInSkill(Skill skill)
 {
     int bestValue = 0;
     Object* bestPartyMember = nullptr;
 
     for (int index = 0; index < gPartyMembersLength; index++) {
         Object* object = gPartyMembers[index].object;
-        if ((object->flags & OBJECT_HIDDEN) == 0 && PID_TYPE(object->pid) == OBJ_TYPE_CRITTER) {
+        if ((object->flags & OBJECT_HIDDEN) == OBJECT_NONE && ProtoId(object).objectType() == OBJ_TYPE_CRITTER) {
             int value = skillGetValue(object, skill);
             if (value > bestValue) {
                 bestValue = value;
@@ -1178,14 +1151,14 @@ Object* partyMemberGetBestInSkill(int skill)
 
 // Returns highest skill level in party.
 //
-// 0x4955C8
-int partyGetBestSkillValue(int skill)
+// 0x4955C8 partyMemberHighestSkillLevel
+int partyGetBestSkillValue(Skill skill)
 {
     int bestValue = 0;
 
     for (int index = 0; index < gPartyMembersLength; index++) {
         Object* object = gPartyMembers[index].object;
-        if ((object->flags & OBJECT_HIDDEN) == 0 && PID_TYPE(object->pid) == OBJ_TYPE_CRITTER) {
+        if ((object->flags & OBJECT_HIDDEN) == OBJECT_NONE && ProtoId(object).objectType() == OBJ_TYPE_CRITTER) {
             int value = skillGetValue(object, skill);
             if (value > bestValue) {
                 bestValue = value;
@@ -1196,7 +1169,7 @@ int partyGetBestSkillValue(int skill)
     return bestValue;
 }
 
-// 0x495620
+// 0x495620 partyFixMultipleMembers
 static int partyFixMultipleMembers()
 {
     debugPrint("\n\n\n[Party Members]:");
@@ -1205,9 +1178,13 @@ static int partyFixMultipleMembers()
     int critterCount = 0;
     Object* obj = objectFindFirst();
     while (obj != nullptr) {
+        if (ProtoId(obj).objectType() == OBJ_TYPE_CRITTER) {
+            critterCount++;
+        }
+
         bool isPartyMember = false;
         for (int index = 1; index < gPartyMemberDescriptionsLength; index++) {
-            if (obj->pid == gPartyMemberPids[index]) {
+            if (ProtoId(obj) == gPartyMemberProtoIds[index]) {
                 isPartyMember = true;
                 break;
             }
@@ -1221,7 +1198,7 @@ static int partyFixMultipleMembers()
                 remove = true;
             } else {
                 // NOTE: Uninline.
-                Object* partyMember = partyMemberFindByPid(obj->pid);
+                Object* partyMember = partyMemberFindByProtoId(obj);
                 if (partyMember != nullptr && partyMember != obj) {
                     if (partyMember->sid == obj->sid) {
                         obj->sid = -1;
@@ -1232,7 +1209,7 @@ static int partyFixMultipleMembers()
 
             if (remove) {
                 // NOTE: Uninline.
-                if (obj != partyMemberFindByPid(obj->pid)) {
+                if (obj != partyMemberFindByProtoId(obj)) {
                     debugPrint("\nDestroying evil critter doppleganger!");
 
                     if (obj->sid != -1) {
@@ -1277,29 +1254,25 @@ static int partyFixMultipleMembers()
     return 0;
 }
 
-// 0x495870
+// 0x495870 partyMemberSaveProtos
 void _partyMemberSaveProtos()
 {
     for (int index = 1; index < gPartyMemberDescriptionsLength; index++) {
-        int pid = gPartyMemberPids[index];
-        if (pid != -1) {
-            _proto_save_pid(pid);
+        const ProtoId protoId = gPartyMemberProtoIds[index];
+        if (protoId.valid()) {
+            protoSaveProtoId(protoId);
         }
     }
 }
 
-// 0x4958B0
-bool partyMemberSupportsDisposition(Object* critter, int disposition)
+// 0x4958B0 partyMemberHasAIDisposition
+bool partyMemberSupportsDisposition(Object* critter, Disposition disposition)
 {
-    if (critter == nullptr) {
+    if (ProtoId(critter).objectType() != OBJ_TYPE_CRITTER) {
         return false;
     }
 
-    if (PID_TYPE(critter->pid) != OBJ_TYPE_CRITTER) {
-        return false;
-    }
-
-    if (disposition == -1 || disposition > 5) {
+    if (!dispositionIsValid(disposition)) {
         return false;
     }
 
@@ -1311,18 +1284,14 @@ bool partyMemberSupportsDisposition(Object* critter, int disposition)
     return partyMemberDescription->disposition[disposition + 1];
 }
 
-// 0x495920
-bool partyMemberSupportsAreaAttackMode(Object* object, int areaAttackMode)
+// 0x495920 partyMemberHasAIBurstValue
+bool partyMemberSupportsAreaAttackMode(Object* object, AreaAttackMode areaAttackMode)
 {
-    if (object == nullptr) {
+    if (ProtoId(object).objectType() != OBJ_TYPE_CRITTER) {
         return false;
     }
 
-    if (PID_TYPE(object->pid) != OBJ_TYPE_CRITTER) {
-        return false;
-    }
-
-    if (areaAttackMode >= AREA_ATTACK_MODE_COUNT) {
+    if (!areaAttackModeIsValid(areaAttackMode)) {
         return false;
     }
 
@@ -1334,18 +1303,14 @@ bool partyMemberSupportsAreaAttackMode(Object* object, int areaAttackMode)
     return partyMemberDescription->areaAttackMode[areaAttackMode];
 }
 
-// 0x495980
-bool partyMemberSupportsRunAwayMode(Object* object, int runAwayMode)
+// 0x495980 partyMemberHasAIRunAwayValue
+bool partyMemberSupportsRunAwayMode(Object* object, RunAwayMode runAwayMode)
 {
-    if (object == nullptr) {
+    if (ProtoId(object).objectType() != OBJ_TYPE_CRITTER) {
         return false;
     }
 
-    if (PID_TYPE(object->pid) != OBJ_TYPE_CRITTER) {
-        return false;
-    }
-
-    if (runAwayMode >= RUN_AWAY_MODE_COUNT) {
+    if (!runAwayModeIsValid(runAwayMode)) {
         return false;
     }
 
@@ -1357,18 +1322,14 @@ bool partyMemberSupportsRunAwayMode(Object* object, int runAwayMode)
     return partyMemberDescription->runAwayMode[runAwayMode + 1];
 }
 
-// 0x4959E0
-bool partyMemberSupportsBestWeapon(Object* object, int bestWeapon)
+// 0x4959E0 partyMemberHasAIWeaponPrefValue
+bool partyMemberSupportsBestWeapon(Object* object, BestWeapon bestWeapon)
 {
-    if (object == nullptr) {
+    if (ProtoId(object).objectType() != OBJ_TYPE_CRITTER) {
         return false;
     }
 
-    if (PID_TYPE(object->pid) != OBJ_TYPE_CRITTER) {
-        return false;
-    }
-
-    if (bestWeapon >= BEST_WEAPON_COUNT) {
+    if (!bestWeaponIsValid(bestWeapon)) {
         return false;
     }
 
@@ -1380,18 +1341,14 @@ bool partyMemberSupportsBestWeapon(Object* object, int bestWeapon)
     return partyMemberDescription->bestWeapon[bestWeapon];
 }
 
-// 0x495A40
-bool partyMemberSupportsDistance(Object* object, int distanceMode)
+// 0x495A40 partyMemberHasAIDistancePrefValue
+bool partyMemberSupportsDistance(Object* object, DistanceMode distanceMode)
 {
-    if (object == nullptr) {
+    if (ProtoId(object).objectType() != OBJ_TYPE_CRITTER) {
         return false;
     }
 
-    if (PID_TYPE(object->pid) != OBJ_TYPE_CRITTER) {
-        return false;
-    }
-
-    if (distanceMode >= DISTANCE_COUNT) {
+    if (!distanceModeIsValid(distanceMode)) {
         return false;
     }
 
@@ -1403,18 +1360,14 @@ bool partyMemberSupportsDistance(Object* object, int distanceMode)
     return partyMemberDescription->distanceMode[distanceMode];
 }
 
-// 0x495AA0
-bool partyMemberSupportsAttackWho(Object* object, int attackWho)
+// 0x495AA0 partyMemberHasAIAttackWhoValue
+bool partyMemberSupportsAttackWho(Object* object, AttackWho attackWho)
 {
-    if (object == nullptr) {
+    if (ProtoId(object).objectType() != OBJ_TYPE_CRITTER) {
         return false;
     }
 
-    if (PID_TYPE(object->pid) != OBJ_TYPE_CRITTER) {
-        return false;
-    }
-
-    if (attackWho >= ATTACK_WHO_COUNT) {
+    if (!attackWhoIsValid(attackWho)) {
         return false;
     }
 
@@ -1426,18 +1379,14 @@ bool partyMemberSupportsAttackWho(Object* object, int attackWho)
     return partyMemberDescription->attackWho[attackWho];
 }
 
-// 0x495B00
-bool partyMemberSupportsChemUse(Object* object, int chemUse)
+// 0x495B00 partyMemberHasAIChemUseValue
+bool partyMemberSupportsChemUse(Object* object, ChemUse chemUse)
 {
-    if (object == nullptr) {
+    if (ProtoId(object).objectType() != OBJ_TYPE_CRITTER) {
         return false;
     }
 
-    if (PID_TYPE(object->pid) != OBJ_TYPE_CRITTER) {
-        return false;
-    }
-
-    if (chemUse >= CHEM_USE_COUNT) {
+    if (!chemUseIsValid(chemUse)) {
         return false;
     }
 
@@ -1449,8 +1398,24 @@ bool partyMemberSupportsChemUse(Object* object, int chemUse)
     return partyMemberDescription->chemUse[chemUse];
 }
 
+// 0x495FF0 partyMemberGetCurLevel
+int partyMemberGetCurrentLevel(Object* object)
+{
+    if (object == nullptr) {
+        return 0;
+    }
+
+    for (int index = 1; index < gPartyMemberDescriptionsLength; index++) {
+        if (gPartyMemberProtoIds[index] == ProtoId(object)) {
+            return _partyMemberLevelUpInfoList[index].level;
+        }
+    }
+
+    return 0;
+}
+
 // partyMemberIncLevels
-// 0x495B60
+// 0x495B60 partyMemberIncLevels
 int _partyMemberIncLevels()
 {
     int i;
@@ -1477,7 +1442,7 @@ int _partyMemberIncLevels()
             continue;
         }
 
-        if (PID_TYPE(obj->pid) != OBJ_TYPE_CRITTER) {
+        if (ProtoId(obj).objectType() != OBJ_TYPE_CRITTER) {
             continue;
         }
 
@@ -1489,7 +1454,7 @@ int _partyMemberIncLevels()
         }
 
         for (j = 1; j < gPartyMemberDescriptionsLength; j++) {
-            if (gPartyMemberPids[j] == obj->pid) {
+            if (gPartyMemberProtoIds[j] == ProtoId(obj)) {
                 memberIndex = j;
             }
         }
@@ -1529,13 +1494,16 @@ int _partyMemberIncLevels()
             continue;
         }
 
-        levelUpInfo->level++;
-        if (levelMod != 0) {
-            levelUpInfo->isEarly = 1;
+        const ProtoId stageProtoId = ProtoId(memberDescription->level_pids[levelUpInfo->level]);
+        int nextLevel = levelUpInfo->level + 1;
+
+        if (_partyMemberCopyLevelInfo(obj, stageProtoId) == -1) {
+            return -1;
         }
 
-        if (_partyMemberCopyLevelInfo(obj, memberDescription->level_pids[levelUpInfo->level]) == -1) {
-            return -1;
+        levelUpInfo->level = nextLevel;
+        if (levelMod != 0) {
+            levelUpInfo->isEarly = 1;
         }
 
         name = critterGetName(obj);
@@ -1544,14 +1512,14 @@ int _partyMemberIncLevels()
         snprintf(str, sizeof(str), text, name);
         displayMonitorAddMessage(str);
 
-        debugPrint(str);
+        debugPrint("%s", str);
 
         // Individual message
         msg.num = 9000 + 10 * memberIndex + levelUpInfo->level - 1;
         if (messageListGetItem(&gMiscMessageList, &msg)) {
             name = critterGetName(obj);
             snprintf(str, sizeof(str), msg.text, name);
-            textObjectAdd(obj, str, 101, _colorTable[0x7FFF], _colorTable[0], &levelUpMessageRect);
+            textObjectAdd(obj, str, 101, COLOR_WHITE, COLOR_BLACK, &levelUpMessageRect);
             tileWindowRefreshRect(&levelUpMessageRect, obj->elevation);
         }
     }
@@ -1559,46 +1527,63 @@ int _partyMemberIncLevels()
     return 0;
 }
 
-// 0x495EA8
-static int _partyMemberCopyLevelInfo(Object* critter, int stagePid)
+bool partyMemberEngineLevelUpEnabled()
 {
-    if (critter == nullptr) {
+    return npcEngineLevelUp;
+}
+
+void partyMemberSetEngineLevelUpEnabled(bool enabled)
+{
+    npcEngineLevelUp = enabled;
+}
+
+// 0x495EA8 partyMemberCopyLevelInfo
+static int _partyMemberCopyLevelInfo(Object* critter, const ProtoId& stagedProtoId)
+{
+    const ProtoId critterProtoId = critter;
+
+    if (!critterProtoId.valid()) {
         return -1;
     }
 
-    if (stagePid == -1) {
+    if (!stagedProtoId.valid()) {
+        return -1;
+    }
+
+    if (stagedProtoId.objectType() != OBJ_TYPE_CRITTER) {
+        debugPrint("\npartyMemberCopyLevelInfo: stage pid %d is not a critter", stagedProtoId.pid());
         return -1;
     }
 
     Proto* proto;
-    if (protoGetProto(critter->pid, &proto) == -1) {
+    if (protoGetProto(critterProtoId, &proto) == -1) {
         return -1;
     }
 
     Proto* stageProto;
-    if (protoGetProto(stagePid, &stageProto) == -1) {
+    if (protoGetProto(stagedProtoId, &stageProto) == -1) {
         return -1;
     }
 
     Object* item2 = critterGetItem2(critter);
-    _invenUnwieldFunc(critter, 1, 0);
+    inventoryUnequipFunc(critter, HAND_RIGHT, 0);
 
     Object* armor = critterGetArmor(critter);
-    _adjust_ac(critter, armor, nullptr);
-    itemRemove(critter, armor, 1);
+    adjustCritterStatsOnArmorChange(critter, armor, nullptr);
+    itemRemoveQuietly(critter, armor, 1);
 
     int maxHp = critterGetStat(critter, STAT_MAXIMUM_HIT_POINTS);
     critterAdjustHitPoints(critter, maxHp);
 
-    for (int stat = 0; stat < SPECIAL_STAT_COUNT; stat++) {
+    for (Stat stat = STAT_FIRST; stat < SPECIAL_STAT_COUNT; stat++) {
         proto->critter.data.baseStats[stat] = stageProto->critter.data.baseStats[stat];
     }
 
-    for (int stat = 0; stat < SPECIAL_STAT_COUNT; stat++) {
+    for (Stat stat = STAT_FIRST; stat < SPECIAL_STAT_COUNT; stat++) {
         proto->critter.data.bonusStats[stat] = stageProto->critter.data.bonusStats[stat];
     }
 
-    for (int skill = 0; skill < SKILL_COUNT; skill++) {
+    for (Skill skill = SKILL_FIRST; skill < SKILL_COUNT; skill++) {
         proto->critter.data.skills[skill] = stageProto->critter.data.skills[skill];
     }
 
@@ -1606,13 +1591,13 @@ static int _partyMemberCopyLevelInfo(Object* critter, int stagePid)
 
     if (armor != nullptr) {
         itemAdd(critter, armor, 1);
-        _inven_wield(critter, armor, 0);
+        inventoryEquip(critter, armor, HAND_LEFT);
     }
 
     if (item2 != nullptr) {
         // SFALL: Fix for party member's equipped weapon being placed in the
         // incorrect item slot after leveling up.
-        _invenWieldFunc(critter, item2, HAND_RIGHT, false);
+        inventoryEquipFunc(critter, item2, HAND_RIGHT, false);
     }
 
     return 0;
@@ -1626,16 +1611,16 @@ static int _partyMemberCopyLevelInfo(Object* critter, int stagePid)
 // (they cannot be healed by resting) and dude (he/she has it's own "Rest
 // until healed" option).
 //
-// 0x496058
+// 0x496058 partyMemberNeedsHealing
 bool partyIsAnyoneCanBeHealedByRest()
 {
     for (int index = 1; index < gPartyMembersLength; index++) {
         PartyMemberListItem* ptr = &(gPartyMembers[index]);
         Object* object = ptr->object;
 
-        if (PID_TYPE(object->pid) != OBJ_TYPE_CRITTER) continue;
+        if (ProtoId(object).objectType() != OBJ_TYPE_CRITTER) continue;
         if (critterIsDead(object)) continue;
-        if ((object->flags & OBJECT_HIDDEN) != 0) continue;
+        if ((object->flags & OBJECT_HIDDEN) != OBJECT_NONE) continue;
         if (critterGetKillType(object) == KILL_TYPE_ROBOT) continue;
 
         int currentHp = critterGetHitPoints(object);
@@ -1651,7 +1636,7 @@ bool partyIsAnyoneCanBeHealedByRest()
 // Returns maximum amount of damage of any party member that can be healed thru
 // the rest.
 //
-// 0x4960DC
+// 0x4960DC partyMemberMaxHealingNeeded
 int partyGetMaxWoundToHealByRest()
 {
     int maxWound = 0;
@@ -1660,9 +1645,9 @@ int partyGetMaxWoundToHealByRest()
         PartyMemberListItem* ptr = &(gPartyMembers[index]);
         Object* object = ptr->object;
 
-        if (PID_TYPE(object->pid) != OBJ_TYPE_CRITTER) continue;
+        if (ProtoId(object).objectType() != OBJ_TYPE_CRITTER) continue;
         if (critterIsDead(object)) continue;
-        if ((object->flags & OBJECT_HIDDEN) != 0) continue;
+        if ((object->flags & OBJECT_HIDDEN) != OBJECT_NONE) continue;
         if (critterGetKillType(object) == KILL_TYPE_ROBOT) continue;
 
         int currentHp = critterGetHitPoints(object);
@@ -1685,9 +1670,9 @@ std::vector<Object*> get_all_party_members_objects(bool include_hidden)
     for (int index = 0; index < gPartyMembersLength; index++) {
         auto object = gPartyMembers[index].object;
         if (include_hidden
-            || (PID_TYPE(object->pid) == OBJ_TYPE_CRITTER
+            || (ProtoId(object).objectType() == OBJ_TYPE_CRITTER
                 && !critterIsDead(object)
-                && (object->flags & OBJECT_HIDDEN) == 0)) {
+                && (object->flags & OBJECT_HIDDEN) == OBJECT_NONE)) {
             value.push_back(object);
         }
     }

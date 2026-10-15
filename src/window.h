@@ -1,10 +1,10 @@
 #ifndef WINDOW_H
 #define WINDOW_H
 
+#include "color.h"
 #include "geometry.h"
 #include "interpreter.h"
 #include "region.h"
-#include "window_manager.h"
 
 namespace fallout {
 
@@ -38,98 +38,103 @@ typedef enum ManagedButtonRightMouseEvent {
 
 int windowGetFont();
 int windowSetFont(int font);
-void windowResetTextAttributes();
-int windowGetTextFlags();
-int windowSetTextFlags(int flags);
-unsigned char windowGetTextColor();
-unsigned char windowGetHighlightColor();
-int windowSetTextColor(float r, float g, float b);
-int windowSetHighlightColor(float r, float g, float b);
+void scriptWindowResetTextAttributes();
+DrawTextFlags scriptWindowGetTextFlags();
+int scriptWindowSetTextFlags(DrawTextFlags flags);
+Color scriptWindowGetTextColor();
+int scriptWindowSetTextColor(float r, float g, float b);
+Color scriptWindowGetHighlightColor();
+int scriptWindowSetHighlightColor(float r, float g, float b);
 bool _checkRegion(int windowIndex, int mouseX, int mouseY, int mouseEvent);
-bool _windowCheckRegion(int windowIndex, int mouseX, int mouseY, int mouseEvent);
-bool _windowRefreshRegions();
+bool scriptWindowCheckRegion(int windowIndex, int mouseX, int mouseY, int mouseEvent);
+bool scriptWindowRefreshRegions();
 bool _checkAllRegions();
-void _windowAddInputFunc(WindowInputHandler* handler);
+void scriptWindowAddInputFunc(WindowInputHandler* handler);
 void _doRegionRightFunc(Region* region, int mouseEvent);
 void _doRegionFunc(Region* region, int mouseEvent);
-bool _windowActivateRegion(const char* regionName, int mouseEvent);
+bool scriptWindowActivateRegion(const char* regionName, int mouseEvent);
 int _getInput();
 void _doButtonOn(int btn, int keyCode);
-void sub_4B6F68(int btn, int mouseEvent);
+void scriptWindowDispatchButtonMouseEvent(int btn, int mouseEvent);
 void _doButtonOff(int btn, int keyCode);
 void _doButtonPress(int btn, int keyCode);
 void _doButtonRelease(int btn, int keyCode);
 void _doRightButtonPress(int btn, int keyCode);
-void sub_4B704C(int btn, int mouseEvent);
+void scriptWindowDispatchButtonRightMouseEvent(int btn, int mouseEvent);
 void _doRightButtonRelease(int btn, int keyCode);
 void _setButtonGFX(int width, int height, unsigned char* normal);
-bool _windowHide();
-bool _windowShow();
-int _windowWidth();
-int _windowHeight();
-bool _windowDraw();
-bool _deleteWindow(const char* windowName);
-int sub_4B7AC4(const char* windowName, int x, int y, int width, int height);
-int sub_4B7E7C(const char* windowName, int x, int y, int width, int height);
-int _createWindow(const char* windowName, int x, int y, int width, int height, int a6, int flags);
-int _windowOutput(char* string);
-bool _windowGotoXY(int x, int y);
-bool _selectWindowID(int index);
-int _selectWindow(const char* windowName);
-unsigned char* _windowGetBuffer();
-int _pushWindow(const char* windowName);
+bool scriptWindowHide();
+bool scriptWindowShow();
+bool scriptWindowHideNamed(const char* name);
+int scriptWindowWidth();
+int scriptWindowHeight();
+bool scriptWindowDraw();
+bool scriptWindowDelete(const char* windowName);
+int scriptWindowResize(const char* windowName, int x, int y, int width, int height);
+int scriptWindowScale(const char* windowName, int x, int y, int width, int height);
+int scriptWindowCreate(const char* windowName, int x, int y, int width, int height, ColorWithFlags color, int flags);
+int scriptWindowOutput(const char* string);
+bool scriptWindowGotoXY(int x, int y);
+bool scriptWindowSelectId(int index);
+int scriptWindowGetWindow(int index);
+int scriptWindowSelect(const char* windowName);
+unsigned char* scriptWindowGetBuffer();
+int scriptWindowPush(const char* windowName);
 int _popWindow();
-void _windowPrintBuf(int win, char* string, int stringLength, int width, int maxY, int x, int y, int flags, int textAlignment);
-char** _windowWordWrap(char* string, int maxLength, int indent, int* substringListLengthPtr);
-void _windowFreeWordList(char** substringList, int substringListLength);
-void _windowWrapLineWithSpacing(int win, char* string, int width, int height, int x, int y, int flags, int textAlignment, int spacing);
-void _windowWrapLine(int win, char* string, int width, int height, int x, int y, int flags, int textAlignment);
-bool _windowPrintRect(char* string, int a2, int textAlignment);
-bool _windowFormatMessage(char* string, int x, int y, int width, int height, int textAlignment);
-bool _windowPrint(char* string, int width, int x, int y, int color);
+
+void windowPrintBuf(int win, char* string, int stringLength, int width, int maxY, int x, int y, ColorWithFlags color, int textAlignment);
+char** windowWordWrap(char* string, int maxLength, int indent, int* substringListLengthPtr);
+void windowFreeWordList(char** substringList, int substringListLength);
+void windowWrapLineWithSpacing(int win, char* string, int width, int height, int x, int y, ColorWithFlags color, int textAlignment, int spacing);
+void windowWrapLine(int win, char* string, int width, int height, int x, int y, ColorWithFlags color, int textAlignment);
+
+bool scriptWindowPrintRect(char* string, int wrapWidth, int textAlignment);
+bool scriptWindowFormatMessage(char* string, int x, int y, int width, int height, int textAlignment);
+bool scriptWindowPrint(char* string, int width, int x, int y, ColorWithFlags color);
 void _displayInWindow(unsigned char* data, int width, int height, int pitch);
 void _displayFile(char* fileName);
 void _displayFileRaw(char* fileName);
-bool _windowDisplay(char* fileName, int x, int y, int width, int height);
-bool _windowDisplayBuf(unsigned char* src, int srcWidth, int srcHeight, int destX, int destY, int destWidth, int destHeight);
-int _windowGetXres();
-int _windowGetYres();
+bool scriptWindowDisplay(char* fileName, int x, int y, int width, int height);
+bool scriptWindowDisplayBuf(unsigned char* src, int srcWidth, int srcHeight, int destX, int destY, int destWidth, int destHeight);
+int windowGetXres();
+int windowGetYres();
 void _removeProgramReferences_3(Program* program);
-void _initWindow(int resolution, int flags);
-void _windowClose();
-bool _windowDeleteButton(const char* buttonName);
-bool _windowSetButtonFlag(const char* buttonName, int value);
-bool _windowAddButton(const char* buttonName, int x, int y, int width, int height, int flags);
-bool _windowAddButtonGfx(const char* buttonName, char* pressedFileName, char* normalFileName, char* hoverFileName);
-bool _windowAddButtonProc(const char* buttonName, Program* program, int mouseEnterProc, int mouseExitProc, int mouseDownProc, int mouseUpProc);
-bool _windowAddButtonRightProc(const char* buttonName, Program* program, int rightMouseDownProc, int rightMouseUpProc);
-bool _windowAddButtonCfunc(const char* buttonName, ManagedButtonMouseEventCallback* callback, void* userData);
-bool _windowAddButtonRightCfunc(const char* buttonName, ManagedButtonMouseEventCallback* callback, void* userData);
-bool _windowAddButtonText(const char* buttonName, const char* text);
-bool _windowAddButtonTextWithOffsets(const char* buttonName, const char* text, int pressedImageOffsetX, int pressedImageOffsetY, int normalImageOffsetX, int normalImageOffsetY);
-bool _windowFill(float r, float g, float b);
-bool _windowFillRect(int x, int y, int width, int height, float r, float g, float b);
-void _windowEndRegion();
-bool _windowCheckRegionExists(const char* regionName);
-bool _windowStartRegion(int initialCapacity);
-bool _windowAddRegionPoint(int x, int y, bool a3);
-bool _windowAddRegionProc(const char* regionName, Program* program, int a3, int a4, int a5, int a6);
-bool _windowAddRegionRightProc(const char* regionName, Program* program, int a3, int a4);
-bool _windowSetRegionFlag(const char* regionName, int value);
-bool _windowAddRegionName(const char* regionName);
-bool _windowDeleteRegion(const char* regionName);
-void _updateWindows();
-int _windowMoviePlaying();
-bool _windowSetMovieFlags(int flags);
-bool _windowPlayMovie(char* filePath);
-bool _windowPlayMovieRect(char* filePath, int x, int y, int w, int h);
-void _windowStopMovie();
+void windowInit(int resolution, int flags);
+void windowClose();
+bool scriptWindowDeleteButton(const char* buttonName);
+bool scriptWindowSetButtonFlag(const char* buttonName, int value);
+bool scriptWindowAddButton(const char* buttonName, int x, int y, int width, int height, int flags);
+bool scriptWindowAddButtonGfx(const char* buttonName, char* pressedFileName, char* normalFileName, char* hoverFileName);
+bool scriptWindowAddButtonProc(const char* buttonName, Program* program, int mouseEnterProc, int mouseExitProc, int mouseDownProc, int mouseUpProc);
+bool scriptWindowAddButtonRightProc(const char* buttonName, Program* program, int rightMouseDownProc, int rightMouseUpProc);
+bool scriptWindowAddButtonCfunc(const char* buttonName, ManagedButtonMouseEventCallback* callback, void* userData);
+bool scriptWindowAddButtonRightCfunc(const char* buttonName, ManagedButtonMouseEventCallback* callback, void* userData);
+bool scriptWindowAddButtonText(const char* buttonName, const char* text);
+bool scriptWindowAddButtonTextWithOffsets(const char* buttonName, const char* text, int pressedImageOffsetX, int pressedImageOffsetY, int normalImageOffsetX, int normalImageOffsetY);
+bool scriptWindowFill(float r, float g, float b);
+bool scriptWindowFillRect(int x, int y, int width, int height, float r, float g, float b);
+void scriptWindowEndRegion();
+bool scriptWindowCheckRegionExists(const char* regionName);
+bool scriptWindowStartRegion(int initialCapacity);
+bool scriptWindowAddRegionPoint(int x, int y, bool a3);
+bool scriptWindowAddRegionProc(const char* regionName, Program* program, int a3, int a4, int a5, int a6);
+bool scriptWindowAddRegionRightProc(const char* regionName, Program* program, int a3, int a4);
+bool scriptWindowSetRegionFlag(const char* regionName, int value);
+bool scriptWindowAddRegionName(const char* regionName);
+bool scriptWindowDeleteRegion(const char* regionName);
+void scriptWindowUpdateAll();
+int scriptWindowMoviePlaying();
+bool scriptWindowSetMovieFlags(int flags);
+bool scriptWindowPlayMovie(char* filePath);
+bool scriptWindowPlayMovieRect(char* filePath, int x, int y, int w, int h);
+void scriptWindowStopMovie();
 void _drawScaled(unsigned char* dest, int destWidth, int destHeight, int destPitch, unsigned char* src, int srcWidth, int srcHeight, int srcPitch);
 void _drawScaledBuf(unsigned char* dest, int destWidth, int destHeight, unsigned char* src, int srcWidth, int srcHeight);
-void _alphaBltBuf(unsigned char* src, int srcWidth, int srcHeight, int srcPitch, unsigned char* alphaWindowBuffer, unsigned char* alphaBuffer, unsigned char* dest, int destPitch);
 void _fillBuf3x3(unsigned char* src, int srcWidth, int srcHeight, unsigned char* dest, int destWidth, int destHeight);
 
-bool _windowShowNamed(const char* name);
+bool scriptWindowShowNamed(const char* name);
+bool scriptWindowSetFlag(int windowId, int bitFlag, bool enabled);
+bool scriptWindowSetNamedFlag(const char* name, int bitFlag, bool enabled);
 
 } // namespace fallout
 
