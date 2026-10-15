@@ -31,6 +31,11 @@ const GAMES = [
         label: "Sonora 1.15 ru",
         saveName: "audit-so115r-qs",
     },
+    {
+        folder: "Fallout_Sonora_1_13_dlc",
+        label: "Sonora 1.13 ru",
+        saveName: "audit-so113r-qs",
+    },
 ];
 
 for (const { folder, label, saveName } of GAMES) {
