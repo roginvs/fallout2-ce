@@ -2,7 +2,10 @@ import { ASYNCFETCHFS } from "./asyncfetchfs.mjs";
 import { configuration } from "./config.mjs";
 import { createFetcher } from "./fetcher.mjs";
 import { getCacheName } from "./gamecache.mjs";
-import { installIdbfsSyncfsWrapper } from "./idbfsSync.mjs";
+import {
+    installIdbfsSyncfsWrapper,
+    reportIdbfsWriteError,
+} from "./idbfsSync.mjs";
 import { setStatusText } from "./setStatusText.mjs";
 
 const GAME_PATH = "./game/";
@@ -194,8 +197,10 @@ export async function initFilesystem(
         await new Promise((resolve, reject) => {
             IDBFS.syncfs(savegameNodeMount, false, (/** @type {any} */ err) => {
                 if (err) {
-                    console.error("IDBFS save failed", err);
-                    reject(err);
+                    reportIdbfsWriteError(err);
+                    reject(
+                        err instanceof Error ? err : new Error(String(err)),
+                    );
                     return;
                 }
                 console.info("IDBFS saved");

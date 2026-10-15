@@ -1911,11 +1911,16 @@ static int lsgWindowFree(int windowType)
 
 #if defined(__EMSCRIPTEN__)
 // clang-format off
-EM_ASYNC_JS(void, do_save_idbfs_loadsave, (), {
-    // We have to call special function because of special mount point which is over the root
-    // Calling FS.syncfs() will not work in this case
-    await write_idbfs();
-    // await new Promise((resolve, reject) => FS.syncfs(err => err ? reject(err) : resolve()))
+EM_ASYNC_JS(int, do_save_idbfs_loadsave, (), {
+    // Special mount point over the root: FS.syncfs() alone will not persist saves.
+    // On rejection write_idbfs already showed alert(); return 1 so C does not
+    // treat the sync as success (and so an unhandled rejection cannot abort).
+    try {
+        await write_idbfs();
+        return 0;
+    } catch (e) {
+        return 1;
+    }
 });
 // clang-format on
 #endif
@@ -1926,7 +1931,9 @@ static void loadSaveFinalizeSuccessfulSave()
 {
     const bool persisted = loadSavePersistSelectedSlot();
 #if defined(__EMSCRIPTEN__)
-    do_save_idbfs_loadsave();
+    if (do_save_idbfs_loadsave() != 0) {
+        return;
+    }
 #endif
     if (persisted) {
         gLoadSaveIdbfsSlot = _slot_cursor;
@@ -1944,7 +1951,9 @@ static void loadSavePersistSlotIfChanged()
     }
 
 #if defined(__EMSCRIPTEN__)
-    do_save_idbfs_loadsave();
+    if (do_save_idbfs_loadsave() != 0) {
+        return;
+    }
 #endif
     gLoadSaveIdbfsSlot = _slot_cursor;
 }
