@@ -122,3 +122,29 @@ test("fork P1: broken or foreign archive shows error, slot intact", async ({
         });
     }
 });
+
+test("fork P1: folder import (webkitdirectory) fills an empty slot", async ({
+    page,
+}, testInfo) => {
+    await openShell(page);
+    const dir = testInfo.outputPath("SLOT09");
+    await fs.mkdir(`${dir}/PROTO/CRITTERS`, { recursive: true });
+    await fs.writeFile(`${dir}/SAVE.DAT`, saveDat("FORK-DIR"));
+    await fs.writeFile(`${dir}/PROTO/CRITTERS/00000001.PRO`, Buffer.from([7]));
+
+    await expect(slotName(page, 6)).toHaveText("");
+    await page.locator(`#showmenu_${FOLDER}_SLOT06`).click();
+    const item = page
+        .locator("#contextMenu .context-menu-item")
+        .filter({ hasText: /import from folder|импорт из папки/i });
+    const chooserPromise = page.waitForEvent("filechooser");
+    await item.click();
+    await (await chooserPromise).setFiles(dir);
+    await page.waitForLoadState("domcontentloaded");
+    await expect(slotName(page, 6)).toHaveText("FORK-DIR", { timeout: 30_000 });
+
+    const archive = await downloadSlot(page, FOLDER, 6, testInfo);
+    const paths = await listTarPaths(archive);
+    expect(paths).toContain("SLOT06/SAVE.DAT");
+    expect(paths).toContain("SLOT06/PROTO/CRITTERS/00000001.PRO");
+});
