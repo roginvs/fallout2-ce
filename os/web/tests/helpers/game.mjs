@@ -240,17 +240,47 @@ export async function waitForGameplay(page, opts = {}) {
             });
         }
         skipTick += 1;
-        // Escape/Enter skip narrated intros on Nevada/Sonora builds.
-        if (skipTick % 2 === 1) {
-            await pressKey(page, "Escape");
-        } else {
-            await pressKey(page, "Enter");
-        }
+        // Enter skips slides/FMV. Do NOT send Escape: on the first map frame it
+        // opens the pause menu while INTERFACE_BAR is already lit, and F4 then
+        // does nothing (seen on candidate Nevada Eng).
+        await pressKey(page, "Enter");
         await page.waitForTimeout(1000);
     }
     throw new Error(
         `Gameplay UI (interface bar) did not appear in ${timeout} ms`,
     );
+}
+
+/**
+ * Waits until the real main menu is up. Loading splash art is often "stable"
+ * while ACM paths are read from an already-fetched master.dat (no network),
+ * so a single waitForStableFrame can return too early on the candidate build.
+ *
+ * @param {Page} page
+ * @param {{ timeout?: number }} [opts]
+ * @returns {Promise<Buffer>}
+ */
+export async function waitForMainMenu(page, opts = {}) {
+    const timeout = opts.timeout ?? 480_000;
+    const deadline = Date.now() + timeout;
+    /** @type {Buffer | null} */
+    let prev = null;
+    while (Date.now() < deadline) {
+        const frame = await waitForStableFrame(page, {
+            timeout: Math.max(30_000, Math.min(180_000, deadline - Date.now())),
+            maxChanged: 0.002,
+        });
+        if (prev) {
+            const { changedRatio } = await comparePngs(page, prev, frame);
+            // Splash status line keeps changing between files; menu stays put.
+            if (changedRatio < 0.008) {
+                return frame;
+            }
+        }
+        prev = frame;
+        await page.waitForTimeout(2_500);
+    }
+    throw new Error(`Main menu did not settle in ${timeout} ms`);
 }
 
 export async function waitForCanvasChange(page, before, opts = {}) {
@@ -260,10 +290,20 @@ export async function waitForCanvasChange(page, before, opts = {}) {
     let last = 0;
     while (Date.now() < deadline) {
         const frame = await canvasPng(page);
-        const { changedRatio } = await comparePngs(page, before, frame);
-        last = changedRatio;
-        if (changedRatio >= minChanged) {
-            return { frame, changedRatio };
+        // Bound evaluate: WASM can stall the page main thread and hang comparePngs.
+        const result = await Promise.race([
+            comparePngs(page, before, frame).then((r) => ({ ok: true, r })),
+            new Promise((resolve) =>
+                setTimeout(() => resolve({ ok: false }), 15_000),
+            ),
+        ]);
+        if (!result.ok) {
+            await page.waitForTimeout(500);
+            continue;
+        }
+        last = result.r.changedRatio;
+        if (last >= minChanged) {
+            return { frame, changedRatio: last };
         }
         await page.waitForTimeout(500);
     }
