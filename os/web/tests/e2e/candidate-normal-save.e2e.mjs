@@ -32,6 +32,46 @@ const GAMES = [
         label: "Nevada Eng",
         saveName: "audit-nv-eng-c7b",
     },
+    {
+        folder: "Fallout_Sonora_1_15_dlc_eng",
+        label: "Sonora 1.15 Eng",
+        saveName: "audit-so115e-c7b",
+    },
+    {
+        folder: "Fallout_Sonora_1_14_dlc_eng",
+        label: "Sonora 1.14 Eng",
+        saveName: "audit-so114e-c7b",
+    },
+    {
+        folder: "Fallout_Sonora_1_15_dlc",
+        label: "Sonora 1.15 ru",
+        saveName: "audit-so115r-c7b",
+    },
+    {
+        folder: "Fallout_Sonora_1_13_dlc",
+        label: "Sonora 1.13 ru",
+        saveName: "audit-so113r-c7b",
+    },
+    {
+        folder: "Fallout_Sonora",
+        label: "Sonora 1.11 ru",
+        saveName: "audit-so111r-c7b",
+    },
+    {
+        folder: "FalloutNevadaFoxx070925",
+        label: "Nevada 3.4 Foxx ru",
+        saveName: "audit-nv34r-c7b",
+    },
+    {
+        folder: "FalloutOfNevada",
+        label: "Nevada 2.4.1 Foxx ru",
+        saveName: "audit-nv241r-c7b",
+    },
+    {
+        folder: "Fallout_Nevada_official_20240505_100_patch2",
+        label: "Nevada 1.00 patch2 ru",
+        saveName: "audit-nv100r-c7b",
+    },
 ];
 
 for (const { folder, label, saveName } of GAMES) {
@@ -127,7 +167,7 @@ for (const { folder, label, saveName } of GAMES) {
         // Named when the description prompt accepted the text; otherwise empty
         // / "Нет имени" / "No name". Presence of SAVE.DAT is asserted below.
         const nameRe = new RegExp(
-            `^(${saveName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}|Нет имени|No name|)$`,
+            `^(${saveName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}|Нет имени|No name)$`,
             "i",
         );
         await expect(slotName).toHaveText(nameRe, { timeout: 30_000 });

@@ -263,22 +263,43 @@ export async function waitForGameplay(page, opts = {}) {
 export async function waitForMainMenu(page, opts = {}) {
     const timeout = opts.timeout ?? 480_000;
     const deadline = Date.now() + timeout;
+    // Prefer network quiet, but do not fail the whole wait if SFX trickle forever.
+    if (trackers.has(page)) {
+        try {
+            await waitForGameDataIdle(page, {
+                timeout: Math.min(300_000, Math.max(0, deadline - Date.now())),
+                quietMs: 3_000,
+            });
+        } catch {
+            // Fall through: still try visual settle (menu may already be up).
+        }
+    }
     /** @type {Buffer | null} */
     let prev = null;
     while (Date.now() < deadline) {
-        const frame = await waitForStableFrame(page, {
-            timeout: Math.max(30_000, Math.min(180_000, deadline - Date.now())),
-            maxChanged: 0.002,
-        });
+        const frame = await canvasPng(page);
         if (prev) {
-            const { changedRatio } = await comparePngs(page, prev, frame);
-            // Splash status line keeps changing between files; menu stays put.
-            if (changedRatio < 0.008) {
-                return frame;
+            const { changedRatio, nonBlackRatioB } = await comparePngs(
+                page,
+                prev,
+                frame,
+            );
+            // Real menu is dense and stays put; splash text keeps changing.
+            if (changedRatio < 0.012 && nonBlackRatioB > 0.2) {
+                await page.waitForTimeout(2_000);
+                const confirm = await canvasPng(page);
+                const { changedRatio: c2 } = await comparePngs(
+                    page,
+                    frame,
+                    confirm,
+                );
+                if (c2 < 0.012) {
+                    return confirm;
+                }
             }
         }
         prev = frame;
-        await page.waitForTimeout(2_500);
+        await page.waitForTimeout(2_000);
     }
     throw new Error(`Main menu did not settle in ${timeout} ms`);
 }
@@ -349,17 +370,55 @@ export async function pressKey(page, key) {
  */
 export async function downloadSlot(page, folder, slot, testInfo) {
     const slotId = `SLOT${String(slot).padStart(2, "0")}`;
+    const slotName = page
+        .locator(`#game_slots_${folder} .game_slot_name`)
+        .nth(slot - 1);
+    const nameText = ((await slotName.textContent()) || "").trim();
+    if (!nameText) {
+        throw new Error(
+            `Slot ${slotId} has empty name — download menu item is hidden`,
+        );
+    }
     await page.locator(`#showmenu_${folder}_${slotId}`).click();
-    const item = page
-        .locator("#contextMenu .context-menu-item")
+    const menu = page.locator("#contextMenu");
+    await menu.waitFor({ state: "visible", timeout: 10_000 });
+    const item = menu
+        .locator(".context-menu-item")
         .filter({ hasText: /download|скачать/i });
-    await item.waitFor({ state: "visible", timeout: 10_000 });
+    await item.waitFor({ state: "visible", timeout: 15_000 });
     const downloadPromise = page.waitForEvent("download");
     await item.click();
     const download = await downloadPromise;
     const target = testInfo.outputPath(download.suggestedFilename());
     await download.saveAs(target);
     return target;
+}
+
+
+/**
+ * Imports a .tar save archive into a shell slot via the context menu file picker.
+ * @param {Page} page
+ * @param {string} folder
+ * @param {number} slot 1..10
+ * @param {string} archivePath absolute path to .tar
+ */
+export async function importSlot(page, folder, slot, archivePath) {
+    const slotId = `SLOT${String(slot).padStart(2, "0")}`;
+    await page.locator(`#showmenu_${folder}_${slotId}`).click();
+    const menu = page.locator("#contextMenu");
+    await menu.waitFor({ state: "visible", timeout: 10_000 });
+    const item = menu
+        .locator(".context-menu-item")
+        .filter({ hasText: /import from file|импорт из файла/i });
+    const chooserPromise = page.waitForEvent("filechooser");
+    await item.click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles(archivePath);
+    // uploadSavegame reloads the page when done
+    await page.waitForLoadState("domcontentloaded");
+    await page
+        .locator(`#game_slots_${folder}`)
+        .waitFor({ state: "visible", timeout: 60_000 });
 }
 
 /** @type {WeakMap<Page, { pending: Map<any, string>, lastFinished: string, lastActivity: number }>} */
