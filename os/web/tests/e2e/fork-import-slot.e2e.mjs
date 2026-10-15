@@ -76,3 +76,49 @@ test("fork P1: tar import into occupied slot replaces old files", async ({
     expect(paths).toContain("SLOT02/PROTO/ITEMS/00000001.PRO");
     expect(paths.filter((p) => /OLDONLY/.test(p))).toEqual([]);
 });
+
+test("fork P1: broken or foreign archive shows error, slot intact", async ({
+    page,
+}, testInfo) => {
+    await openShell(page);
+    const good = await writeTar(testInfo.outputPath("good.tar"), [
+        ["SLOT01/SAVE.DAT", saveDat("FORK-KEEP")],
+    ]);
+    await importSlot(page, FOLDER, 4, good);
+    await expect(slotName(page, 4)).toHaveText("FORK-KEEP", { timeout: 30_000 });
+
+    const garbage = testInfo.outputPath("garbage.tar");
+    await fs.writeFile(
+        garbage,
+        Buffer.from(Array.from({ length: 1500 }, (_, i) => (i * 37 + 11) % 251)),
+    );
+    const noSave = await writeTar(testInfo.outputPath("nosave.tar"), [
+        ["SLOT01/AUTOMAP.SAV", new Uint8Array([1, 2, 3])],
+    ]);
+
+    for (const [file, re] of [
+        [garbage, /size|ustar|header|Unsupported/i],
+        [noSave, /no SAVE\.DAT/i],
+    ]) {
+        await page.locator(`#showmenu_${FOLDER}_SLOT04`).click();
+        const item = page
+            .locator("#contextMenu .context-menu-item")
+            .filter({ hasText: /import from file|импорт из файла/i });
+        const chooserPromise = page.waitForEvent("filechooser");
+        await item.click();
+        await (await chooserPromise).setFiles(file);
+        await expect(page.locator("#error_text")).toHaveText(re, {
+            timeout: 15_000,
+        });
+        // Page is alive (no reload, no hang) and the slot still has the old save.
+        await expect(slotName(page, 4)).toHaveText("FORK-KEEP");
+        expect(await page.evaluate(() => 1 + 1)).toBe(2);
+        await page.reload();
+        await page
+            .locator(`#game_slots_${FOLDER}`)
+            .waitFor({ state: "visible", timeout: 60_000 });
+        await expect(slotName(page, 4)).toHaveText("FORK-KEEP", {
+            timeout: 30_000,
+        });
+    }
+});
