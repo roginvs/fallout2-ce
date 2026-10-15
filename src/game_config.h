@@ -14,9 +14,6 @@ namespace fallout {
 #define GAME_CONFIG_MASTER_DAT_KEY "master_dat"
 #define GAME_CONFIG_MASTER_PATCHES_KEY "master_patches"
 #define GAME_CONFIG_F2_RES_DAT_KEY "f2_res_dat"
-// Set after f2_res.ini has been considered. Presence of screen.resolution_x is
-// not a migration signal: the web shell writes that key before startup.
-#define GAME_CONFIG_F2_RES_MIGRATED_KEY "f2_res_migrated"
 #define GAME_CONFIG_CRITTER_DAT_KEY "critter_dat"
 #define GAME_CONFIG_CRITTER_PATCHES_KEY "critter_patches"
 #define GAME_CONFIG_MUSIC_PATH1_KEY "music_path1"
