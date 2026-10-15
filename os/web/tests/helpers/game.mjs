@@ -24,6 +24,62 @@ export async function launchGame(page, folder) {
 }
 
 /**
+ * launchGame with retries for live/proxy navigation flakes.
+ * @param {Page} page
+ * @param {string} folder
+ * @param {{ attempts?: number }} [opts]
+ */
+export async function launchGameRetry(page, folder, opts = {}) {
+    const attempts = opts.attempts ?? 5;
+    page.setDefaultNavigationTimeout(90_000);
+    let last;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+            await launchGame(page, folder);
+            return;
+        } catch (e) {
+            last = e;
+            const msg = String(e && /** @type {any} */ (e).message ? /** @type {any} */ (e).message : e);
+            if (!/ERR_TIMED_OUT|Timeout|net::ERR_/i.test(msg) || attempt === attempts) {
+                throw e;
+            }
+            await page.waitForTimeout(3000 * attempt);
+        }
+    }
+    throw last;
+}
+
+/**
+ * File paths inside a ustar archive (files only).
+ * @param {string} archivePath
+ * @returns {Promise<string[]>}
+ */
+export async function listTarPaths(archivePath) {
+    const fs = await import("node:fs/promises");
+    const buf = new Uint8Array(await fs.readFile(archivePath));
+    const paths = [];
+    let rest = buf;
+    while (rest.length >= 512) {
+        const header = rest.subarray(0, 512);
+        if (header.every((b) => b === 0)) break;
+        const nameEnd = header.indexOf(0);
+        const name = String.fromCharCode(
+            ...header.subarray(0, nameEnd < 0 ? 100 : Math.min(100, nameEnd)),
+        );
+        const sizeStr = String.fromCharCode(...header.subarray(124, 136))
+            .replace(/\0/g, "")
+            .trim();
+        const fileSize = parseInt(sizeStr, 8) || 0;
+        const typeFlag = header[156];
+        const isFile = typeFlag === 0 || typeFlag === 48;
+        if (name && isFile) paths.push(name);
+        const padded = fileSize + ((512 - (fileSize % 512)) % 512);
+        rest = rest.subarray(512 + padded);
+    }
+    return paths;
+}
+
+/**
  * Screenshot of #canvas, or only of `region` (fractions of the canvas size).
  *
  * @param {Page} page
