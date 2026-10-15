@@ -2083,6 +2083,7 @@ int mapIdBeingLoaded()
 static int lsgLoadGameInSlot(int slot)
 {
     if (slot < 0 || slot >= saveLoadTotalSlots) {
+        _loadingMapId = -1;
         return -1;
     }
     assert(slot == _slot_cursor);
@@ -2105,6 +2106,7 @@ static int lsgLoadGameInSlot(int slot)
     if (_flptr == nullptr) {
         debugPrint("\nLOADSAVE: ** Error opening load game file for reading! **\n");
         _loadingGame = false;
+        _loadingMapId = -1;
         return -1;
     }
 
@@ -2114,6 +2116,7 @@ static int lsgLoadGameInSlot(int slot)
         fileClose(_flptr);
         gameReset();
         _loadingGame = false;
+        _loadingMapId = -1;
         return -1;
     }
 
@@ -2142,13 +2145,13 @@ static int lsgLoadGameInSlot(int slot)
 
     _loadingMapId = -1;
 
-    debugPrint("LOADSAVE: Total load data read: %ld bytes.\n", fileTell(_flptr));
-    if (fileGetSize(_flptr) != fileTell(_flptr)) {
-        debugPrint("\nLOADSAVE: ** Error reading load, some data is left! file_size=%ld **\n", fileGetSize(_flptr));
-        fileClose(_flptr);
-        gameReset();
-        _loadingGame = 0;
-        return -1;
+    long bytesRead = fileTell(_flptr);
+    long fileSize = fileGetSize(_flptr);
+    debugPrint("LOADSAVE: Total load data read: %ld bytes.\n", bytesRead);
+    // Upstream loads a SAVE.DAT that is longer than the handlers consumed.
+    // Keep that behavior and only warn, same idea as CitiesLimitFix.
+    if (fileSize != bytesRead) {
+        debugPrint("\nLOADSAVE: Warning, SAVE.DAT size %ld differs from bytes read %ld. Loading anyway.\n", fileSize, bytesRead);
     }
     fileClose(_flptr);
 
@@ -2161,6 +2164,7 @@ static int lsgLoadGameInSlot(int slot)
         bool loaded = sfallLoadGameData(_flptr);
         fileClose(_flptr);
         if (!loaded) {
+            _loadingMapId = -1;
             return -1;
         }
     }
