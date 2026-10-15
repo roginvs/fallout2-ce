@@ -25,6 +25,8 @@ const IGNORED = [
     // Network flakes of the live site (third-party chat widget, slow requests).
     // Real game data failures surface as shell status/errors or test timeouts.
     "Failed to load resource: net::ERR_(TIMED_OUT|FAILED|CONNECTION_RESET)",
+    // Live site rate-limits when several agents hit it at once.
+    "Failed to load resource: the server responded with a status of 429",
     "embed\\.tawk\\.to",
 ];
 
