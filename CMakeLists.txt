@@ -403,7 +403,7 @@ if(WIN32)
 endif()
 
 if(MSVC)
-    target_link_libraries(${EXECUTABLE_NAME}
+    target_link_libraries(${EXECUTABLE_NAME} 
         debug libcpmtd
         optimized libcpmt
     )
@@ -647,7 +647,7 @@ if((NOT ANDROID) AND (NOT IOS) AND (NOT CMAKE_SYSTEM_NAME MATCHES "Emscripten"))
     target_include_directories(ce-frm2png PRIVATE ${ZLIB_INCLUDE_DIRS})
     target_link_libraries(ce-frm2png ${SDL2_LIBRARIES})
     target_link_libraries(ce-frm2png ${ZLIB_LIBRARIES})
-
+    
     if(MINGW)
         target_link_options(ce-frm2png PRIVATE
             -static
@@ -735,7 +735,7 @@ if((NOT ANDROID) AND (NOT IOS) AND (NOT CMAKE_SYSTEM_NAME MATCHES "Emscripten"))
         target_link_libraries(mapper-ce
             winmm
         )
-
+        
         if(MSVC)
             target_link_libraries(mapper-ce
                 debug libcpmtd
