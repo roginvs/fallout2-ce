@@ -17,7 +17,7 @@ docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) \
   "emscripten/emsdk:$EMSDK_VERSION" \
   sh -c 'mkdir -p build && cd build && 
         export SOURCE_MAP_BASE=https://fallout-nevada.ru/ &&
-        export EM_CACHE=$(pwd)/build/emcache && 
+        export EM_CACHE=$(pwd)/emcache && 
         emcmake cmake -DCMAKE_BUILD_TYPE="Release" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ../ && 
         emmake make VERBOSE=1 -j 8'
 
@@ -30,7 +30,7 @@ docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) \
   "emscripten/emsdk:$EMSDK_VERSION" \
   sh -c 'mkdir -p build.debug && cd build.debug && 
         export SOURCE_MAP_BASE=https://fallout-nevada.ru/ &&
-        export EM_CACHE=$(pwd)/build.debug/emcache && 
+        export EM_CACHE=$(pwd)/emcache && 
         emcmake cmake -DCMAKE_BUILD_TYPE="Debug" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ../ && 
         emmake make VERBOSE=1 -j 8'
 
