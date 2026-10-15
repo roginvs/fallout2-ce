@@ -20,6 +20,15 @@ npx playwright install --with-deps chromium
 
 `E2E_BASE_URL` points e2e tests at another deployment, e.g. `E2E_BASE_URL=http://127.0.0.1:8765/ npm run e2e`. A local server only works if `os/web` contains the built `fallout2-ce.js`/`.wasm` and `game/<folder>/` data; neither is in git.
 
+### Local caching proxy
+
+By default e2e tests go straight to `https://fallout-nevada.ru/`. `E2E_USE_CACHE_PROXY=1 npm run e2e` makes Playwright start `helpers/caching-proxy.mjs` on `http://127.0.0.1:8766/` and run the tests against it. The first run downloads every requested file from the site and stores it on disk. Later runs serve it from disk, so `main-menu-new-game` drops to about 20 s. Bodies are stored as received (gzip stays gzip), range requests are cut from the cached file, and only `200` responses are cached.
+
+- `E2E_CACHE_DIR` sets the cache folder, default `/workspace/e2e-cache` (outside git). Delete it to refetch everything, for example after a deploy.
+- `E2E_PROXY_PORT` sets the port, default `8766`. `E2E_PROXY_UPSTREAM` sets the origin, default `https://fallout-nevada.ru`.
+- `E2E_CANDIDATE_DIR=/path/to/build` turns on candidate mode. A file in that folder (`fallout2-ce.js`, `fallout2-ce.wasm`, `*.mjs`, `index.sw.js` and so on) is served instead of the site's copy, and everything else, including `game/`, comes from the cache.
+- A proxy that is already running on the port is reused. Run it by hand with `node helpers/caching-proxy.mjs` to see the hit/miss log.
+
 Each test gets a fresh Playwright browser context: empty IndexedDB, localStorage and cache. Saves made by tests never touch a real browser profile.
 
 ## Artifacts
