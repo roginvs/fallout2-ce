@@ -12,6 +12,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+env:
+  # Single source of truth for the Emscripten version (read by os/web/emsdk-version.sh)
+  EMSDK_VERSION: 3.1.74
+
 permissions:
   contents: read
 
@@ -42,8 +46,8 @@ jobs:
         run: |
           git clone https://github.com/emscripten-core/emsdk.git
           cd emsdk
-          ./emsdk install 4.0.4
-          ./emsdk activate 4.0.4
+          ./emsdk install ${{ env.EMSDK_VERSION }}
+          ./emsdk activate ${{ env.EMSDK_VERSION }}
 
       - name: Build fallout2 wasm module
         run: |
