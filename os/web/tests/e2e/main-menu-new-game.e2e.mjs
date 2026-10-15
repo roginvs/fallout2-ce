@@ -1,5 +1,5 @@
 // Reference end-to-end test. Copy this file to write the next scenario.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../helpers/fixtures.mjs";
 import {
     comparePngs,
     launchGame,

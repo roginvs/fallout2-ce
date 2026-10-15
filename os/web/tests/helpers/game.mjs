@@ -92,10 +92,13 @@ export async function comparePngs(page, a, b) {
  * @param {Page} page
  * Animated maps never give identical frames, raise `maxChanged` for them.
  *
- * @param {{ timeout?: number, interval?: number, minNonBlack?: number, maxChanged?: number }} [opts]
+ * @param {{ timeout?: number, interval?: number, minNonBlack?: number, maxChanged?: number, skipLoadWait?: boolean }} [opts]
  * @returns {Promise<Buffer>} the stable frame
  */
 export async function waitForStableFrame(page, opts = {}) {
+    if (trackers.has(page) && !opts.skipLoadWait) {
+        await waitForGameDataIdle(page, { timeout: opts.timeout });
+    }
     const timeout = opts.timeout ?? 180_000;
     const interval = opts.interval ?? 1_000;
     const minNonBlack = opts.minNonBlack ?? 0.1;
@@ -192,4 +195,75 @@ export async function downloadSlot(page, folder, slot, testInfo) {
     const target = testInfo.outputPath(download.suggestedFilename());
     await download.saveAs(target);
     return target;
+}
+
+/** @type {WeakMap<Page, { pending: Map<any, string>, lastFinished: string, lastActivity: number }>} */
+const trackers = new WeakMap();
+
+/** @param {string} url */
+function isGameData(url) {
+    return /\/game\/|\.dat(\.gz)?(\?|$)/i.test(url);
+}
+
+/**
+ * Starts tracking game data requests (`/game/...`, `*.dat`) on the page.
+ * The e2e fixture in fixtures.mjs calls it for every test.
+ *
+ * @param {Page} page
+ */
+export function trackGameData(page) {
+    const t = { pending: new Map(), lastFinished: "", lastActivity: Date.now() };
+    trackers.set(page, t);
+    page.on("request", (r) => {
+        if (!isGameData(r.url())) return;
+        t.pending.set(r, r.url());
+        t.lastActivity = Date.now();
+    });
+    /** @param {any} r */
+    const done = (r) => {
+        if (!t.pending.delete(r)) return;
+        t.lastFinished = r.url();
+        t.lastActivity = Date.now();
+    };
+    page.on("requestfinished", done);
+    page.on("requestfailed", done);
+    return t;
+}
+
+/**
+ * Waits until the shell's top status line (#status_text, file name + percent while
+ * downloading) is hidden and no game data request was active for `quietMs`.
+ * On timeout throws with the status text, last finished file and pending requests.
+ *
+ * @param {Page} page
+ * @param {{ timeout?: number, quietMs?: number }} [opts]
+ */
+export async function waitForGameDataIdle(page, opts = {}) {
+    const timeout = opts.timeout ?? 180_000;
+    const quietMs = opts.quietMs ?? 2_000;
+    const t = trackers.get(page);
+    if (!t) throw new Error("trackGameData(page) was not called");
+    const deadline = Date.now() + timeout;
+    let status = "";
+    while (Date.now() < deadline) {
+        status = await page
+            .locator("#status_text")
+            .evaluate((el) =>
+                getComputedStyle(el).opacity === "0" ? "" : el.textContent || "",
+            )
+            .catch(() => "");
+        if (
+            !status.trim() &&
+            t.pending.size === 0 &&
+            Date.now() - t.lastActivity >= quietMs
+        ) {
+            return;
+        }
+        await page.waitForTimeout(250);
+    }
+    throw new Error(
+        `Game data still loading after ${timeout} ms. ` +
+            `Status: "${status}". Last loaded: ${t.lastFinished || "none"}. ` +
+            `Pending: ${[...t.pending.values()].join(", ") || "none"}`,
+    );
 }

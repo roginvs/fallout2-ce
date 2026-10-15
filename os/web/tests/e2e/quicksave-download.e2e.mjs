@@ -1,5 +1,5 @@
 // Premade character -> F6 quicksave -> reload shell -> download slot -> load it back.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../helpers/fixtures.mjs";
 import fs from "node:fs/promises";
 import {
     comparePngs,
