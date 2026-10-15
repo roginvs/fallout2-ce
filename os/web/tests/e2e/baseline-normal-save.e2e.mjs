@@ -29,6 +29,11 @@ const GAMES = [
         saveName: "audit-nv241r-n-a",
     },
     {
+        folder: "Fallout_Nevada_official_20240505_100_patch2",
+        label: "Nevada 1.00 patch2 ru",
+        saveName: "audit-nv100r-n-a",
+    },
+    {
         folder: "FalloutNevadaEng",
         label: "Nevada Eng",
         saveName: "audit-nveng-n-a",
