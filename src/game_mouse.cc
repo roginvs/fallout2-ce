@@ -29,7 +29,6 @@
 #include "map_edge.h"
 #include "mouse.h"
 #include "object.h"
-#include "perk.h"
 #include "party_member.h"
 #include "proto.h"
 #include "proto_instance.h"
@@ -1022,11 +1021,9 @@ void _gmouse_handle_event(int mouseX, int mouseY, int mouseState)
                 }
             }
 
-            if (dudeHasState(DUDE_STATE_SNEAKING) && !perkGetRank(gDude, PERK_SILENT_RUNNING)) {
-                _dude_move(actionPoints);
-            } else {
-                _dude_run(actionPoints);
-            }
+            // Sneak without Silent Running walks via animationRegisterRunToTile
+            // when [qol] walk_when_sneaking is set. The web shell sets it to 1.
+            _dude_run(actionPoints);
 
             return;
         }

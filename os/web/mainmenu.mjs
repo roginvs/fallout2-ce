@@ -933,6 +933,9 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                             "enable_high_resolution_stencil",
                             isUsingHiRes ? "1" : "0",
                         );
+                        // Upstream default is 0. The web player previously
+                        // walked while sneaking; keep that with the stock option.
+                        iniParser.setValue("qol", "walk_when_sneaking", "1");
                         // Do not pre-seed migratable UI keys (iface bar, splash,
                         // ammo meter, menu/death/end sizes). Those come from
                         // f2_res.ini. Screen keys above keep priority.
