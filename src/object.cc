@@ -2324,6 +2324,8 @@ Object* objectFindNextAtElevation()
 Object* objectFindFirstAtLocation(int elevation, int tile)
 {
     gObjectFindElevation = elevation;
+
+    // Meaningless assignment because it is not used in objectFindNextAtLocation
     gObjectFindTile = tile;
 
     ObjectListNode* objectListNode = gObjectListHeadByTile[tile];

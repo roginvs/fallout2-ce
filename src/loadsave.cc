@@ -370,14 +370,6 @@ static constexpr char kLoadSaveSlotDataSection[] = "POSITION";
 static constexpr char kLoadSaveSlotDataKey[] = "CurrentSlot";
 static constexpr char kLoadSaveSlotDataFile[] = "SAVEGAME\\slotdat.ini";
 
-// Slot last published to IDBFS. -1 means the current cursor is not known to
-// match the persisted file, so the next close must write and sync it.
-static int gLoadSaveIdbfsSlot = -1;
-
-static bool loadSavePersistSelectedSlot();
-static void loadSaveFinalizeSuccessfulSave();
-static void loadSavePersistSlotIfChanged();
-
 static void loadSaveRememberSelectedSlot()
 {
     assert(_patches != nullptr);
@@ -389,16 +381,12 @@ static void loadSaveRememberSelectedSlot()
     snprintf(path, sizeof(path), "%s\\%s", _patches, kLoadSaveSlotDataFile);
 
     int slot = 0;
-    bool hadSlot = false;
     if (ScopedConfig config { path, false }; config) {
-        hadSlot = configGetInt(config.get(), kLoadSaveSlotDataSection, kLoadSaveSlotDataKey, &slot);
+        configGetInt(config.get(), kLoadSaveSlotDataSection, kLoadSaveSlotDataKey, &slot, 0);
     }
 
     _slot_cursor = std::clamp(slot, 0, saveLoadTotalSlots - 1);
     _currentSlotPage = _slot_cursor / slotsPerPage;
-    if (hadSlot && slot == _slot_cursor) {
-        gLoadSaveIdbfsSlot = _slot_cursor;
-    }
 }
 
 static void loadSaveSetCurrentPage(int page)
@@ -473,7 +461,7 @@ static bool loadSaveChangePage(int delta, LoadSaveWindowType windowType)
     return true;
 }
 
-static bool loadSavePersistSelectedSlot()
+static void loadSavePersistSelectedSlot()
 {
     assert(_patches != nullptr);
 
@@ -486,14 +474,11 @@ static bool loadSavePersistSelectedSlot()
 
     ScopedConfig config { path, false };
     if (!config.get()->isInitialized()) {
-        return false;
+        return;
     }
 
-    if (!configSetInt(config.get(), kLoadSaveSlotDataSection, kLoadSaveSlotDataKey, _slot_cursor)) {
-        return false;
-    }
-
-    return configWrite(config.get(), path, false);
+    configSetInt(config.get(), kLoadSaveSlotDataSection, kLoadSaveSlotDataKey, _slot_cursor);
+    configWrite(config.get(), path, false);
 }
 
 // 0x47B7E4
@@ -1882,9 +1867,7 @@ static int lsgWindowInit(int windowType)
 // 0x47D824
 static int lsgWindowFree(int windowType)
 {
-    // Save already published the slot. Load, cancel, and a slot change that
-    // did not save still need one write plus one sync.
-    loadSavePersistSlotIfChanged();
+    loadSavePersistSelectedSlot();
 
     windowDestroy(gLoadSaveWindow);
     fontSetCurrent(gLoadSaveWindowOldFont);
@@ -1911,52 +1894,14 @@ static int lsgWindowFree(int windowType)
 
 #if defined(__EMSCRIPTEN__)
 // clang-format off
-EM_ASYNC_JS(int, do_save_idbfs_loadsave, (), {
-    // Special mount point over the root: FS.syncfs() alone will not persist saves.
-    // On rejection write_idbfs already showed alert(); return 1 so C does not
-    // treat the sync as success (and so an unhandled rejection cannot abort).
-    try {
-        await write_idbfs();
-        return 0;
-    } catch (e) {
-        return 1;
-    }
+EM_ASYNC_JS(void, do_save_idbfs_loadsave, (), {
+    // We have to call special function because of special mount point which is over the root
+    // Calling FS.syncfs() will not work in this case
+    await write_idbfs();
+    // await new Promise((resolve, reject) => FS.syncfs(err => err ? reject(err) : resolve()))
 });
 // clang-format on
 #endif
-
-// One completion point for a finished save: slotdat.ini, then a single IDBFS
-// sync. Quick save never reaches lsgWindowFree, so it must use this too.
-static void loadSaveFinalizeSuccessfulSave()
-{
-    const bool persisted = loadSavePersistSelectedSlot();
-#if defined(__EMSCRIPTEN__)
-    if (do_save_idbfs_loadsave() != 0) {
-        return;
-    }
-#endif
-    if (persisted) {
-        gLoadSaveIdbfsSlot = _slot_cursor;
-    }
-}
-
-static void loadSavePersistSlotIfChanged()
-{
-    if (gLoadSaveIdbfsSlot == _slot_cursor) {
-        return;
-    }
-
-    if (!loadSavePersistSelectedSlot()) {
-        return;
-    }
-
-#if defined(__EMSCRIPTEN__)
-    if (do_save_idbfs_loadsave() != 0) {
-        return;
-    }
-#endif
-    gLoadSaveIdbfsSlot = _slot_cursor;
-}
 
 // 0x47D88C
 static int lsgPerformSaveGame()
@@ -2063,7 +2008,9 @@ static int lsgPerformSaveGame()
     snprintf(_gmpath, sizeof(_gmpath), "%s\\%s%.2d\\", "SAVEGAME", "SLOT", _slot_cursor + 1);
     MapDirErase(_gmpath, "BAK");
 
-    loadSaveFinalizeSuccessfulSave();
+#if defined(__EMSCRIPTEN__)
+    do_save_idbfs_loadsave();
+#endif
 
     gLoadSaveMessageListItem.num = 140;
     if (messageListGetItem(&gLoadSaveMessageList, &gLoadSaveMessageListItem)) {
@@ -2092,7 +2039,6 @@ int mapIdBeingLoaded()
 static int lsgLoadGameInSlot(int slot)
 {
     if (slot < 0 || slot >= saveLoadTotalSlots) {
-        _loadingMapId = -1;
         return -1;
     }
     assert(slot == _slot_cursor);
@@ -2115,7 +2061,6 @@ static int lsgLoadGameInSlot(int slot)
     if (_flptr == nullptr) {
         debugPrint("\nLOADSAVE: ** Error opening load game file for reading! **\n");
         _loadingGame = false;
-        _loadingMapId = -1;
         return -1;
     }
 
@@ -2125,7 +2070,6 @@ static int lsgLoadGameInSlot(int slot)
         fileClose(_flptr);
         gameReset();
         _loadingGame = false;
-        _loadingMapId = -1;
         return -1;
     }
 
@@ -2154,13 +2098,13 @@ static int lsgLoadGameInSlot(int slot)
 
     _loadingMapId = -1;
 
-    long bytesRead = fileTell(_flptr);
-    long fileSize = fileGetSize(_flptr);
-    debugPrint("LOADSAVE: Total load data read: %ld bytes.\n", bytesRead);
-    // Upstream loads a SAVE.DAT that is longer than the handlers consumed.
-    // Keep that behavior and only warn, same idea as CitiesLimitFix.
-    if (fileSize != bytesRead) {
-        debugPrint("\nLOADSAVE: Warning, SAVE.DAT size %ld differs from bytes read %ld. Loading anyway.\n", fileSize, bytesRead);
+    debugPrint("LOADSAVE: Total load data read: %ld bytes.\n", fileTell(_flptr));
+    if (fileGetSize(_flptr) != fileTell(_flptr)) {
+        debugPrint("\nLOADSAVE: ** Error reading load, some data is left! file_size=%ld **\n", fileGetSize(_flptr));
+        fileClose(_flptr);
+        gameReset();
+        _loadingGame = 0;
+        return -1;
     }
     fileClose(_flptr);
 
@@ -2173,7 +2117,6 @@ static int lsgLoadGameInSlot(int slot)
         bool loaded = sfallLoadGameData(_flptr);
         fileClose(_flptr);
         if (!loaded) {
-            _loadingMapId = -1;
             return -1;
         }
     }
@@ -2464,6 +2407,7 @@ static void loadSaveLoadSlotPage(int page)
 
 static void _ShowSlotList(int windowType)
 {
+    debugPrint("_ShowSlotList started\n");
     loadSaveLoadSlotPage(_currentSlotPage);
 
     // Clear display area
@@ -2478,6 +2422,7 @@ static void _ShowSlotList(int windowType)
         Color color = index == _slot_cursor ? COLOR_LIGHT_YELLOW : COLOR_GREEN;
         const char* text = getmsg(&gLoadSaveMessageList, &gLoadSaveMessageListItem, windowType != 0 ? 110 : 109);
         snprintf(_str, sizeof(_str), "[   %s %.2d:   ]", text, index + 1);
+        debugPrint("_ShowSlotList index=%i len=%i text='%s'\n", index, strlen(_str), _str);
         fontDrawText(gLoadSaveWindowBuffer + LS_WINDOW_WIDTH * y + 55, _str, LS_WINDOW_WIDTH, LS_WINDOW_WIDTH, color);
 
         y += fontGetLineHeight();
@@ -2504,6 +2449,7 @@ static void _ShowSlotList(int windowType)
             break;
         }
 
+        debugPrint("_ShowSlotList index=%i len=%i text='%s'\n", index, strlen(_str), _str);
         fontDrawText(gLoadSaveWindowBuffer + LS_WINDOW_WIDTH * y + 55, _str, LS_WINDOW_WIDTH, LS_WINDOW_WIDTH, color);
         y += 2 * fontGetLineHeight() + 4;
     }
@@ -2529,6 +2475,7 @@ static void _ShowSlotList(int windowType)
                 debugPrint("Error: Couldn't find LoadSave Message!");
                 messageListItemBack.text = backText;
             }
+            debugPrint("_ShowSlotList back len=%i text='%s'\n", strlen(messageListItemBack.text), messageListItemBack.text);
             fontDrawText(
                 gLoadSaveWindowBuffer + LS_WINDOW_WIDTH * navigationY + 95,
                 messageListItemBack.text,
@@ -2543,6 +2490,7 @@ static void _ShowSlotList(int windowType)
                 debugPrint("Error: Couldn't find LoadSave Message!");
                 messageListItemMore.text = moreText;
             }
+            debugPrint("_ShowSlotList more len=%i text='%s'\n", strlen(messageListItemMore.text), messageListItemMore.text);
             fontDrawText(gLoadSaveWindowBuffer + LS_WINDOW_WIDTH * navigationY + 210,
                 messageListItemMore.text,
                 LS_WINDOW_WIDTH,
@@ -2557,6 +2505,8 @@ static void _ShowSlotList(int windowType)
             LS_WINDOW_WIDTH,
             _currentSlotPage < saveLoadPages - 1 ? activeColor : inactiveColor);
     }
+
+    debugPrint("_ShowSlotList ended\n");
 }
 
 // 0x47E8E0
