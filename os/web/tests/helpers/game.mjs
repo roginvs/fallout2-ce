@@ -90,13 +90,16 @@ export async function comparePngs(page, a, b) {
  * the same between two consecutive shots. Use it after loading screens.
  *
  * @param {Page} page
- * @param {{ timeout?: number, interval?: number, minNonBlack?: number }} [opts]
+ * Animated maps never give identical frames, raise `maxChanged` for them.
+ *
+ * @param {{ timeout?: number, interval?: number, minNonBlack?: number, maxChanged?: number }} [opts]
  * @returns {Promise<Buffer>} the stable frame
  */
 export async function waitForStableFrame(page, opts = {}) {
     const timeout = opts.timeout ?? 180_000;
     const interval = opts.interval ?? 1_000;
     const minNonBlack = opts.minNonBlack ?? 0.1;
+    const maxChanged = opts.maxChanged ?? 0.002;
     const deadline = Date.now() + timeout;
     let prev = await canvasPng(page);
     while (Date.now() < deadline) {
@@ -107,7 +110,7 @@ export async function waitForStableFrame(page, opts = {}) {
             prev,
             cur,
         );
-        if (nonBlackRatioB >= minNonBlack && changedRatio < 0.002) {
+        if (nonBlackRatioB >= minNonBlack && changedRatio < maxChanged) {
             return cur;
         }
         prev = cur;
