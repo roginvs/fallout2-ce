@@ -4,6 +4,9 @@ set -e
 export LC_TIME=en_US.UTF-8
 export LANG=en_US.UTF-8
 
+EMSDK_VERSION=$(./os/web/emsdk-version.sh)
+echo "=== Emscripten version (from .github/workflows/ci-build-web.yml): $EMSDK_VERSION ==="
+
 echo "=== Js prettier and checks ==="
 (cd os/web && npx prettier -w .)
 (cd os/web && npx -p typescript tsc)
@@ -11,7 +14,7 @@ echo "=== Js prettier and checks ==="
 echo "=== Release build ==="
 
 docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) \
-  emscripten/emsdk:4.0.8 \
+  "emscripten/emsdk:$EMSDK_VERSION" \
   sh -c 'mkdir -p build && cd build && 
         export SOURCE_MAP_BASE=https://fallout-nevada.ru/ &&
         export EM_CACHE=$(pwd)/build/emcache && 
@@ -24,7 +27,7 @@ echo ""
 
 echo "=== Debug build ==="
 docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) \
-  emscripten/emsdk:4.0.8 \
+  "emscripten/emsdk:$EMSDK_VERSION" \
   sh -c 'mkdir -p build.debug && cd build.debug && 
         export SOURCE_MAP_BASE=https://fallout-nevada.ru/ &&
         export EM_CACHE=$(pwd)/build.debug/emcache && 

@@ -120,7 +120,7 @@ async () => {
 
 После baseline выполнить/проверить merge и согласованные TODO из сообщения сопровождающего коммита. Самостоятельно финальный merge-коммит и деплой не создавать без указания пользователя.
 
-Версия Emscripten — та, что в `.github/workflows/ci-build-web.yml` (сейчас 4.0.8); в docker-командах `emscripten/emsdk:<эта версия>`:
+Версия Emscripten — `EMSDK_VERSION` в `.github/workflows/ci-build-web.yml` (единственный источник); `./os/web/emsdk-version.sh` печатает её, docker-команда ниже использует её (запускать из корня репозитория):
 
 ```bash
 emcmake cmake -S . -B build/audit-debug -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
@@ -130,7 +130,7 @@ cmake --build build/audit-debug --target fallout2-ce -j 4
 При необходимости Docker:
 
 ```bash
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:$PWD" -w "$PWD" emscripten/emsdk:4.0.8 sh -c 'export EM_CACHE="$PWD/build/audit-emcache"; emcmake cmake -S . -B build/audit-debug -DCMAKE_BUILD_TYPE=Debug && cmake --build build/audit-debug --target fallout2-ce -j 4'
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:$PWD" -w "$PWD" "emscripten/emsdk:$(./os/web/emsdk-version.sh)" sh -c 'export EM_CACHE="$PWD/build/audit-emcache"; emcmake cmake -S . -B build/audit-debug -DCMAKE_BUILD_TYPE=Debug && cmake --build build/audit-debug --target fallout2-ce -j 4'
 ```
 
 Собрать также Release в отдельный каталог `build/audit-release`, заменив build type и каталог. Итоговую полную матрицу совместимости пройти на сборке с параметрами, предназначенными для публикации; Debug использовать для диагностики. Успешный Debug не заменяет Release.
