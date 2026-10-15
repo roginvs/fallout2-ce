@@ -1,7 +1,8 @@
 import { configuration } from "./config.mjs";
 import { showContextMenu } from "./contextmenu.mjs";
 import { addDebugTag } from "./debugTags.mjs";
-import { removeGameCache } from "./gamecache.mjs";
+import { createFetcher } from "./fetcher.mjs";
+import { getCacheName, removeGameCache } from "./gamecache.mjs";
 import { addHotkeysForFullscreen } from "./hotkeys_and_workarounds.mjs";
 import { IniParser } from "./iniparser.mjs";
 import { downloadAllGameFiles, initFilesystem } from "./initFilesystem.mjs";
@@ -1008,11 +1009,49 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                 game.filesVersion,
                 async (indexOriginal) => {
                     const index = [...indexOriginal];
+                    const indexHas = (name) =>
+                        index.some(
+                            (f) => f.name.toLowerCase() === name.toLowerCase(),
+                        );
+
+                    const ddrawEntry = index.find(
+                        (f) => f.name.toLowerCase() === "ddraw.ini",
+                    );
+                    if (ddrawEntry) {
+                        try {
+                            const readDdraw = createFetcher(
+                                `./game/${game.folder}/`,
+                                getCacheName(game.folder, game.filesVersion),
+                                configuration.useGzip,
+                                () => {},
+                                null,
+                                game.filesVersion,
+                            );
+                            const ddrawBytes = await readDdraw(
+                                ddrawEntry.name,
+                                ddrawEntry.size,
+                                ddrawEntry.sha256hash,
+                            );
+                            const configFile = new IniParser(ddrawBytes)
+                                .getValue("Misc", "ConfigFile")
+                                ?.trim();
+                            if (configFile) {
+                                gameConfigFileName = configFile;
+                            }
+                        } catch (e) {
+                            console.warn(
+                                "Could not read [Misc] ConfigFile from ddraw.ini",
+                                e,
+                            );
+                        }
+                    }
 
                     for (const filePath of [
-                        "fallout2.cfg",
-                        "f2_res.ini",
                         "ddraw.ini",
+                        "f2_res.ini",
+                        // Active cfg from [Misc] ConfigFile, e.g. Nevada.cfg.
+                        // Do not invent fallout2.cfg when another file is active.
+                        gameConfigFileName,
 
                         // Those files are missing in the index
                         // This is workaround to skip re-calculation of index
@@ -1021,11 +1060,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         "data/art/intrface/hr_ifacerht2.frm",
                         "data/art/intrface/HR_IFACE_800.frm",
                     ]) {
-                        if (
-                            !index.find(
-                                (f) => f.name.toLowerCase() === filePath,
-                            )
-                        ) {
+                        if (!indexHas(filePath)) {
                             // If file is not present then we have to add it here with content
                             const fileContent = await fileTransformer(
                                 filePath,
