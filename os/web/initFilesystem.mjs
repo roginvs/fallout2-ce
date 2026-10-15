@@ -173,9 +173,16 @@ export async function initFilesystem(
     const savegameNodeMount = FS.lookupPath("/" + folderName + "/data/SAVEGAME")
         .node.mount;
 
-    await new Promise((resolve) => {
+    await new Promise((resolve, reject) => {
         // The FS.syncfs do not understand nested mounts so we need to find mount node directly
-        IDBFS.syncfs(savegameNodeMount, true, () => {
+        IDBFS.syncfs(savegameNodeMount, true, (/** @type {any} */ err) => {
+            if (err) {
+                const message = `IDBFS startup load failed: ${err}`;
+                console.error(message);
+                setStatusText(message);
+                reject(err);
+                return;
+            }
             resolve(null);
         });
     });
@@ -186,13 +193,14 @@ export async function initFilesystem(
         await new Promise((resolve, reject) => {
             IDBFS.syncfs(savegameNodeMount, false, (/** @type {any} */ err) => {
                 if (err) {
+                    console.error("IDBFS save failed", err);
                     reject(err);
-                } else {
-                    resolve(null);
+                    return;
                 }
+                console.info("IDBFS saved");
+                resolve(null);
             });
         });
-        console.info("IDBFS saved");
     };
 
     {
@@ -202,14 +210,28 @@ export async function initFilesystem(
             /** @type {any} */ populate,
             /** @type {any} */ callback,
         ) => {
-            originalSyncfs(mount, populate, () => {
+            originalSyncfs(mount, populate, (/** @type {any} */ err) => {
+                if (err) {
+                    callback(err);
+                    return;
+                }
+                // persist() only asks the browser to keep the origin. A
+                // refusal is not a failed save, and the callback runs once.
                 if (!navigator.storage || !navigator.storage.persist) {
+                    console.info("IDBFS persist() is not available");
                     callback();
                     return;
                 }
                 navigator.storage
                     .persist()
-                    .catch((e) => console.warn(e))
+                    .then((granted) => {
+                        if (granted) {
+                            console.info("IDBFS persist() granted");
+                        } else {
+                            console.warn("IDBFS persist() was not granted");
+                        }
+                    })
+                    .catch((e) => console.warn("IDBFS persist() failed", e))
                     .then(() => callback());
             });
         };
