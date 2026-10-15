@@ -46,6 +46,11 @@ const GAMES = [
         label: "Nevada 3.4 Foxx ru",
         saveName: "audit-nv34r-qs",
     },
+    {
+        folder: "FalloutOfNevada",
+        label: "Nevada 2.4.1 Foxx ru",
+        saveName: "audit-nv241r-qs",
+    },
 ];
 
 for (const { folder, label, saveName } of GAMES) {
