@@ -117,6 +117,45 @@ export async function downloadAllGameFiles(folderName, filesVersion) {
  */
 
 /**
+ * Forward IDBFS.syncfs errors and ask for persistent storage afterwards.
+ * persist() is not a write: refusal or a missing API still calls callback once
+ * without an error.
+ *
+ * @param {{ syncfs: Function }} idbfs
+ */
+export function installIdbfsSyncfsWrapper(idbfs) {
+    const originalSyncfs = idbfs.syncfs;
+    idbfs.syncfs = (
+        /** @type {any} */ mount,
+        /** @type {any} */ populate,
+        /** @type {any} */ callback,
+    ) => {
+        originalSyncfs(mount, populate, (/** @type {any} */ err) => {
+            if (err) {
+                callback(err);
+                return;
+            }
+            if (!navigator.storage || !navigator.storage.persist) {
+                console.info("IDBFS persist() is not available");
+                callback();
+                return;
+            }
+            navigator.storage
+                .persist()
+                .then((granted) => {
+                    if (granted) {
+                        console.info("IDBFS persist() granted");
+                    } else {
+                        console.warn("IDBFS persist() was not granted");
+                    }
+                })
+                .catch((e) => console.warn("IDBFS persist() failed", e))
+                .then(() => callback());
+        });
+    };
+}
+
+/**
  *
  * @param {string} folderName
  * @param {string} filesVersion
@@ -203,39 +242,7 @@ export async function initFilesystem(
         });
     };
 
-    {
-        const originalSyncfs = IDBFS.syncfs;
-        IDBFS.syncfs = (
-            /** @type {any} */ mount,
-            /** @type {any} */ populate,
-            /** @type {any} */ callback,
-        ) => {
-            originalSyncfs(mount, populate, (/** @type {any} */ err) => {
-                if (err) {
-                    callback(err);
-                    return;
-                }
-                // persist() only asks the browser to keep the origin. A
-                // refusal is not a failed save, and the callback runs once.
-                if (!navigator.storage || !navigator.storage.persist) {
-                    console.info("IDBFS persist() is not available");
-                    callback();
-                    return;
-                }
-                navigator.storage
-                    .persist()
-                    .then((granted) => {
-                        if (granted) {
-                            console.info("IDBFS persist() granted");
-                        } else {
-                            console.warn("IDBFS persist() was not granted");
-                        }
-                    })
-                    .catch((e) => console.warn("IDBFS persist() failed", e))
-                    .then(() => callback());
-            });
-        };
-    }
+    installIdbfsSyncfsWrapper(IDBFS);
 
     // To save UDBFS into indexeddb do this:
     // IDBFS.syncfs(FS.lookupPath('/app/data/SAVEGAME').node.mount, false, () => console.info('saved'))
