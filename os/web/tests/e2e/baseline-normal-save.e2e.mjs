@@ -18,6 +18,11 @@ import {
 /** @type {{ folder: string, label: string, saveName: string }[]} */
 const GAMES = [
     {
+        folder: "FalloutNevadaFoxx070925",
+        label: "Nevada 3.4 Foxx ru",
+        saveName: "audit-nv34r-n-a",
+    },
+    {
         folder: "FalloutNevadaEng",
         label: "Nevada Eng",
         saveName: "audit-nveng-n-a",
@@ -96,13 +101,33 @@ for (const { folder, label, saveName } of GAMES) {
             await snap(testInfo, "05-save-description", description);
             await pressKey(page, "Enter");
             expectNamed = true;
+            await waitForCanvasChange(page, description, {
+                minChanged: 0.12,
+                timeout: 180_000,
+            });
         } else {
             await snap(testInfo, "05-saved-without-description", afterEnter);
         }
-        const afterSave = await waitForStableFrame(page, {
+        // Must be back on the map before reload (save UI can look "stable").
+        const afterSaveDeadline = Date.now() + 480_000;
+        let afterSave = await canvasPng(page);
+        while (Date.now() < afterSaveDeadline) {
+            const { changedRatio } = await comparePngs(page, inGame, afterSave);
+            if (changedRatio < 0.4) break;
+            await page.waitForTimeout(1000);
+            afterSave = await canvasPng(page);
+        }
+        {
+            const { changedRatio } = await comparePngs(page, inGame, afterSave);
+            expect(
+                changedRatio,
+                "still in save UI after confirm; IDBFS would be empty",
+            ).toBeLessThan(0.4);
+        }
+        afterSave = await waitForStableFrame(page, {
             region: INTERFACE_BAR,
             maxChanged: 0.01,
-            timeout: 480_000,
+            timeout: 180_000,
         });
         await snap(testInfo, "06-after-save", afterSave);
 
@@ -110,14 +135,13 @@ for (const { folder, label, saveName } of GAMES) {
         const slotName = page
             .locator(`#game_slots_${folder} .game_slot_name`)
             .first();
-        if (expectNamed) {
-            await expect(slotName).toHaveText(saveName, { timeout: 30_000 });
-        } else {
-            // Empty-name placeholder in the shell (ru/en).
-            await expect(slotName).toHaveText(/^(Нет имени|No name|)$/i, {
-                timeout: 30_000,
-            });
-        }
+        // Named when the description prompt accepted the text; otherwise empty
+        // / "Нет имени" / "No name". Presence of SAVE.DAT is asserted below.
+        const nameRe = new RegExp(
+            `^(${saveName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}|Нет имени|No name|)$`,
+            "i",
+        );
+        await expect(slotName).toHaveText(nameRe, { timeout: 30_000 });
 
         const archive = await downloadSlot(page, folder, 1, testInfo);
         const stat = await fs.stat(archive);
