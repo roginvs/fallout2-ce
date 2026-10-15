@@ -2,7 +2,7 @@
 
 ## Installation
 
-Install emscripten version `3.1.74`.
+Install the emscripten version used in `.github/workflows/ci-build-web.yml` (currently `4.0.8`); it is the source of truth. Docker commands below use `emscripten/emsdk:<that version>`.
 
 ## Build
 
@@ -22,10 +22,10 @@ Or alternatively using docker (no need to install emscipten)
 
 ```bash
 # Release build
-docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) emscripten/emsdk:3.1.74 sh -c 'mkdir -p build && cd build && export SOURCE_MAP_BASE=https://fallout-nevada.ru/ && export EM_CACHE=$(pwd)/build/emcache &&  emcmake cmake -DCMAKE_BUILD_TYPE="Release" ../ && emmake make VERBOSE=1 -j 8'
+docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) emscripten/emsdk:4.0.8 sh -c 'mkdir -p build && cd build && export SOURCE_MAP_BASE=https://fallout-nevada.ru/ && export EM_CACHE=$(pwd)/build/emcache &&  emcmake cmake -DCMAKE_BUILD_TYPE="Release" ../ && emmake make VERBOSE=1 -j 8'
 
 # Debug build
-docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) emscripten/emsdk:3.1.74 sh -c 'mkdir -p build && cd build && export EM_CACHE=$(pwd)/build/emcache-debug &&  emcmake cmake -DCMAKE_BUILD_TYPE="Debug" ../ && emmake make VERBOSE=1 -j 8'
+docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) emscripten/emsdk:4.0.8 sh -c 'mkdir -p build && cd build && export EM_CACHE=$(pwd)/build/emcache-debug &&  emcmake cmake -DCMAKE_BUILD_TYPE="Debug" ../ && emmake make VERBOSE=1 -j 8'
 
 ```
 

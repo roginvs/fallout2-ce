@@ -190,9 +190,9 @@ $ mv fallout2 /Applications/Fallout2
 
 ### Browser
 
-> **NOTE**: WebAssembly build with emscripten
+> **NOTE**: WebAssembly build with emscripten (use the Emscripten version from `.github/workflows/ci-build-web.yml`)
 ```
-docker run --rm -v $(pwd):/src emscripten/emsdk:3.1.74 sh -c 'git config --global --add safe.directory "*" && mkdir -p build && cd build && emcmake cmake ../ -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain/Emscripten.cmake && emmake make'
+docker run --rm -v $(pwd):/src emscripten/emsdk:4.0.8 sh -c 'git config --global --add safe.directory "*" && mkdir -p build && cd build && emcmake cmake ../ -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain/Emscripten.cmake && emmake make'
 ```
 
 -   Demo available at https://github.com/ololoken/fallout2-ce-ems.git

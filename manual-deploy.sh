@@ -11,7 +11,7 @@ echo "=== Js prettier and checks ==="
 echo "=== Release build ==="
 
 docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) \
-  emscripten/emsdk:3.1.74 \
+  emscripten/emsdk:4.0.8 \
   sh -c 'mkdir -p build && cd build && 
         export SOURCE_MAP_BASE=https://fallout-nevada.ru/ &&
         export EM_CACHE=$(pwd)/build/emcache && 
@@ -24,7 +24,7 @@ echo ""
 
 echo "=== Debug build ==="
 docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) \
-  emscripten/emsdk:3.1.74 \
+  emscripten/emsdk:4.0.8 \
   sh -c 'mkdir -p build.debug && cd build.debug && 
         export SOURCE_MAP_BASE=https://fallout-nevada.ru/ &&
         export EM_CACHE=$(pwd)/build.debug/emcache && 
