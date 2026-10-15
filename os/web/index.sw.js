@@ -20,6 +20,7 @@ const CACHE_FILES = [
     "fetcher.mjs",
     "gamecache.mjs",
     "hotkeys_and_workarounds.mjs",
+    "idbfsSync.mjs",
     "index.mjs",
     "iniparser.mjs",
     "initFilesystem.mjs",
