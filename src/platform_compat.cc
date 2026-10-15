@@ -138,9 +138,7 @@ void compat_splitpath(const char* path, char* drive, char* dir, char* fname, cha
 #else
     const char* driveStart = path;
     const char* pathAfterDrive = path;
-    if (pathAfterDrive[0] != '\0' && pathAfterDrive[1] == ':') {
-        pathAfterDrive += 2;
-    } else if (pathAfterDrive[0] != '\0'
+    if (pathAfterDrive[0] != '\0'
         && pathAfterDrive[1] != '\0'
         && compatIsPathSeparator(pathAfterDrive[0])
         && compatIsPathSeparator(pathAfterDrive[1])) {
