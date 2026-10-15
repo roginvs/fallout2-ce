@@ -62,11 +62,55 @@ namespace {
         return configGetString(config, section, key, &value);
     }
 
+    struct F2ResIntClamp {
+        const char* section;
+        const char* key;
+        int minValue;
+        int maxValue;
+    };
+
+    // Same bounds as settings.cc. Legacy HRP values such as DEATH_SCRN_SIZE=2
+    // are stored already clamped so the cfg matches the runtime value.
+    static constexpr F2ResIntClamp kF2ResIntClamps[] = {
+        { GAME_CONFIG_SCREEN_KEY, GAME_CONFIG_RESOLUTION_X_KEY, 640, 7680 },
+        { GAME_CONFIG_SCREEN_KEY, GAME_CONFIG_RESOLUTION_Y_KEY, 480, 4320 },
+        { GAME_CONFIG_SCREEN_KEY, GAME_CONFIG_SCALE_KEY, 1, 4 },
+        { GAME_CONFIG_UI_KEY, GAME_CONFIG_MAIN_MENU_SCALE_MODE_KEY, 0, 2 },
+        { GAME_CONFIG_UI_KEY, GAME_CONFIG_IFACE_BAR_WIDTH_KEY, 640, 4320 },
+        { GAME_CONFIG_UI_KEY, GAME_CONFIG_IFACE_BAR_SIDE_ART_KEY, 0, 999 },
+        { GAME_CONFIG_UI_KEY, GAME_CONFIG_ALTERNATE_AMMO_METER_KEY, 0, 2 },
+        { GAME_CONFIG_UI_KEY, GAME_CONFIG_SPLASH_SCREEN_SIZE_KEY, 0, 2 },
+        { GAME_CONFIG_UI_KEY, GAME_CONFIG_DEATH_SCREEN_SIZE_KEY, 0, 1 },
+        { GAME_CONFIG_UI_KEY, GAME_CONFIG_END_SLIDE_SIZE_KEY, 0, 1 },
+    };
+
+    static void gameConfigClampMigratedInt(Config* gameConfig, const char* section, const char* key)
+    {
+        for (const auto& entry : kF2ResIntClamps) {
+            if (strcmp(entry.section, section) != 0 || strcmp(entry.key, key) != 0) {
+                continue;
+            }
+
+            int value;
+            if (!configGetInt(gameConfig, section, key, &value)) {
+                return;
+            }
+
+            const int clamped = std::clamp(value, entry.minValue, entry.maxValue);
+            if (clamped != value) {
+                configSetInt(gameConfig, section, key, clamped);
+            }
+            return;
+        }
+    }
+
     static bool gameConfigNeedsF2ResMigration(Config* gameConfig)
     {
         assert(gameConfig != nullptr);
 
-        return !gameConfigHasKey(gameConfig, GAME_CONFIG_SCREEN_KEY, GAME_CONFIG_RESOLUTION_X_KEY);
+        // The web shell always writes screen.resolution_x before the engine
+        // starts. That key must not skip the rest of the f2_res.ini transfer.
+        return !gameConfigHasKey(gameConfig, GAME_CONFIG_SYSTEM_KEY, GAME_CONFIG_F2_RES_MIGRATED_KEY);
     }
 
     static bool gameConfigMigrateStringKey(Config* legacyConfig, Config* gameConfig, const F2ResMigrationEntry& entry)
@@ -82,7 +126,12 @@ namespace {
             return false;
         }
 
-        return configSetString(gameConfig, entry.targetSection, entry.targetKey, value);
+        if (!configSetString(gameConfig, entry.targetSection, entry.targetKey, value)) {
+            return false;
+        }
+
+        gameConfigClampMigratedInt(gameConfig, entry.targetSection, entry.targetKey);
+        return true;
     }
 
     static bool gameConfigMigrateMainMenuScaleModeKey(Config* legacyConfig, Config* gameConfig)
@@ -105,6 +154,7 @@ namespace {
             scaleMode = 2;
         }
 
+        scaleMode = std::clamp(scaleMode, 0, 2);
         return configSetInt(gameConfig, GAME_CONFIG_UI_KEY, GAME_CONFIG_MAIN_MENU_SCALE_MODE_KEY, scaleMode);
     }
 
@@ -121,7 +171,8 @@ namespace {
             return false;
         }
 
-        return configSetInt(gameConfig, GAME_CONFIG_SCREEN_KEY, GAME_CONFIG_SCALE_KEY, value + 1);
+        const int scale = std::clamp(value + 1, 1, 4);
+        return configSetInt(gameConfig, GAME_CONFIG_SCREEN_KEY, GAME_CONFIG_SCALE_KEY, scale);
     }
 
     static bool contentConfigMigrateF2ResMainMenuPanelOffsetKey(Config* legacyConfig, Config* contentConfig, const char* legacyKey, const char* targetKey, int baseValue, int defaultValue)
@@ -186,22 +237,20 @@ bool gameConfigMigrateFromF2Res(const char* gameConfigFilePath, Config* gameConf
         return false;
     }
 
-    bool migrated = false;
     for (const auto& entry : kF2ResMigrationEntries) {
-        if (gameConfigMigrateStringKey(legacyConfig.get(), gameConfig, entry)) {
-            migrated = true;
-        }
+        gameConfigMigrateStringKey(legacyConfig.get(), gameConfig, entry);
     }
 
-    if (gameConfigMigrateMainMenuScaleModeKey(legacyConfig.get(), gameConfig)) {
-        migrated = true;
-    }
+    gameConfigMigrateMainMenuScaleModeKey(legacyConfig.get(), gameConfig);
+    gameConfigMigrateScaleKey(legacyConfig.get(), gameConfig);
 
-    if (gameConfigMigrateScaleKey(legacyConfig.get(), gameConfig)) {
-        migrated = true;
+    // Record the attempt even when every legacy key was already present, so a
+    // later launch does not treat the cfg as unmigrated. Screen keys written
+    // by the web stay in place: gameConfigMigrateStringKey skips existing keys.
+    if (!configSetString(gameConfig, GAME_CONFIG_SYSTEM_KEY, GAME_CONFIG_F2_RES_MIGRATED_KEY, "1")) {
+        return false;
     }
-
-    return migrated;
+    return true;
 }
 
 namespace {

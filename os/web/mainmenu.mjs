@@ -903,11 +903,10 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
                     // Feed the data to the game
 
-                    const iniParser = new IniParser(data);
-
                     if (filePath.toLowerCase() !== "f2_res.ini") {
                         // Current CE reads screen settings from fallout2.cfg.
                         // Set them directly even if legacy migration has run.
+                        const iniParser = new IniParser(data);
                         const scaling = isUsingHiRes
                             ? Math.max(
                                   1,
@@ -934,76 +933,15 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                             "enable_high_resolution_stencil",
                             isUsingHiRes ? "1" : "0",
                         );
-                        if (isUsingHiRes) {
-                            iniParser.setValue("ui", "iface_bar_mode", "0");
-                            iniParser.setValue(
-                                "ui",
-                                "iface_bar_width",
-                                gameScreenWidth / scaling >= 800
-                                    ? "800"
-                                    : "640",
-                            );
-                            iniParser.setValue("ui", "iface_bar_side_art", "2");
-                            iniParser.setValue(
-                                "ui",
-                                "iface_bar_sides_ori",
-                                "0",
-                            );
-                            iniParser.setValue("ui", "splash_screen_size", "1");
-                        }
+                        // Do not pre-seed migratable UI keys (iface bar, splash,
+                        // ammo meter, menu/death/end sizes). Those come from
+                        // f2_res.ini. Screen keys above keep priority.
                         return iniParser.pack();
                     }
 
-                    iniParser.setValue("MAIN", "WINDOWED", "1");
-
-                    if (!isUsingHiRes) {
-                        iniParser.setValue("MAIN", "SCR_WIDTH", `640`);
-                        iniParser.setValue("MAIN", "SCR_HEIGHT", `480`);
-                        iniParser.setValue("MAIN", "SCALE_2X", "0");
-                    } else {
-                        iniParser.setValue(
-                            "MAIN",
-                            "SCR_WIDTH",
-                            `${gameScreenWidth}`,
-                        );
-                        iniParser.setValue(
-                            "MAIN",
-                            "SCR_HEIGHT",
-                            `${gameScreenHeight}`,
-                        );
-
-                        const scaling = Math.min(
-                            Math.floor(gameScreenWidth / 640),
-                            Math.floor(gameScreenHeight / 480),
-                        );
-
-                        iniParser.setValue(
-                            "MAIN",
-                            "SCALE_2X",
-                            (scaling - 1).toString(),
-                        );
-
-                        iniParser.setValue("IFACE", "IFACE_BAR_MODE", "0");
-                        iniParser.setValue(
-                            "IFACE",
-                            "IFACE_BAR_WIDTH",
-                            `${gameScreenWidth / scaling >= 800 ? 800 : 640}`,
-                        );
-                        iniParser.setValue("IFACE", "IFACE_BAR_SIDE_ART", "2");
-                        iniParser.setValue("IFACE", "IFACE_BAR_SIDES_ORI", "0");
-
-                        iniParser.setValue(
-                            "STATIC_SCREENS",
-                            "SPLASH_SCRN_SIZE",
-                            `1`,
-                        );
-                    }
-
-                    const iniData = iniParser.pack();
-                    console.info(
-                        "f2_res.ini:\n\n" + String.fromCharCode(...iniData),
-                    );
-                    return iniData;
+                    // f2_res.ini is only a migration source. Rewriting it here
+                    // would replace legacy UI values before the engine copies them.
+                    return data;
                 } else if (filePath.toLowerCase() === "ddraw.ini") {
                     const iniParser = new IniParser(data);
 
