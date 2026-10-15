@@ -1021,10 +1021,7 @@ void _gmouse_handle_event(int mouseX, int mouseY, int mouseState)
                 }
             }
 
-            // Sneak without Silent Running walks via animationRegisterRunToTile
-            // when [qol] walk_when_sneaking is set. The web shell sets it to 1.
             _dude_run(actionPoints);
-
             return;
         }
 
