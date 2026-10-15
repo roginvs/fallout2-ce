@@ -12,6 +12,7 @@ import {
     pressKey,
     snap,
     waitForCanvasChange,
+    waitForGameplay,
     waitForStableFrame,
 } from "../helpers/game.mjs";
 
@@ -21,6 +22,11 @@ const GAMES = [
         folder: "FalloutNevadaFoxx070925",
         label: "Nevada 3.4 Foxx ru",
         saveName: "audit-nv34r-n-a",
+    },
+    {
+        folder: "FalloutOfNevada",
+        label: "Nevada 2.4.1 Foxx ru",
+        saveName: "audit-nv241r-n-a",
     },
     {
         folder: "FalloutNevadaEng",
@@ -70,11 +76,8 @@ for (const { folder, label, saveName } of GAMES) {
 
         await pressKey(page, "t");
         await waitForCanvasChange(page, charSelect);
-        const inGame = await waitForStableFrame(page, {
-            region: INTERFACE_BAR,
-            maxChanged: 0.01,
-            timeout: 480_000,
-        });
+        // Nevada 2.4.1 (and similar) show a long intro; bar stays black until map.
+        const inGame = await waitForGameplay(page, { timeout: 480_000 });
         await snap(testInfo, "03-in-game", inGame);
 
         await pressKey(page, "F4");
@@ -95,25 +98,30 @@ for (const { folder, label, saveName } of GAMES) {
         let expectNamed = false;
         if (vsMap > 0.2) {
             await page.keyboard.type(saveName, { delay: 50 });
+            await page.waitForTimeout(300);
             const description = await waitForStableFrame(page, {
                 maxChanged: 0.01,
             });
             await snap(testInfo, "05-save-description", description);
-            await pressKey(page, "Enter");
+            await page.keyboard.press("Enter");
             expectNamed = true;
-            await waitForCanvasChange(page, description, {
-                minChanged: 0.12,
-                timeout: 180_000,
-            });
         } else {
             await snap(testInfo, "05-saved-without-description", afterEnter);
         }
         // Must be back on the map before reload (save UI can look "stable").
+        // Re-press Enter a few times if the description box is still up.
         const afterSaveDeadline = Date.now() + 480_000;
         let afterSave = await canvasPng(page);
+        let nextEnterAt = Date.now() + 5_000;
+        let repress = 0;
         while (Date.now() < afterSaveDeadline) {
             const { changedRatio } = await comparePngs(page, inGame, afterSave);
             if (changedRatio < 0.4) break;
+            if (repress < 5 && Date.now() >= nextEnterAt) {
+                await page.keyboard.press("Enter");
+                repress += 1;
+                nextEnterAt = Date.now() + 5_000;
+            }
             await page.waitForTimeout(1000);
             afterSave = await canvasPng(page);
         }

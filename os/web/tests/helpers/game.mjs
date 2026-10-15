@@ -213,6 +213,46 @@ export async function waitForStableFrame(page, opts = {}) {
  * @param {{ timeout?: number, minChanged?: number }} [opts]
  * @returns {Promise<{ frame: Buffer, changedRatio: number }>}
  */
+/**
+ * After "Take" / new game: skip intro slides/movies until the bottom interface
+ * bar is lit (real map UI). Slideshows leave that bar nearly black, so
+ * waitForStableFrame alone can return too early (seen on FalloutOfNevada).
+ *
+ * @param {Page} page
+ * @param {{ timeout?: number, minBarNonBlack?: number }} [opts]
+ * @returns {Promise<Buffer>} stable full-frame once gameplay UI is up
+ */
+export async function waitForGameplay(page, opts = {}) {
+    const timeout = opts.timeout ?? 480_000;
+    const minBarNonBlack = opts.minBarNonBlack ?? 0.25;
+    const deadline = Date.now() + timeout;
+    let skipTick = 0;
+    while (Date.now() < deadline) {
+        const bar = await canvasPng(page, INTERFACE_BAR);
+        // compare against itself just to get nonBlackRatioB
+        const { nonBlackRatioB } = await comparePngs(page, bar, bar);
+        if (nonBlackRatioB >= minBarNonBlack) {
+            return waitForStableFrame(page, {
+                region: INTERFACE_BAR,
+                maxChanged: 0.01,
+                timeout: Math.max(30_000, deadline - Date.now()),
+                skipLoadWait: true,
+            });
+        }
+        skipTick += 1;
+        // Escape/Enter skip narrated intros on Nevada/Sonora builds.
+        if (skipTick % 2 === 1) {
+            await pressKey(page, "Escape");
+        } else {
+            await pressKey(page, "Enter");
+        }
+        await page.waitForTimeout(1000);
+    }
+    throw new Error(
+        `Gameplay UI (interface bar) did not appear in ${timeout} ms`,
+    );
+}
+
 export async function waitForCanvasChange(page, before, opts = {}) {
     const timeout = opts.timeout ?? 60_000;
     const minChanged = opts.minChanged ?? 0.2;
