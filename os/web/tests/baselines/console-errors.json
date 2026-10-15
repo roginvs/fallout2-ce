@@ -1,10 +1,1 @@
-{
-  "main menu renders and 'n' opens character selection": [
-    "console.error: Access to script at <s><url> has been blocked by CORS policy: No <s> header is present on the requested resource.",
-    "console.error: Failed to load resource: net::ERR_FAILED"
-  ],
-  "quicksave survives reload, downloads and loads": [
-    "console.error: Access to script at <s><url> has been blocked by CORS policy: No <s> header is present on the requested resource.",
-    "console.error: Failed to load resource: net::ERR_FAILED"
-  ]
-}
+{}

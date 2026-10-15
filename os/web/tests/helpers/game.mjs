@@ -24,11 +24,27 @@ export async function launchGame(page, folder) {
 }
 
 /**
+ * Screenshot of #canvas, or only of `region` (fractions of the canvas size).
+ *
  * @param {Page} page
+ * @param {{ x: number, y: number, w: number, h: number }} [region]
  * @returns {Promise<Buffer>}
  */
-export async function canvasPng(page) {
-    return page.locator("#canvas").screenshot({ animations: "disabled" });
+export async function canvasPng(page, region) {
+    if (!region) {
+        return page.locator("#canvas").screenshot({ animations: "disabled" });
+    }
+    const box = await page.locator("#canvas").boundingBox();
+    if (!box) throw new Error("#canvas has no bounding box");
+    return page.screenshot({
+        animations: "disabled",
+        clip: {
+            x: box.x + box.width * region.x,
+            y: box.y + box.height * region.y,
+            width: box.width * region.w,
+            height: box.height * region.h,
+        },
+    });
 }
 
 /**
@@ -92,9 +108,13 @@ export async function comparePngs(page, a, b) {
  * @param {Page} page
  * Animated maps never give identical frames, raise `maxChanged` for them.
  *
- * @param {{ timeout?: number, interval?: number, minNonBlack?: number, maxChanged?: number, skipLoadWait?: boolean }} [opts]
+ * @param {{ timeout?: number, interval?: number, minNonBlack?: number, maxChanged?: number, skipLoadWait?: boolean, region?: { x: number, y: number, w: number, h: number } }} [opts]
+ * `region` checks stability only there (e.g. INTERFACE_BAR on animated maps); the full frame is returned.
  * @returns {Promise<Buffer>} the stable frame
  */
+/** Bottom interface bar on the 640x480 map screen (y 379..480). */
+export const INTERFACE_BAR = { x: 0, y: 379 / 480, w: 1, h: 101 / 480 };
+
 export async function waitForStableFrame(page, opts = {}) {
     if (trackers.has(page) && !opts.skipLoadWait) {
         await waitForGameDataIdle(page, { timeout: opts.timeout });
@@ -104,17 +124,25 @@ export async function waitForStableFrame(page, opts = {}) {
     const minNonBlack = opts.minNonBlack ?? 0.1;
     const maxChanged = opts.maxChanged ?? 0.002;
     const deadline = Date.now() + timeout;
-    let prev = await canvasPng(page);
+    let prev = await canvasPng(page, opts.region);
     while (Date.now() < deadline) {
         await page.waitForTimeout(interval);
-        const cur = await canvasPng(page);
+        const cur = await canvasPng(page, opts.region);
         const { changedRatio, nonBlackRatioB } = await comparePngs(
             page,
             prev,
             cur,
         );
-        if (nonBlackRatioB >= minNonBlack && changedRatio < maxChanged) {
-            return cur;
+        const loading =
+            trackers.has(page) &&
+            !opts.skipLoadWait &&
+            (trackers.get(page)?.pending.size ?? 0) > 0;
+        if (
+            !loading &&
+            nonBlackRatioB >= minNonBlack &&
+            changedRatio < maxChanged
+        ) {
+            return opts.region ? canvasPng(page) : cur;
         }
         prev = cur;
     }

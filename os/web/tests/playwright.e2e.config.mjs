@@ -8,7 +8,7 @@ export default defineConfig({
     fullyParallel: false,
     workers: 1,
     retries: 0,
-    timeout: 10 * 60_000,
+    timeout: 20 * 60_000,
     outputDir: "./test-results/e2e",
     use: {
         baseURL: process.env.E2E_BASE_URL || "https://fallout-nevada.ru/",

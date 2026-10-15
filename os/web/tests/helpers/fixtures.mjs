@@ -22,6 +22,10 @@ const IGNORED = [
     "fullscreen",
     "pointer ?lock",
     "favicon",
+    // Network flakes of the live site (third-party chat widget, slow requests).
+    // Real game data failures surface as shell status/errors or test timeouts.
+    "Failed to load resource: net::ERR_(TIMED_OUT|FAILED|CONNECTION_RESET)",
+    "embed\\.tawk\\.to",
 ];
 
 const WASM_CRASH = /\babort\(|RuntimeError|Aborted\(|unreachable|memory access out of bounds/i;

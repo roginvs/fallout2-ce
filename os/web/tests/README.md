@@ -38,13 +38,27 @@ Each test gets a fresh Playwright browser context: empty IndexedDB, localStorage
 | Helper | Use |
 | --- | --- |
 | `launchGame(page, folder)` | opens `/#/<folder>`, turns hi-res off, clicks `#start_<folder>` |
-| `waitForStableFrame(page, opts)` | waits for a non-black frame that stops changing; returns the PNG. Pass `maxChanged: 0.05` on animated maps |
+| `waitForStableFrame(page, opts)` | waits for game data idle, then a non-black frame that stops changing; returns the PNG. On maps pass `region: INTERFACE_BAR` |
+| `waitForGameDataIdle(page, opts)` | status line hidden and no game data request for `quietMs` (2 s) |
+| `canvasPng(page, region?)` | screenshot of `#canvas` or of a region (fractions of canvas size) |
 | `waitForCanvasChange(page, before, opts)` | waits until at least `minChanged` (default 20%) of pixels differ from `before` |
 | `comparePngs(page, a, b)` | `{ changedRatio, nonBlackRatioB }` for two PNGs |
-| `canvasPng(page)` | screenshot of `#canvas` |
 | `pressKey(page, key)` | keydown, 80 ms pause, keyup, so the game loop sees the key held for at least one frame |
 | `snap(testInfo, name, png)` | saves `<name>.png` into the test folder and attaches it to the report |
 | `downloadSlot(page, folder, slot, testInfo)` | shell menu: slot context menu, "Download save", saves the `.tar` and returns its path |
+
+## Error collection and load waiting (automatic)
+
+Import `test`/`expect` from `../helpers/fixtures.mjs`, not from `@playwright/test`. Then every test:
+
+- collects `console.error`, `pageerror` and `unhandledrejection` into `console-errors.json` in its output folder;
+- fails on a WASM crash (`abort(`, `Aborted(`, `RuntimeError`, `unreachable`, `memory access out of bounds`);
+- fails on an error *type* (message with numbers, urls, quoted strings normalized) missing from `baselines/console-errors.json` for this test title. Known noise (fullscreen/pointer lock refusals, favicon, live-site network flakes such as `net::ERR_TIMED_OUT`, the `embed.tawk.to` chat widget) is ignored in `IGNORED` in `fixtures.mjs`.
+- Refresh the baseline on the live site with `E2E_UPDATE_ERROR_BASELINE=1 npm run e2e`, review the diff, commit it. Then run the candidate without the variable: a new error type there is a regression.
+
+Game data requests (`/game/...`, `*.dat`) are tracked. `waitForStableFrame` first calls `waitForGameDataIdle` (the top status line `#status_text` hidden and no game data request for 2 s) and does not accept a frame while a request is pending. On timeout the error names the status text, the last loaded file and pending requests. `skipLoadWait: true` turns this off.
+
+On maps use `waitForStableFrame(page, { region: INTERFACE_BAR, maxChanged: 0.01, timeout: 480_000 })`: only the bottom interface bar must be still (the map is animated), the full frame is returned. Entering a map on the live site downloads many files lazily and can take several minutes.
 
 ## Writing the next test
 
