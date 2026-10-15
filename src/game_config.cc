@@ -17,10 +17,6 @@
 #include "platform_compat.h"
 #include "scan_unimplemented.h"
 
-#if defined(__EMSCRIPTEN__)
-#include <emscripten.h>
-#endif
-
 namespace fallout {
 
 constexpr char kDefaultGameConfigFileName[] = "fallout2.cfg";
@@ -173,15 +169,6 @@ bool gameConfigInit(bool isMapper, int argc, char** argv)
     return true;
 }
 
-#if defined(__EMSCRIPTEN__)
-// clang-format off
-EM_ASYNC_JS(void, do_save_idbfs_gameconfig, (), {
-    // await write_idbfs();
-    await new Promise((resolve, reject) => FS.syncfs(err => err ? reject(err) : resolve()))
-});
-// clang-format on
-#endif
-
 // Saves game config into the active config file.
 //
 // 0x444C14 gconfig_save
@@ -214,10 +201,8 @@ bool gameConfigSave()
         return false;
     }
 
-#if defined(__EMSCRIPTEN__)
-    do_save_idbfs_gameconfig();
-#endif
-
+    // The cfg lives on the transient game mount. Only SAVEGAME is IDBFS, and
+    // write_idbfs() syncs that mount. FS.syncfs() here did not persist the cfg.
     return true;
 }
 
