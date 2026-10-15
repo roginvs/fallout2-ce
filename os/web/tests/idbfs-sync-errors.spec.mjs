@@ -9,7 +9,7 @@ test("syncfs error is forwarded once and is not a successful save", async ({
 }) => {
     await openHarness(page);
     const result = await page.evaluate(async () => {
-        const mod = await import("/initFilesystem.mjs");
+        const mod = await import("/idbfsSync.mjs");
         const calls = [];
         const idbfs = {
             syncfs(_mount, _populate, callback) {
@@ -31,7 +31,7 @@ test("syncfs error is forwarded once and is not a successful save", async ({
 test("persist refusal is not reported as a failed sync", async ({ page }) => {
     await openHarness(page);
     const result = await page.evaluate(async () => {
-        const mod = await import("/initFilesystem.mjs");
+        const mod = await import("/idbfsSync.mjs");
         const idbfs = {
             syncfs(_mount, _populate, callback) {
                 callback();
@@ -65,7 +65,7 @@ test("persist refusal is not reported as a failed sync", async ({ page }) => {
 test("missing persist API still completes the sync once", async ({ page }) => {
     await openHarness(page);
     const result = await page.evaluate(async () => {
-        const mod = await import("/initFilesystem.mjs");
+        const mod = await import("/idbfsSync.mjs");
         const idbfs = {
             syncfs(_mount, _populate, callback) {
                 callback();
