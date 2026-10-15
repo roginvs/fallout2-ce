@@ -1894,10 +1894,16 @@ static int lsgWindowFree(int windowType)
 
 #if defined(__EMSCRIPTEN__)
 // clang-format off
-EM_ASYNC_JS(void, do_save_idbfs_loadsave, (), {
+EM_ASYNC_JS(int, do_save_idbfs_loadsave, (), {
     // We have to call special function because of special mount point which is over the root
     // Calling FS.syncfs() will not work in this case
-    await write_idbfs();
+    // On failure write_idbfs() already showed alert(); return 1 so the save is not reported as successful
+    try {
+        await write_idbfs();
+        return 0;
+    } catch (e) {
+        return 1;
+    }
     // await new Promise((resolve, reject) => FS.syncfs(err => err ? reject(err) : resolve()))
 });
 // clang-format on
@@ -2009,7 +2015,10 @@ static int lsgPerformSaveGame()
     MapDirErase(_gmpath, "BAK");
 
 #if defined(__EMSCRIPTEN__)
-    do_save_idbfs_loadsave();
+    if (do_save_idbfs_loadsave() != 0) {
+        backgroundSoundResume();
+        return -1;
+    }
 #endif
 
     gLoadSaveMessageListItem.num = 140;
@@ -2099,13 +2108,6 @@ static int lsgLoadGameInSlot(int slot)
     _loadingMapId = -1;
 
     debugPrint("LOADSAVE: Total load data read: %ld bytes.\n", fileTell(_flptr));
-    if (fileGetSize(_flptr) != fileTell(_flptr)) {
-        debugPrint("\nLOADSAVE: ** Error reading load, some data is left! file_size=%ld **\n", fileGetSize(_flptr));
-        fileClose(_flptr);
-        gameReset();
-        _loadingGame = 0;
-        return -1;
-    }
     fileClose(_flptr);
 
     // SFALL: Load sfallgv.sav.
