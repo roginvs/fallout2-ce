@@ -270,11 +270,12 @@ export async function pressKey(page, key) {
 export async function downloadSlot(page, folder, slot, testInfo) {
     const slotId = `SLOT${String(slot).padStart(2, "0")}`;
     await page.locator(`#showmenu_${folder}_${slotId}`).click();
-    const downloadPromise = page.waitForEvent("download");
-    await page
+    const item = page
         .locator("#contextMenu .context-menu-item")
-        .filter({ hasText: /download|скачать/i })
-        .click();
+        .filter({ hasText: /download|скачать/i });
+    await item.waitFor({ state: "visible", timeout: 10_000 });
+    const downloadPromise = page.waitForEvent("download");
+    await item.click();
     const download = await downloadPromise;
     const target = testInfo.outputPath(download.suggestedFilename());
     await download.saveAs(target);

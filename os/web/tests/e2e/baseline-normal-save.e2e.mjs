@@ -3,6 +3,7 @@
 import { expect, test } from "../helpers/fixtures.mjs";
 import fs from "node:fs/promises";
 import {
+    canvasPng,
     comparePngs,
     INTERFACE_BAR,
     downloadSlot,
@@ -30,6 +31,11 @@ const GAMES = [
         folder: "Fallout_Sonora_1_14_dlc_eng",
         label: "Sonora 1.14 Eng",
         saveName: "audit-so114e-n-a",
+    },
+    {
+        folder: "Fallout_Sonora_1_15_dlc",
+        label: "Sonora 1.15 ru",
+        saveName: "audit-so115r-n-a",
     },
 ];
 
@@ -62,11 +68,27 @@ for (const { folder, label, saveName } of GAMES) {
         await snap(testInfo, "04-save-dialog", saveDialog);
 
         await pressKey(page, "Enter");
-        await page.waitForTimeout(500);
-        await page.keyboard.type(saveName, { delay: 50 });
-        const description = await waitForStableFrame(page, { maxChanged: 0.01 });
-        await snap(testInfo, "05-save-description", description);
-        await pressKey(page, "Enter");
+        await page.waitForTimeout(800);
+        // If we are still in a save UI (not back on the map), type a description.
+        // Some builds save on the first Enter with an empty name ("Нет имени").
+        const afterEnter = await canvasPng(page);
+        const { changedRatio: vsMap } = await comparePngs(
+            page,
+            inGame,
+            afterEnter,
+        );
+        let expectNamed = false;
+        if (vsMap > 0.2) {
+            await page.keyboard.type(saveName, { delay: 50 });
+            const description = await waitForStableFrame(page, {
+                maxChanged: 0.01,
+            });
+            await snap(testInfo, "05-save-description", description);
+            await pressKey(page, "Enter");
+            expectNamed = true;
+        } else {
+            await snap(testInfo, "05-saved-without-description", afterEnter);
+        }
         const afterSave = await waitForStableFrame(page, {
             region: INTERFACE_BAR,
             maxChanged: 0.01,
@@ -78,7 +100,14 @@ for (const { folder, label, saveName } of GAMES) {
         const slotName = page
             .locator(`#game_slots_${folder} .game_slot_name`)
             .first();
-        await expect(slotName).toHaveText(saveName, { timeout: 30_000 });
+        if (expectNamed) {
+            await expect(slotName).toHaveText(saveName, { timeout: 30_000 });
+        } else {
+            // Empty-name placeholder in the shell (ru/en).
+            await expect(slotName).toHaveText(/^(Нет имени|No name|)$/i, {
+                timeout: 30_000,
+            });
+        }
 
         const archive = await downloadSlot(page, folder, 1, testInfo);
         const stat = await fs.stat(archive);
