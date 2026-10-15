@@ -2455,7 +2455,6 @@ static void loadSaveLoadSlotPage(int page)
 
 static void _ShowSlotList(int windowType)
 {
-    debugPrint("_ShowSlotList started\n");
     loadSaveLoadSlotPage(_currentSlotPage);
 
     // Clear display area
@@ -2470,7 +2469,6 @@ static void _ShowSlotList(int windowType)
         Color color = index == _slot_cursor ? COLOR_LIGHT_YELLOW : COLOR_GREEN;
         const char* text = getmsg(&gLoadSaveMessageList, &gLoadSaveMessageListItem, windowType != 0 ? 110 : 109);
         snprintf(_str, sizeof(_str), "[   %s %.2d:   ]", text, index + 1);
-        debugPrint("_ShowSlotList index=%i len=%i text='%s'\n", index, strlen(_str), _str);
         fontDrawText(gLoadSaveWindowBuffer + LS_WINDOW_WIDTH * y + 55, _str, LS_WINDOW_WIDTH, LS_WINDOW_WIDTH, color);
 
         y += fontGetLineHeight();
@@ -2497,7 +2495,6 @@ static void _ShowSlotList(int windowType)
             break;
         }
 
-        debugPrint("_ShowSlotList index=%i len=%i text='%s'\n", index, strlen(_str), _str);
         fontDrawText(gLoadSaveWindowBuffer + LS_WINDOW_WIDTH * y + 55, _str, LS_WINDOW_WIDTH, LS_WINDOW_WIDTH, color);
         y += 2 * fontGetLineHeight() + 4;
     }
@@ -2523,7 +2520,6 @@ static void _ShowSlotList(int windowType)
                 debugPrint("Error: Couldn't find LoadSave Message!");
                 messageListItemBack.text = backText;
             }
-            debugPrint("_ShowSlotList back len=%i text='%s'\n", strlen(messageListItemBack.text), messageListItemBack.text);
             fontDrawText(
                 gLoadSaveWindowBuffer + LS_WINDOW_WIDTH * navigationY + 95,
                 messageListItemBack.text,
@@ -2538,7 +2534,6 @@ static void _ShowSlotList(int windowType)
                 debugPrint("Error: Couldn't find LoadSave Message!");
                 messageListItemMore.text = moreText;
             }
-            debugPrint("_ShowSlotList more len=%i text='%s'\n", strlen(messageListItemMore.text), messageListItemMore.text);
             fontDrawText(gLoadSaveWindowBuffer + LS_WINDOW_WIDTH * navigationY + 210,
                 messageListItemMore.text,
                 LS_WINDOW_WIDTH,
@@ -2553,8 +2548,6 @@ static void _ShowSlotList(int windowType)
             LS_WINDOW_WIDTH,
             _currentSlotPage < saveLoadPages - 1 ? activeColor : inactiveColor);
     }
-
-    debugPrint("_ShowSlotList ended\n");
 }
 
 // 0x47E8E0
