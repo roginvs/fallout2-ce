@@ -370,6 +370,14 @@ static constexpr char kLoadSaveSlotDataSection[] = "POSITION";
 static constexpr char kLoadSaveSlotDataKey[] = "CurrentSlot";
 static constexpr char kLoadSaveSlotDataFile[] = "SAVEGAME\\slotdat.ini";
 
+// Slot last published to IDBFS. -1 means the current cursor is not known to
+// match the persisted file, so the next close must write and sync it.
+static int gLoadSaveIdbfsSlot = -1;
+
+static bool loadSavePersistSelectedSlot();
+static void loadSaveFinalizeSuccessfulSave();
+static void loadSavePersistSlotIfChanged();
+
 static void loadSaveRememberSelectedSlot()
 {
     assert(_patches != nullptr);
@@ -381,12 +389,16 @@ static void loadSaveRememberSelectedSlot()
     snprintf(path, sizeof(path), "%s\\%s", _patches, kLoadSaveSlotDataFile);
 
     int slot = 0;
+    bool hadSlot = false;
     if (ScopedConfig config { path, false }; config) {
-        configGetInt(config.get(), kLoadSaveSlotDataSection, kLoadSaveSlotDataKey, &slot, 0);
+        hadSlot = configGetInt(config.get(), kLoadSaveSlotDataSection, kLoadSaveSlotDataKey, &slot);
     }
 
     _slot_cursor = std::clamp(slot, 0, saveLoadTotalSlots - 1);
     _currentSlotPage = _slot_cursor / slotsPerPage;
+    if (hadSlot && slot == _slot_cursor) {
+        gLoadSaveIdbfsSlot = _slot_cursor;
+    }
 }
 
 static void loadSaveSetCurrentPage(int page)
@@ -461,7 +473,7 @@ static bool loadSaveChangePage(int delta, LoadSaveWindowType windowType)
     return true;
 }
 
-static void loadSavePersistSelectedSlot()
+static bool loadSavePersistSelectedSlot()
 {
     assert(_patches != nullptr);
 
@@ -474,11 +486,14 @@ static void loadSavePersistSelectedSlot()
 
     ScopedConfig config { path, false };
     if (!config.get()->isInitialized()) {
-        return;
+        return false;
     }
 
-    configSetInt(config.get(), kLoadSaveSlotDataSection, kLoadSaveSlotDataKey, _slot_cursor);
-    configWrite(config.get(), path, false);
+    if (!configSetInt(config.get(), kLoadSaveSlotDataSection, kLoadSaveSlotDataKey, _slot_cursor)) {
+        return false;
+    }
+
+    return configWrite(config.get(), path, false);
 }
 
 // 0x47B7E4
@@ -1867,7 +1882,9 @@ static int lsgWindowInit(int windowType)
 // 0x47D824
 static int lsgWindowFree(int windowType)
 {
-    loadSavePersistSelectedSlot();
+    // Save already published the slot. Load, cancel, and a slot change that
+    // did not save still need one write plus one sync.
+    loadSavePersistSlotIfChanged();
 
     windowDestroy(gLoadSaveWindow);
     fontSetCurrent(gLoadSaveWindowOldFont);
@@ -1902,6 +1919,35 @@ EM_ASYNC_JS(void, do_save_idbfs_loadsave, (), {
 });
 // clang-format on
 #endif
+
+// One completion point for a finished save: slotdat.ini, then a single IDBFS
+// sync. Quick save never reaches lsgWindowFree, so it must use this too.
+static void loadSaveFinalizeSuccessfulSave()
+{
+    const bool persisted = loadSavePersistSelectedSlot();
+#if defined(__EMSCRIPTEN__)
+    do_save_idbfs_loadsave();
+#endif
+    if (persisted) {
+        gLoadSaveIdbfsSlot = _slot_cursor;
+    }
+}
+
+static void loadSavePersistSlotIfChanged()
+{
+    if (gLoadSaveIdbfsSlot == _slot_cursor) {
+        return;
+    }
+
+    if (!loadSavePersistSelectedSlot()) {
+        return;
+    }
+
+#if defined(__EMSCRIPTEN__)
+    do_save_idbfs_loadsave();
+#endif
+    gLoadSaveIdbfsSlot = _slot_cursor;
+}
 
 // 0x47D88C
 static int lsgPerformSaveGame()
@@ -2008,9 +2054,7 @@ static int lsgPerformSaveGame()
     snprintf(_gmpath, sizeof(_gmpath), "%s\\%s%.2d\\", "SAVEGAME", "SLOT", _slot_cursor + 1);
     MapDirErase(_gmpath, "BAK");
 
-#if defined(__EMSCRIPTEN__)
-    do_save_idbfs_loadsave();
-#endif
+    loadSaveFinalizeSuccessfulSave();
 
     gLoadSaveMessageListItem.num = 140;
     if (messageListGetItem(&gLoadSaveMessageList, &gLoadSaveMessageListItem)) {
