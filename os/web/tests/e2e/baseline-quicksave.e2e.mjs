@@ -41,6 +41,11 @@ const GAMES = [
         label: "Sonora 1.11 ru",
         saveName: "audit-so111r-qs",
     },
+    {
+        folder: "FalloutNevadaFoxx070925",
+        label: "Nevada 3.4 Foxx ru",
+        saveName: "audit-nv34r-qs",
+    },
 ];
 
 for (const { folder, label, saveName } of GAMES) {
