@@ -1,5 +1,5 @@
 // Section 5: first F6 opens slot dialog; second F6 takes quick path (no dialog).
-// Add rows to GAMES for more titles (Nevada Eng covered by dedicated file).
+// One parameterized test per game folder (all nine, Nevada Eng included).
 import { expect, test } from "../helpers/fixtures.mjs";
 import {
     canvasPng,
@@ -16,6 +16,11 @@ import {
 
 /** @type {{ folder: string, label: string, saveName: string }[]} */
 const GAMES = [
+    {
+        folder: "FalloutNevadaEng",
+        label: "Nevada Eng",
+        saveName: "audit-nveng-qs",
+    },
     {
         folder: "Fallout_Sonora_1_15_dlc_eng",
         label: "Sonora 1.15 Eng",
