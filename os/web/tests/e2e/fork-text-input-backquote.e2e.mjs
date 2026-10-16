@@ -1,7 +1,8 @@
 // Fork P1: JS text input bridge (input.cc beginTextInput/endTextInput ->
 // onscreen_keyboard.mjs startTextInput/stopTextInput) and Backquote as Escape
 // (hotkeys_and_workarounds.mjs addBackquoteAsEscape). Touch context, so the
-// on-screen keyboard is expected while the save description is typed.
+// on-screen keyboard is expected while the save description is typed; its
+// keys (letters, Backspace, Enter) type into the game.
 import { expect, test } from "../helpers/fixtures.mjs";
 import {
     canvasPng,
@@ -50,8 +51,44 @@ test("fork P1: save description shows on-screen keyboard; ` closes inventory", a
         timeout: 15_000,
     });
     await snap(testInfo, "02-keyboard", await page.screenshot());
-    await page.keyboard.type("kbd-bridge", { delay: 50 });
-    await page.keyboard.press("Enter");
+    // On-screen keys (with a Backspace) plus the real keyboard, then the
+    // on-screen Enter: the description must become "kbd-bridge".
+    // Playwright's hit test reports <body> over the keys in headless
+    // Chromium, so the key's click is dispatched directly; what lies at the
+    // key centre is recorded for diagnosis.
+    /** @type {string[]} */
+    const hits = [];
+    /** @param {string} label */
+    const tapKey = async (label) => {
+        const key = keyboard
+            .locator(".keyboard_button")
+            .filter({ hasText: new RegExp(`^${label}$`) });
+        const b = await key.boundingBox();
+        if (b) {
+            hits.push(
+                `${label}: ${await page.evaluate(
+                    ([x, y]) => {
+                        const el = document.elementFromPoint(x, y);
+                        return el
+                            ? `${el.tagName}.${el.className} ${el.textContent?.slice(0, 10)}`
+                            : "null";
+                    },
+                    [b.x + b.width / 2, b.y + b.height / 2],
+                )}`,
+            );
+        }
+        await key.dispatchEvent("click");
+        await page.waitForTimeout(150);
+    };
+    for (const label of ["K", "B", "X", "&lt;-|<-", "D"]) {
+        await tapKey(label);
+    }
+    await page.keyboard.type("-bridge", { delay: 50 });
+    await tapKey("enter");
+    await testInfo.attach("key-hit-test.txt", {
+        body: hits.join("\n"),
+        contentType: "text/plain",
+    });
     await expect(keyboard, "keyboard removed after Enter").toHaveCount(0, {
         timeout: 60_000,
     });
@@ -92,4 +129,10 @@ test("fork P1: save description shows on-screen keyboard; ` closes inventory", a
     expect((await comparePngs(page, onMap, back)).changedRatio).toBeLessThan(
         0.25,
     );
+
+    // The typed description is the slot name in the shell after a reload.
+    await page.reload();
+    await expect(
+        page.locator(`#game_slots_${FOLDER} .game_slot_name`).first(),
+    ).toHaveText(/^kbd-bridge$/i, { timeout: 30_000 });
 });
