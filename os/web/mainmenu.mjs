@@ -795,6 +795,88 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
             let gameConfigFileName = "fallout2.cfg";
 
+            // Published f2_res.ini (before shell rewrite). Web always writes
+            // screen.resolution_x, so C++ gameConfigMigrateFromF2Res skips;
+            // copy legacy UI keys into the active cfg here instead.
+            /** @type {import("./iniparser.mjs").IniParser | null} */
+            let publishedF2ResForMigration = null;
+
+            /**
+             * @param {import("./iniparser.mjs").IniParser} cfg
+             * @param {import("./iniparser.mjs").IniParser} f2
+             */
+            function migrateLegacyF2ResUiIntoCfg(cfg, f2) {
+                const ammoRaw = f2.getValue("IFACE", "ALTERNATE_AMMO_METRE");
+                if (
+                    ammoRaw != null &&
+                    cfg.getValue("ui", "alternate_ammo_meter") == null
+                ) {
+                    const n = Number.parseInt(ammoRaw, 10);
+                    const clamped = Number.isFinite(n)
+                        ? Math.max(0, Math.min(2, n))
+                        : 0;
+                    cfg.setValue(
+                        "ui",
+                        "alternate_ammo_meter",
+                        `${clamped}`,
+                    );
+                }
+
+                if (cfg.getValue("ui", "main_menu_scale_mode") == null) {
+                    const sizeRaw = f2.getValue("MAINMENU", "MAIN_MENU_SIZE");
+                    if (sizeRaw != null) {
+                        let scaleMode = Number.parseInt(sizeRaw, 10);
+                        if (Number.isFinite(scaleMode)) {
+                            const scaleButtons = f2.getValue(
+                                "MAINMENU",
+                                "SCALE_BUTTONS_AND_TEXT_MENU",
+                            );
+                            const truthy =
+                                scaleButtons === "1" ||
+                                (scaleButtons &&
+                                    scaleButtons.toLowerCase() === "true");
+                            if (truthy && scaleMode !== 0) {
+                                scaleMode = 2;
+                            }
+                            scaleMode = Math.max(0, Math.min(2, scaleMode));
+                            cfg.setValue(
+                                "ui",
+                                "main_menu_scale_mode",
+                                `${scaleMode}`,
+                            );
+                        }
+                    }
+                }
+            }
+
+            /** @returns {Promise<import("./iniparser.mjs").IniParser | null>} */
+            async function loadPublishedF2ResForMigration() {
+                if (publishedF2ResForMigration) {
+                    return publishedF2ResForMigration;
+                }
+                try {
+                    const useGzip = configuration.useGzip;
+                    const url =
+                        `./game/${game.folder}/f2_res.ini` +
+                        (useGzip ? ".gz" : "") +
+                        (game.filesVersion ? `?v=${game.filesVersion}` : "");
+                    const packed = await fetch(url).then((r) => {
+                        if (!r.ok) {
+                            throw new Error(`f2_res.ini HTTP ${r.status}`);
+                        }
+                        return r.arrayBuffer();
+                    });
+                    const bytes = useGzip
+                        ? inflate(new Uint8Array(packed))
+                        : new Uint8Array(packed);
+                    publishedF2ResForMigration = new IniParser(bytes);
+                    return publishedF2ResForMigration;
+                } catch (e) {
+                    console.warn("legacy f2_res.ini load for cfg migration", e);
+                    return null;
+                }
+            }
+
             /** @type {import("./fetcher.mjs").FileTransformer} */
             const fileTransformer = async (filePath, data) => {
                 if (
@@ -958,11 +1040,20 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                             );
                             iniParser.setValue("ui", "splash_screen_size", "1");
                         }
+                        // Legacy HRP → cfg UI (ammo metre, main menu scale).
+                        // Shell-set screen.* stay; only missing ui.* keys.
+                        const f2src = await loadPublishedF2ResForMigration();
+                        if (f2src) {
+                            migrateLegacyF2ResUiIntoCfg(iniParser, f2src);
+                        }
                         return iniParser.pack();
                     }
 
                     // f2_res.ini: same rewriting as before the merge, so the
                     // legacy migration source matches the cfg presets above.
+                    if (!publishedF2ResForMigration && data.byteLength > 0) {
+                        publishedF2ResForMigration = new IniParser(data);
+                    }
                     const iniParser = new IniParser(data);
                     iniParser.setValue("MAIN", "WINDOWED", "1");
 
