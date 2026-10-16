@@ -803,7 +803,6 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
             /** @type {import("./fetcher.mjs").FileTransformer} */
             const fileTransformer = async (filePath, data) => {
                 if (
-                    filePath.toLowerCase() === "f2_res.ini" ||
                     filePath.toLowerCase() === gameConfigFileName.toLowerCase()
                 ) {
                     //
@@ -909,116 +908,76 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
                     // Feed the data to the game
 
-                    if (filePath.toLowerCase() !== "f2_res.ini") {
-                        // Current CE reads screen settings from fallout2.cfg.
-                        // Set them directly even if legacy migration has run.
-                        const iniParser = new IniParser(data);
-                        const scaling = isUsingHiRes
-                            ? Math.max(
-                                  1,
-                                  Math.min(
-                                      Math.floor(gameScreenWidth / 640),
-                                      Math.floor(gameScreenHeight / 480),
-                                  ),
-                              )
-                            : 1;
-                        iniParser.setValue("screen", "windowed", "1");
-                        iniParser.setValue(
-                            "screen",
-                            "resolution_x",
-                            isUsingHiRes ? `${gameScreenWidth}` : "640",
-                        );
-                        iniParser.setValue(
-                            "screen",
-                            "resolution_y",
-                            isUsingHiRes ? `${gameScreenHeight}` : "480",
-                        );
-                        iniParser.setValue("screen", "scale", `${scaling}`);
+                    // Current CE reads screen settings from fallout2.cfg.
+                    // Set them directly even if legacy migration has run.
+                    const iniParser = new IniParser(data);
+                    const scaling = isUsingHiRes
+                        ? Math.max(
+                              1,
+                              Math.min(
+                                  Math.floor(gameScreenWidth / 640),
+                                  Math.floor(gameScreenHeight / 480),
+                              ),
+                          )
+                        : 1;
+                    iniParser.setValue("screen", "windowed", "1");
+                    iniParser.setValue(
+                        "screen",
+                        "resolution_x",
+                        isUsingHiRes ? `${gameScreenWidth}` : "640",
+                    );
+                    iniParser.setValue(
+                        "screen",
+                        "resolution_y",
+                        isUsingHiRes ? `${gameScreenHeight}` : "480",
+                    );
+                    iniParser.setValue("screen", "scale", `${scaling}`);
+                    iniParser.setValue(
+                        "ui",
+                        "enable_high_resolution_stencil",
+                        isUsingHiRes ? "1" : "0",
+                    );
+                    // Upstream default is 0. The web player previously
+                    // walked while sneaking; keep that with the stock option.
+                    iniParser.setValue("qol", "walk_when_sneaking", "1");
+                    // Hi-res UI presets, same as before the merge. The cfg
+                    // is regenerated on every launch and not persisted, so
+                    // overriding is fine. f2_res.ini is not migrated because
+                    // [screen] resolution_x is always set here.
+                    if (isUsingHiRes) {
+                        iniParser.setValue("ui", "iface_bar_mode", "0");
                         iniParser.setValue(
                             "ui",
-                            "enable_high_resolution_stencil",
-                            isUsingHiRes ? "1" : "0",
+                            "iface_bar_width",
+                            gameScreenWidth / scaling >= 800 ? "800" : "640",
                         );
-                        // Upstream default is 0. The web player previously
-                        // walked while sneaking; keep that with the stock option.
-                        iniParser.setValue("qol", "walk_when_sneaking", "1");
-                        // Hi-res UI presets, same as before the merge. The cfg
-                        // is regenerated on every launch and not persisted, so
-                        // overriding is fine. Engine f2_res.ini migration skips
-                        // keys already present in cfg, so these win.
-                        if (isUsingHiRes) {
-                            iniParser.setValue("ui", "iface_bar_mode", "0");
-                            iniParser.setValue(
-                                "ui",
-                                "iface_bar_width",
-                                gameScreenWidth / scaling >= 800
-                                    ? "800"
-                                    : "640",
-                            );
-                            iniParser.setValue("ui", "iface_bar_side_art", "2");
-                            iniParser.setValue(
-                                "ui",
-                                "iface_bar_sides_ori",
-                                "0",
-                            );
-                            iniParser.setValue("ui", "splash_screen_size", "1");
-                        }
-                        return iniParser.pack();
+                        iniParser.setValue("ui", "iface_bar_side_art", "2");
+                        iniParser.setValue("ui", "iface_bar_sides_ori", "0");
+                        iniParser.setValue("ui", "splash_screen_size", "1");
+                        iniParser.setValue("ui", "death_screen_size", "1");
+                        iniParser.setValue("ui", "end_slide_size", "1");
                     }
-
-                    // f2_res.ini: same rewriting as before the merge, so the
-                    // legacy migration source matches the cfg presets above.
-                    const iniParser = new IniParser(data);
-                    iniParser.setValue("MAIN", "WINDOWED", "1");
-
-                    if (!isUsingHiRes) {
-                        iniParser.setValue("MAIN", "SCR_WIDTH", `640`);
-                        iniParser.setValue("MAIN", "SCR_HEIGHT", `480`);
-                        iniParser.setValue("MAIN", "SCALE_2X", "0");
-                    } else {
-                        iniParser.setValue(
-                            "MAIN",
-                            "SCR_WIDTH",
-                            `${gameScreenWidth}`,
-                        );
-                        iniParser.setValue(
-                            "MAIN",
-                            "SCR_HEIGHT",
-                            `${gameScreenHeight}`,
-                        );
-
-                        const scaling = Math.min(
-                            Math.floor(gameScreenWidth / 640),
-                            Math.floor(gameScreenHeight / 480),
-                        );
-
-                        iniParser.setValue(
-                            "MAIN",
-                            "SCALE_2X",
-                            (scaling - 1).toString(),
-                        );
-
-                        iniParser.setValue("IFACE", "IFACE_BAR_MODE", "0");
-                        iniParser.setValue(
-                            "IFACE",
-                            "IFACE_BAR_WIDTH",
-                            `${gameScreenWidth / scaling >= 800 ? 800 : 640}`,
-                        );
-                        iniParser.setValue("IFACE", "IFACE_BAR_SIDE_ART", "2");
-                        iniParser.setValue("IFACE", "IFACE_BAR_SIDES_ORI", "0");
-
-                        iniParser.setValue(
-                            "STATIC_SCREENS",
-                            "SPLASH_SCRN_SIZE",
-                            `1`,
-                        );
+                    // Same defaults for all games. The engine no longer reads
+                    // these from ddraw.ini / f2_res.ini (see
+                    // SFALL_COMPATIBILITY.md), so set them in the cfg.
+                    for (const [section, key, value] of [
+                        ["ui", "skip_opening_movies", "1"],
+                        ["ui", "display_karma_changes", "1"],
+                        ["ui", "display_bonus_damage", "1"],
+                        ["ui", "numbers_in_dialogue", "1"],
+                        ["ui", "auto_quick_save", "0"],
+                        ["ui", "alternate_ammo_meter", "1"],
+                        ["ui", "movie_aspect_fit", "1"],
+                        ["preferences", "subtitles", "1"],
+                        ["preferences", "running", "1"],
+                        ["qol", "use_walk_distance", "3"],
+                        ["sound", "gapless_music", "1"],
+                        ["sound", "music_path2", "data\\sound\\music\\"],
+                        ["system", "art_cache_size", "256"],
+                    ]) {
+                        iniParser.setValue(section, key, value);
                     }
-
-                    const iniData = iniParser.pack();
-                    console.info(
-                        "f2_res.ini:\n\n" + String.fromCharCode(...iniData),
-                    );
-                    return iniData;
+                    return iniParser.pack();
                 } else if (filePath.toLowerCase() === "ddraw.ini") {
                     const iniParser = new IniParser(data);
 
@@ -1032,12 +991,6 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         (existingPath) => {
                             sfallModsIniPathToPatch = existingPath;
                         },
-                    );
-
-                    iniParser.setValue(
-                        "Main",
-                        "EnableHighResolutionStencil",
-                        isUsingHiRes ? "1" : "0",
                     );
 
                     // I like this feature but it it is not visible in Sonora
@@ -1112,7 +1065,6 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
                     for (const filePath of [
                         "ddraw.ini",
-                        "f2_res.ini",
                         // Active cfg from [Misc] ConfigFile, e.g. Nevada.cfg.
                         // Do not invent fallout2.cfg when another file is active.
                         gameConfigFileName,
