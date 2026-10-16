@@ -794,6 +794,12 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
             let gameConfigFileName = "fallout2.cfg";
 
+            // Path (relative to the game root, lower case) of the ini that the
+            // embedded ce.dat gl_highlighting.int reads, when it already exists
+            // in the game files. Set in the ddraw.ini branch below.
+            /** @type {string | null} */
+            let sfallModsIniPathToPatch = null;
+
             /** @type {import("./fetcher.mjs").FileTransformer} */
             const fileTransformer = async (filePath, data) => {
                 if (
@@ -1020,6 +1026,14 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         iniParser.getValue("Misc", "ConfigFile")?.trim() ||
                         "fallout2.cfg";
 
+                    ensureHighlightingIni(
+                        game.folder,
+                        iniParser.getValue("Scripts", "IniConfigFolder"),
+                        (existingPath) => {
+                            sfallModsIniPathToPatch = existingPath;
+                        },
+                    );
+
                     iniParser.setValue(
                         "Main",
                         "EnableHighResolutionStencil",
@@ -1039,6 +1053,22 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         "ddraw.ini:\n\n" + String.fromCharCode(...iniData),
                     );
                     return iniData;
+                } else if (
+                    sfallModsIniPathToPatch !== null &&
+                    filePath.toLowerCase().replace(/^\.\//, "") ===
+                        sfallModsIniPathToPatch
+                ) {
+                    // Game ships its own sfall-mods.ini at the path the
+                    // embedded script reads: only turn the hotkey on.
+                    const iniParser = new IniParser(data);
+                    const key = iniParser
+                        .getValue("Highlighting", "Key")
+                        ?.trim();
+                    if (!key || parseInt(key, 10) === 0) {
+                        iniParser.setValue("Highlighting", "Key", "42");
+                        return iniParser.pack();
+                    }
+                    return data;
                 } else if (
                     filePath.toLowerCase() ===
                         "data/art/intrface/hr_ifacelft2.frm" ||
@@ -1469,5 +1499,75 @@ function setGameCacheDownloadedStatus(gameName, isDownloaded) {
         localStorage.setItem(key, "yes");
     } else {
         localStorage.removeItem(key);
+    }
+}
+
+/**
+ * Sfall object highlighting (hold a key to outline items on the map) is the
+ * global script gl_highlighting.int embedded in ce.dat. It reads
+ * [Highlighting] from "mods\\sfall-mods.ini" relative to ddraw.ini
+ * [Scripts] IniConfigFolder, and Key defaults to 0, i.e. disabled.
+ *
+ * Called when the engine reads ddraw.ini, which happens at startup before
+ * any global script runs. If the ini is missing, it is created in memory
+ * (not persisted, recreated on every launch). If it exists, its path is
+ * passed to onExisting so the file transformer can patch Key.
+ *
+ * Games that ship their own gl_highlighting.int override the embedded one
+ * (game data has priority over ce.dat) and read their own ini; for them the
+ * created file is simply unused.
+ *
+ * @param {string} gameFolder
+ * @param {string | null | undefined} iniConfigFolder
+ * @param {(existingPath: string) => void} onExisting
+ */
+function ensureHighlightingIni(gameFolder, iniConfigFolder, onExisting) {
+    const folderParts = (iniConfigFolder || "")
+        .trim()
+        .replace(/\\/g, "/")
+        .split("/")
+        .filter((part) => part !== "" && part !== ".");
+    const parts = [...folderParts, "mods", "sfall-mods.ini"];
+    try {
+        let dirPath = "/" + gameFolder;
+        let node = FS.lookupPath(dirPath).node;
+        for (const part of parts.slice(0, -1)) {
+            const existing = Object.keys(node.childNodes || {}).find(
+                (name) => name.toLowerCase() === part.toLowerCase(),
+            );
+            if (existing === undefined) {
+                FS.mkdir(dirPath + "/" + part);
+                dirPath += "/" + part;
+            } else {
+                dirPath += "/" + existing;
+            }
+            node = FS.lookupPath(dirPath).node;
+        }
+        const fileName = parts[parts.length - 1];
+        const existingFile = Object.keys(node.childNodes || {}).find(
+            (name) => name.toLowerCase() === fileName,
+        );
+        if (existingFile !== undefined) {
+            onExisting(parts.join("/").toLowerCase());
+            return;
+        }
+        FS.writeFile(
+            dirPath + "/" + fileName,
+            [
+                "[Highlighting]",
+                "Key=42",
+                "Containers=1",
+                "Corpses=1",
+                "Critters=0",
+                "CheckLOS=1",
+                "OutlineColor=16",
+                "MotionScanner=0",
+                "",
+            ].join("\r\n"),
+        );
+        console.info(`Created ${dirPath}/${fileName} for highlighting`);
+    } catch (e) {
+        // Highlighting is optional, never block the game start
+        console.warn(`Failed to set up highlighting ini`, e);
     }
 }
