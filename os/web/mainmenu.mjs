@@ -1041,7 +1041,6 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     );
 
                     // I like this feature but it it is not visible in Sonora
-                    iniParser.setValue("Misc", "WorldMapTravelMarkers", "0");
                     iniParser.setValue(
                         "Interface",
                         "WorldMapTravelMarkers",
