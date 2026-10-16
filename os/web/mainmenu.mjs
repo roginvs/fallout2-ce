@@ -1076,7 +1076,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                 game.filesVersion,
                 async (indexOriginal) => {
                     const index = [...indexOriginal];
-                    const indexHas = (name) =>
+                    const indexHas = (/** @type {string} */ name) =>
                         index.some(
                             (f) => f.name.toLowerCase() === name.toLowerCase(),
                         );

@@ -110,5 +110,5 @@
         "skipLibCheck": true /* Skip type checking all .d.ts files. */
     },
 
-    "exclude": ["fallout2-ce.js", "pako_inflate.min.js"]
+    "exclude": ["fallout2-ce.js", "pako_inflate.min.js", "tests"]
 }
