@@ -593,18 +593,19 @@ export async function newGameToMap(page, testInfo, prefix = "") {
 /**
  * F4 normal save into the slot selected in the dialog (`slot` 1..10, moved
  * with ArrowDown from the first one), with a description when asked.
- * Waits until the map is back.
+ * Waits until the map is back. `key: "F6"` makes the first quicksave the same
+ * way (no quick slot yet, so F6 opens the same slot dialog).
  *
  * @param {Page} page
  * @param {TestInfo} testInfo
  * @param {Buffer} onMap frame of the map before saving
  * @param {string} saveName
- * @param {{ prefix?: string, slot?: number }} [opts]
+ * @param {{ prefix?: string, slot?: number, key?: "F4" | "F6" }} [opts]
  * @returns {Promise<Buffer>} map frame after saving
  */
 export async function normalSave(page, testInfo, onMap, saveName, opts = {}) {
     const prefix = opts.prefix ?? "";
-    await pressKey(page, "F4");
+    await pressKey(page, opts.key ?? "F4");
     await waitForCanvasChange(page, onMap, {
         minChanged: 0.1,
         timeout: 120_000,
