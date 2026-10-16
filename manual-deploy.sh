@@ -11,19 +11,6 @@ echo "=== Js prettier and checks ==="
 (cd os/web && npx prettier -w .)
 (cd os/web && npx -p typescript tsc)
 
-echo "=== Debug build ==="
-docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) \
-  "emscripten/emsdk:$EMSDK_VERSION" \
-  sh -c 'mkdir -p build.debug && cd build.debug && 
-        export SOURCE_MAP_BASE=https://fallout-nevada.ru/ &&
-        export EM_CACHE=$(pwd)/emcache && 
-        emcmake cmake -DCMAKE_BUILD_TYPE="Debug" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ../ && 
-        emmake make VERBOSE=1 -j 8'
-
-echo ""
-echo ""
-echo ""
-
 echo "=== Release build ==="
 
 docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) \
@@ -38,7 +25,20 @@ echo ""
 echo ""
 echo ""
 
-echo "=== Deploy to server ==="
+echo "=== Debug build ==="
+docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) \
+  "emscripten/emsdk:$EMSDK_VERSION" \
+  sh -c 'mkdir -p build.debug && cd build.debug && 
+        export SOURCE_MAP_BASE=https://fallout-nevada.ru/ &&
+        export EM_CACHE=$(pwd)/emcache && 
+        emcmake cmake -DCMAKE_BUILD_TYPE="Debug" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ../ && 
+        emmake make VERBOSE=1 -j 8'
+
+echo ""
+echo ""
+echo ""
+
+echo "=== Deploy to server (dry run) ==="
 
 
 RSYNC_ARGS=(
@@ -48,33 +48,18 @@ RSYNC_ARGS=(
   -f '- *' --checksum ./
 )
 
-flush_stdin() {
-  while read -r -t 0.1 -n 10000 _discard; do :; done
-}
-
-RED=$'\e[1;31m'
-RESET=$'\e[0m'
-
-echo "=== Debug build (dry run): ==="
+echo "=== Release build: ==="
+(cd build/web       && rsync --dry-run "${RSYNC_ARGS[@]}" root@fallout-nevada.ru:/var/www/html/)
+echo "=== Debug build: ==="
 (cd build.debug/web && rsync --dry-run "${RSYNC_ARGS[@]}" root@fallout-nevada.ru:/var/www/htmlbeta/)
 
-flush_stdin
-read -rp "Proceed with real sync for DEBUG (htmlbeta)? [y/N] " confirm
+read -rp "Proceed with real sync? [y/N] " confirm
 if [[ $confirm =~ ^[Yy]$ ]]; then
-  echo "=== Debug build: real rsync ==="
+  echo "Running real rsync..."
+  echo "=== Release build: ==="
+  (cd build/web       && rsync "${RSYNC_ARGS[@]}" root@fallout-nevada.ru:/var/www/html/)
+  echo "=== Debug build: ==="
   (cd build.debug/web && rsync "${RSYNC_ARGS[@]}" root@fallout-nevada.ru:/var/www/htmlbeta/)
 else
-  echo "Debug sync skipped."
-fi
-
-echo "=== Release build (dry run): ==="
-(cd build/web       && rsync --dry-run "${RSYNC_ARGS[@]}" root@fallout-nevada.ru:/var/www/html/)
-
-flush_stdin
-read -rp "${RED}Proceed with real sync for PRODUCTION (html)? [y/N]${RESET} " confirm
-if [[ $confirm =~ ^[Yy]$ ]]; then
-  echo "${RED}=== Release build: real rsync to PRODUCTION ===${RESET}"
-  (cd build/web       && rsync "${RSYNC_ARGS[@]}" root@fallout-nevada.ru:/var/www/html/)
-else
-  echo "Production sync skipped."
+  echo "Aborted."
 fi
