@@ -114,7 +114,11 @@ for (const { folder, label, saveName } of GAMES) {
         let repress = 0;
         let nextEnterAt = Date.now() + 5_000;
         while (Date.now() < afterFirstDeadline) {
-            const { changedRatio } = await comparePngs(page, inGame, afterFirst);
+            const { changedRatio } = await comparePngs(
+                page,
+                inGame,
+                afterFirst,
+            );
             if (changedRatio < 0.4) break;
             if (repress < 5 && Date.now() >= nextEnterAt) {
                 await page.keyboard.press("Enter");
@@ -156,4 +160,3 @@ for (const { folder, label, saveName } of GAMES) {
         await expect(slotName).toHaveText(nameRe, { timeout: 30_000 });
     });
 }
-

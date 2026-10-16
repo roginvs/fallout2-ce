@@ -198,9 +198,7 @@ export async function initFilesystem(
             IDBFS.syncfs(savegameNodeMount, false, (/** @type {any} */ err) => {
                 if (err) {
                     reportIdbfsWriteError(err);
-                    reject(
-                        err instanceof Error ? err : new Error(String(err)),
-                    );
+                    reject(err instanceof Error ? err : new Error(String(err)));
                     return;
                 }
                 console.info("IDBFS saved");

@@ -42,7 +42,8 @@ const IGNORED = [
     "Failed to execute 'put' on 'Cache': Unexpected internal error",
 ];
 
-const WASM_CRASH = /\babort\(|RuntimeError|Aborted\(|unreachable|memory access out of bounds/i;
+const WASM_CRASH =
+    /\babort\(|RuntimeError|Aborted\(|unreachable|memory access out of bounds/i;
 
 /**
  * Turns a message into a stable "type": numbers, hex, urls and quoted names removed.
@@ -109,8 +110,8 @@ export const test = base.extend({
             const known = new Set(baseline[testInfo.title] ?? []);
             const types = [...new Set(errors.map((e) => e.type))];
             if (process.env.E2E_UPDATE_ERROR_BASELINE) {
-                baseline[testInfo.title] = types.filter((t) =>
-                    !errors.find((e) => e.type === t && e.wasmCrash),
+                baseline[testInfo.title] = types.filter(
+                    (t) => !errors.find((e) => e.type === t && e.wasmCrash),
                 );
                 await fs.writeFile(
                     BASELINE_FILE,

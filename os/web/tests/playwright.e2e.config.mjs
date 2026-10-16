@@ -26,7 +26,9 @@ export default defineConfig({
     timeout: 20 * 60_000,
     outputDir: "./test-results/e2e",
     use: {
-        baseURL: process.env.E2E_BASE_URL || (useProxy ? proxyUrl : "https://fallout-nevada.ru/"),
+        baseURL:
+            process.env.E2E_BASE_URL ||
+            (useProxy ? proxyUrl : "https://fallout-nevada.ru/"),
         viewport: { width: 1024, height: 768 },
         acceptDownloads: true,
         trace: "retain-on-failure",

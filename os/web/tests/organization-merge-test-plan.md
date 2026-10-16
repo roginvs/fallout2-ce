@@ -13,7 +13,7 @@
 1. Миграция `f2_res.ini`. При `ALTERNATE_AMMO_METRE=1` в cfg оказывается `ui.alternate_ammo_meter=1`, а не 0. `MAIN_MENU_SIZE` переносится в `ui.main_menu_scale_mode` (0–2). Ключи `screen.resolution_x/y`, `windowed`, `scale`, заданные оболочкой, не затираются значениями из `f2_res.ini`.
 2. Финализация сохранения. После обычного сохранения и после быстрого (F6 без окна) `slotdat.ini` с `CurrentSlot` есть в IndexedDB до сообщения об успехе. Перезагрузка страницы открывает тот же слот. Закрытие окна после этого сохранения не делает второй sync. Смена слота, загрузка и отмена публикуют новый слот одним sync. Ошибка записи слота не синхронизирует неполный сейв.
 3. Ошибки IndexedDB. Подмена `IDBFS.syncfs` ошибкой: стартовая загрузка показывает текст в статусе и не запускает игру; `write_idbfs` не печатает `IDBFS saved` и отклоняет Promise. Отказ `navigator.storage.persist()` и отсутствие API не считаются ошибкой записи.
-5. Хвост `SAVE.DAT`. Сейв, который upstream читает, несмотря на лишние байты, загружается. В логе есть предупреждение о несовпадении размера, игра не сбрасывается. При ошибке открытия, заголовка, обработчика или `sfallgv.sav` `_loadingMapId` возвращается в -1.
+4. Хвост `SAVE.DAT`. Сейв, который upstream читает, несмотря на лишние байты, загружается. В логе есть предупреждение о несовпадении размера, игра не сбрасывается. При ошибке открытия, заголовка, обработчика или `sfallgv.sav` `_loadingMapId` возвращается в -1.
 
 ## 1. Цель, версии и обязательный порядок
 
@@ -40,17 +40,17 @@
 
 Перед выполнением заново получить текущий список: новые/скрытые версии тоже включить. Страницы `/#/ru/all` и `/#/en/all` показывают все версии, прямой маршрут — `/#/<folder>`. Обычная стартовая страница может скрывать старые версии без сейвов.
 
-| Игра | Язык | folder — точный идентификатор набора данных | filesVersion |
-| --- | --- | --- | --- |
-| Nevada 3.4 090725 Foxx | ru | `FalloutNevadaFoxx070925` | 1 |
-| Nevada 2.4.1 Foxx | ru | `FalloutOfNevada` | 1 |
-| Nevada 1.00 + патч 02 | ru | `Fallout_Nevada_official_20240505_100_patch2` | 1 |
-| Nevada English 2.0.3.3 | en | `FalloutNevadaEng` | 1 |
-| Sonora 1.15 (+ DLC) | ru | `Fallout_Sonora_1_15_dlc` | 1 |
-| Sonora 1.13 (+ DLC) | ru | `Fallout_Sonora_1_13_dlc` | 1 |
-| Sonora 1.11 (+ DLC) | ru | `Fallout_Sonora` | 1 |
-| Sonora English 1.15 (+ DLC), Cambragol 1.05 | en | `Fallout_Sonora_1_15_dlc_eng` | 3 |
-| Sonora English 1.14 (+ DLC), Cambragol 1.03 | en | `Fallout_Sonora_1_14_dlc_eng` | 3 |
+| Игра                                        | Язык | folder — точный идентификатор набора данных   | filesVersion |
+| ------------------------------------------- | ---- | --------------------------------------------- | ------------ |
+| Nevada 3.4 090725 Foxx                      | ru   | `FalloutNevadaFoxx070925`                     | 1            |
+| Nevada 2.4.1 Foxx                           | ru   | `FalloutOfNevada`                             | 1            |
+| Nevada 1.00 + патч 02                       | ru   | `Fallout_Nevada_official_20240505_100_patch2` | 1            |
+| Nevada English 2.0.3.3                      | en   | `FalloutNevadaEng`                            | 1            |
+| Sonora 1.15 (+ DLC)                         | ru   | `Fallout_Sonora_1_15_dlc`                     | 1            |
+| Sonora 1.13 (+ DLC)                         | ru   | `Fallout_Sonora_1_13_dlc`                     | 1            |
+| Sonora 1.11 (+ DLC)                         | ru   | `Fallout_Sonora`                              | 1            |
+| Sonora English 1.15 (+ DLC), Cambragol 1.05 | en   | `Fallout_Sonora_1_15_dlc_eng`                 | 3            |
+| Sonora English 1.14 (+ DLC), Cambragol 1.03 | en   | `Fallout_Sonora_1_14_dlc_eng`                 | 3            |
 
 Матрица обязательна целиком. Сейв одной Sonora не заменяет сейвы остальных Sonora. Импортировать по точному `folder`, не только по названию мода или языку. Проверка направлена от текущего опубликованного движка к обновлению при одном и том же наборе игровых данных.
 
@@ -82,11 +82,18 @@ curl -I -H 'Origin: https://example.com' 'https://fallout-nevada.ru/game/Fallout
 
 ```js
 async () => {
-  const response = await fetch('https://fallout-nevada.ru/game/FalloutNevadaEng/ddraw.ini.gz?v=1');
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  return { origin: location.origin, status: response.status, type: response.type,
-    length: bytes.length, gzip: bytes[0] === 0x1f && bytes[1] === 0x8b };
-}
+    const response = await fetch(
+        "https://fallout-nevada.ru/game/FalloutNevadaEng/ddraw.ini.gz?v=1",
+    );
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return {
+        origin: location.origin,
+        status: response.status,
+        type: response.type,
+        length: bytes.length,
+        gzip: bytes[0] === 0x1f && bytes[1] === 0x8b,
+    };
+};
 ```
 
 - Проверить индексы и реальные файлы всех folder/версий. `index.txt.gz` — gzip, внутри windows-1251, строки `<size> <sha256> <path>`; штатный parseIndex это поддерживает. Сверять размер и SHA-256 РАСПАКОВАННЫХ файлов, как существующий fetcher.
@@ -163,7 +170,6 @@ python3 -m http.server 8766 --bind 127.0.0.1 --directory build/audit-release/web
 
 Сделать всё тоже самое как в "5. Обязательный baseline" только для кандидата
 
-
 ## 8. Регрессии затронутого кода
 
 ### Сохранение, единая финализация и отказы хранилища
@@ -213,23 +219,23 @@ python3 -m http.server 8766 --bind 127.0.0.1 --directory build/audit-release/web
 В предыдущем тесте Nevada English использовались реальные горячие клавиши: `n` в меню → `t` для готового персонажа → F6 → Enter → текст описания → Enter. Это доказано только для проверенного сценария, не универсально для всех модов/экранов. Обычный save в текущем исходнике F4/Ctrl+S, load F5/Ctrl+L, quicksave F6, quickload F7; сверять с фактическим экраном и версией сайта.
 
 ```js
-await page.locator('#start_FalloutNevadaEng').click();
+await page.locator("#start_FalloutNevadaEng").click();
 // Дождаться меню и убедиться по скриншоту, что n сейчас означает New game.
-await page.keyboard.press('n');
+await page.keyboard.press("n");
 // Проверить, что открылся выбор персонажа, затем t/нужная кнопка.
-await page.keyboard.press('t');
+await page.keyboard.press("t");
 ```
 
 Клик по наблюдаемой точке canvas: u/v — координаты, выбранные по ТЕКУЩЕМУ скриншоту canvas, от 0 до 1.
 
 ```js
-const canvas = page.locator('#canvas');
-await canvas.screenshot({ path: 'before-move.png' });
+const canvas = page.locator("#canvas");
+await canvas.screenshot({ path: "before-move.png" });
 const box = await canvas.boundingBox();
-if (!box) throw new Error('Canvas is not visible');
+if (!box) throw new Error("Canvas is not visible");
 // Сначала определить u/v по видимой доступной точке, а не угадать их.
 await page.mouse.click(box.x + box.width * u, box.y + box.height * v);
-await canvas.screenshot({ path: 'after-move.png' });
+await canvas.screenshot({ path: "after-move.png" });
 ```
 
 Mouse API принимает CSS-пиксели viewport. Не умножать boundingBox на DPR повторно. Если координаты взяты из логической игры 640×480, учитывать фактическое разрешение, scale, центрирование окна, поля/letterbox и размер canvas. Один набор координат не годится автоматически всем модам и HiRes.

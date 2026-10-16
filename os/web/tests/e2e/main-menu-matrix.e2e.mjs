@@ -36,8 +36,15 @@ async function launchGameRetry(page, folder) {
             return;
         } catch (e) {
             last = e;
-            const msg = String(e && /** @type {any} */ (e).message ? /** @type {any} */ (e).message : e);
-            if (!/ERR_TIMED_OUT|Timeout|net::ERR_/i.test(msg) || attempt === 3) {
+            const msg = String(
+                e && /** @type {any} */ (e).message
+                    ? /** @type {any} */ (e).message
+                    : e,
+            );
+            if (
+                !/ERR_TIMED_OUT|Timeout|net::ERR_/i.test(msg) ||
+                attempt === 3
+            ) {
                 throw e;
             }
             await page.waitForTimeout(3000 * attempt);

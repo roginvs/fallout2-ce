@@ -39,8 +39,15 @@ export async function launchGameRetry(page, folder, opts = {}) {
             return;
         } catch (e) {
             last = e;
-            const msg = String(e && /** @type {any} */ (e).message ? /** @type {any} */ (e).message : e);
-            if (!/ERR_TIMED_OUT|Timeout|net::ERR_/i.test(msg) || attempt === attempts) {
+            const msg = String(
+                e && /** @type {any} */ (e).message
+                    ? /** @type {any} */ (e).message
+                    : e,
+            );
+            if (
+                !/ERR_TIMED_OUT|Timeout|net::ERR_/i.test(msg) ||
+                attempt === attempts
+            ) {
                 throw e;
             }
             await page.waitForTimeout(3000 * attempt);
@@ -308,7 +315,9 @@ export async function waitForMainMenu(page, opts = {}) {
         const status = await page
             .locator("#status_text")
             .evaluate((el) =>
-                getComputedStyle(el).opacity === "0" ? "" : el.textContent || "",
+                getComputedStyle(el).opacity === "0"
+                    ? ""
+                    : el.textContent || "",
             )
             .catch(() => "");
         if (status.trim() && Date.now() < statusUntil) {
@@ -460,7 +469,6 @@ export async function downloadSlot(page, folder, slot, testInfo) {
     return target;
 }
 
-
 /**
  * Imports a .tar save archive into a shell slot via the context menu file picker.
  * @param {Page} page
@@ -502,7 +510,11 @@ function isGameData(url) {
  * @param {Page} page
  */
 export function trackGameData(page) {
-    const t = { pending: new Map(), lastFinished: "", lastActivity: Date.now() };
+    const t = {
+        pending: new Map(),
+        lastFinished: "",
+        lastActivity: Date.now(),
+    };
     trackers.set(page, t);
     page.on("request", (r) => {
         if (!isGameData(r.url())) return;
@@ -539,7 +551,9 @@ export async function waitForGameDataIdle(page, opts = {}) {
         status = await page
             .locator("#status_text")
             .evaluate((el) =>
-                getComputedStyle(el).opacity === "0" ? "" : el.textContent || "",
+                getComputedStyle(el).opacity === "0"
+                    ? ""
+                    : el.textContent || "",
             )
             .catch(() => "");
         if (
@@ -629,7 +643,11 @@ export async function normalSave(page, testInfo, onMap, saveName, opts = {}) {
     if (vsMap > 0.2) {
         await page.keyboard.type(saveName, { delay: 50 });
         await page.waitForTimeout(300);
-        await snap(testInfo, `${prefix}save-description`, await canvasPng(page));
+        await snap(
+            testInfo,
+            `${prefix}save-description`,
+            await canvasPng(page),
+        );
         await page.keyboard.press("Enter");
     }
     const deadline = Date.now() + 480_000;

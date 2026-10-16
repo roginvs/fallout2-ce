@@ -28,7 +28,11 @@ test("quicksave survives reload, downloads and loads", async ({
 
     await pressKey(page, "t");
     await waitForCanvasChange(page, charSelect);
-    const inGame = await waitForStableFrame(page, { region: INTERFACE_BAR, maxChanged: 0.01, timeout: 480_000 });
+    const inGame = await waitForStableFrame(page, {
+        region: INTERFACE_BAR,
+        maxChanged: 0.01,
+        timeout: 480_000,
+    });
     await snap(testInfo, "02-in-game", inGame);
 
     await pressKey(page, "F6");
@@ -42,7 +46,11 @@ test("quicksave survives reload, downloads and loads", async ({
     const description = await waitForStableFrame(page, { maxChanged: 0.01 });
     await snap(testInfo, "04-save-description", description);
     await pressKey(page, "Enter");
-    const afterSave = await waitForStableFrame(page, { region: INTERFACE_BAR, maxChanged: 0.01, timeout: 480_000 });
+    const afterSave = await waitForStableFrame(page, {
+        region: INTERFACE_BAR,
+        maxChanged: 0.01,
+        timeout: 480_000,
+    });
     await snap(testInfo, "05-after-save", afterSave);
 
     await page.reload();
@@ -64,7 +72,11 @@ test("quicksave survives reload, downloads and loads", async ({
 
     await pressKey(page, "Enter");
     await waitForCanvasChange(page, loadDialog, { minChanged: 0.1 });
-    const loaded = await waitForStableFrame(page, { region: INTERFACE_BAR, maxChanged: 0.01, timeout: 480_000 });
+    const loaded = await waitForStableFrame(page, {
+        region: INTERFACE_BAR,
+        maxChanged: 0.01,
+        timeout: 480_000,
+    });
     await snap(testInfo, "07-loaded", loaded);
 
     const { changedRatio } = await comparePngs(page, inGame, loaded);
