@@ -299,8 +299,23 @@ export async function waitForMainMenu(page, opts = {}) {
     /** @type {Buffer | null} */
     let prev = null;
     let skipTick = 0;
+    // A static splash (Nevada road sign) is vivid and stable while the shell
+    // status line still shows master.dat reads; the real menu has it hidden.
+    // After 120 s accept a visible status anyway (endless SFX trickle).
+    const statusUntil = Date.now() + 120_000;
     while (Date.now() < deadline) {
         const frame = await canvasPng(page);
+        const status = await page
+            .locator("#status_text")
+            .evaluate((el) =>
+                getComputedStyle(el).opacity === "0" ? "" : el.textContent || "",
+            )
+            .catch(() => "");
+        if (status.trim() && Date.now() < statusUntil) {
+            prev = null;
+            await page.waitForTimeout(1_000);
+            continue;
+        }
         if (prev) {
             const { changedRatio, nonBlackRatioB, vividRatioB } =
                 await comparePngs(page, prev, frame);
