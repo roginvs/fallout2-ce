@@ -89,13 +89,21 @@ for (const { folder, label, saveName } of GAMES) {
             minChanged: 0.15,
             timeout: 120_000,
         });
-        const charSelect = await waitForStableFrame(page);
+        // Reject near-black splash (Sonora Eng regressed when char-select was black).
+        const charSelect = await waitForStableFrame(page, {
+            minNonBlack: 0.25,
+            timeout: 180_000,
+        });
         await snap(testInfo, "02-char-select", charSelect);
 
         await pressKey(page, "t");
         await waitForCanvasChange(page, charSelect);
         // Nevada 2.4.1 (and similar) show a long intro; bar stays black until map.
-        const inGame = await waitForGameplay(page, { timeout: 480_000 });
+        // Pass mainMenu so INTERFACE_BAR lighting on the title screen is ignored.
+        const inGame = await waitForGameplay(page, {
+            timeout: 480_000,
+            unlike: mainMenu,
+        });
         await snap(testInfo, "03-in-game", inGame);
 
         await pressKey(page, "F4");

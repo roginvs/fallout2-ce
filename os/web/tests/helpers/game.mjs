@@ -109,7 +109,7 @@ export async function canvasPng(page, region) {
  * @param {Page} page
  * @param {Buffer} a
  * @param {Buffer} b
- * @returns {Promise<{ changedRatio: number, nonBlackRatioB: number }>}
+ * @returns {Promise<{ changedRatio: number, nonBlackRatioB: number, vividRatioB: number }>}
  */
 export async function comparePngs(page, a, b) {
     return page.evaluate(
@@ -131,12 +131,18 @@ export async function comparePngs(page, a, b) {
             const total = ib.width * ib.height;
             let changed = 0;
             let nonBlack = 0;
+            let vivid = 0;
             for (let i = 0; i < ib.data.length; i += 4) {
                 const r = ib.data[i];
                 const g = ib.data[i + 1];
                 const bl = ib.data[i + 2];
-                if (r + g + bl > 30) {
+                const sum = r + g + bl;
+                if (sum > 30) {
                     nonBlack++;
+                }
+                // Splash/grain is dark gray (sum~30-60); real menu/map art is brighter.
+                if (sum > 80) {
+                    vivid++;
                 }
                 if (
                     ia.width !== ib.width ||
@@ -151,6 +157,7 @@ export async function comparePngs(page, a, b) {
             return {
                 changedRatio: changed / total,
                 nonBlackRatioB: nonBlack / total,
+                vividRatioB: vivid / total,
             };
         },
         [a.toString("base64"), b.toString("base64")],
@@ -219,15 +226,31 @@ export async function waitForStableFrame(page, opts = {}) {
  * waitForStableFrame alone can return too early (seen on FalloutOfNevada).
  *
  * @param {Page} page
- * @param {{ timeout?: number, minBarNonBlack?: number }} [opts]
+ * @param {{ timeout?: number, minBarNonBlack?: number, unlike?: Buffer, minUnlike?: number }} [opts]
  * @returns {Promise<Buffer>} stable full-frame once gameplay UI is up
  */
 export async function waitForGameplay(page, opts = {}) {
     const timeout = opts.timeout ?? 480_000;
     const minBarNonBlack = opts.minBarNonBlack ?? 0.25;
+    /** @type {Buffer | null} */
+    const unlike = opts.unlike ?? null;
+    const minUnlike = opts.minUnlike ?? 0.15;
     const deadline = Date.now() + timeout;
-    let skipTick = 0;
     while (Date.now() < deadline) {
+        const full = await canvasPng(page);
+        if (unlike) {
+            const { changedRatio: vsUnlike } = await comparePngs(
+                page,
+                unlike,
+                full,
+            );
+            // Sonora Eng: INTERFACE_BAR lights on the main menu art too.
+            // Stay here until the frame actually leaves the menu.
+            if (vsUnlike < minUnlike) {
+                await page.waitForTimeout(1_000);
+                continue;
+            }
+        }
         const bar = await canvasPng(page, INTERFACE_BAR);
         // compare against itself just to get nonBlackRatioB
         const { nonBlackRatioB } = await comparePngs(page, bar, bar);
@@ -239,7 +262,6 @@ export async function waitForGameplay(page, opts = {}) {
                 skipLoadWait: true,
             });
         }
-        skipTick += 1;
         // Enter skips slides/FMV. Do NOT send Escape: on the first map frame it
         // opens the pause menu while INTERFACE_BAR is already lit, and F4 then
         // does nothing (seen on candidate Nevada Eng).
@@ -276,16 +298,19 @@ export async function waitForMainMenu(page, opts = {}) {
     }
     /** @type {Buffer | null} */
     let prev = null;
+    let skipTick = 0;
     while (Date.now() < deadline) {
         const frame = await canvasPng(page);
         if (prev) {
-            const { changedRatio, nonBlackRatioB } = await comparePngs(
-                page,
-                prev,
-                frame,
-            );
-            // Real menu is dense and stays put; splash text keeps changing.
-            if (changedRatio < 0.012 && nonBlackRatioB > 0.2) {
+            const { changedRatio, nonBlackRatioB, vividRatioB } =
+                await comparePngs(page, prev, frame);
+            // Real menu is dense and stays put; splash is dark grain
+            // (nonBlack~0.6 but vivid~0.07) or status text that keeps changing.
+            if (
+                changedRatio < 0.012 &&
+                nonBlackRatioB > 0.2 &&
+                vividRatioB > 0.2
+            ) {
                 await page.waitForTimeout(2_000);
                 const confirm = await canvasPng(page);
                 const { changedRatio: c2 } = await comparePngs(
@@ -294,7 +319,32 @@ export async function waitForMainMenu(page, opts = {}) {
                     confirm,
                 );
                 if (c2 < 0.012) {
-                    return confirm;
+                    // After 120 s idle the main menu plays the intro movie
+                    // (MAIN_MENU_TIMEOUT); a slow movie frame looks "stable"
+                    // (Sonora Eng windmill). Space is not a main menu hotkey
+                    // but skips a movie: if the picture jumps, keep waiting.
+                    await pressKey(page, "Space");
+                    await page.waitForTimeout(3_000);
+                    const probe = await canvasPng(page);
+                    const { changedRatio: c3 } = await comparePngs(
+                        page,
+                        confirm,
+                        probe,
+                    );
+                    if (c3 < 0.05) {
+                        return probe;
+                    }
+                    prev = null;
+                    await page.waitForTimeout(2_000);
+                    continue;
+                }
+            } else {
+                // Sonora hi-res: location splash keeps dithering (changed>0.012)
+                // and never looks "settled". Space skips splash/FMV; it is not a
+                // main-menu hotkey so a real menu stays put.
+                skipTick += 1;
+                if (skipTick % 2 === 0) {
+                    await pressKey(page, "Space");
                 }
             }
         }
@@ -490,4 +540,170 @@ export async function waitForGameDataIdle(page, opts = {}) {
             `Status: "${status}". Last loaded: ${t.lastFinished || "none"}. ` +
             `Pending: ${[...t.pending.values()].join(", ") || "none"}`,
     );
+}
+
+/**
+ * Main menu -> `n` -> premade character `t` -> controllable map.
+ * Same steps as candidate-normal-save.e2e.mjs.
+ *
+ * @param {Page} page
+ * @param {TestInfo} testInfo
+ * @param {string} [prefix] screenshot name prefix
+ * @returns {Promise<{ mainMenu: Buffer, inGame: Buffer }>}
+ */
+export async function newGameToMap(page, testInfo, prefix = "") {
+    const mainMenu = await waitForMainMenu(page, { timeout: 480_000 });
+    await snap(testInfo, `${prefix}main-menu`, mainMenu);
+    await pressKey(page, "n");
+    await waitForCanvasChange(page, mainMenu, {
+        minChanged: 0.15,
+        timeout: 120_000,
+    });
+    const charSelect = await waitForStableFrame(page, {
+        minNonBlack: 0.25,
+        timeout: 180_000,
+    });
+    await snap(testInfo, `${prefix}char-select`, charSelect);
+    await pressKey(page, "t");
+    await waitForCanvasChange(page, charSelect);
+    const inGame = await waitForGameplay(page, {
+        timeout: 480_000,
+        unlike: mainMenu,
+    });
+    await snap(testInfo, `${prefix}in-game`, inGame);
+    return { mainMenu, inGame };
+}
+
+/**
+ * F4 normal save into the slot selected in the dialog (`slot` 1..10, moved
+ * with ArrowDown from the first one), with a description when asked.
+ * Waits until the map is back.
+ *
+ * @param {Page} page
+ * @param {TestInfo} testInfo
+ * @param {Buffer} onMap frame of the map before saving
+ * @param {string} saveName
+ * @param {{ prefix?: string, slot?: number }} [opts]
+ * @returns {Promise<Buffer>} map frame after saving
+ */
+export async function normalSave(page, testInfo, onMap, saveName, opts = {}) {
+    const prefix = opts.prefix ?? "";
+    await pressKey(page, "F4");
+    await waitForCanvasChange(page, onMap, {
+        minChanged: 0.1,
+        timeout: 120_000,
+    });
+    const dialog = await waitForStableFrame(page, { maxChanged: 0.01 });
+    if (opts.slot) {
+        // The dialog opens on slotdat.ini CurrentSlot; Home = first slot of
+        // the page on the current engine (no-op where unsupported).
+        await pressKey(page, "Home");
+        await page.waitForTimeout(300);
+        for (let i = 1; i < opts.slot; i++) {
+            await pressKey(page, "ArrowDown");
+            await page.waitForTimeout(300);
+        }
+    }
+    await snap(testInfo, `${prefix}save-dialog`, await canvasPng(page));
+    await pressKey(page, "Enter");
+    await page.waitForTimeout(800);
+    const afterEnter = await canvasPng(page);
+    const { changedRatio: vsMap } = await comparePngs(page, onMap, afterEnter);
+    if (vsMap > 0.2) {
+        await page.keyboard.type(saveName, { delay: 50 });
+        await page.waitForTimeout(300);
+        await snap(testInfo, `${prefix}save-description`, await canvasPng(page));
+        await page.keyboard.press("Enter");
+    }
+    const deadline = Date.now() + 480_000;
+    let after = await canvasPng(page);
+    let repress = 0;
+    let nextEnterAt = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+        const { changedRatio } = await comparePngs(page, onMap, after);
+        if (changedRatio < 0.4) break;
+        if (repress < 5 && Date.now() >= nextEnterAt) {
+            await page.keyboard.press("Enter");
+            repress += 1;
+            nextEnterAt = Date.now() + 5_000;
+        }
+        await page.waitForTimeout(1000);
+        after = await canvasPng(page);
+    }
+    const { changedRatio } = await comparePngs(page, onMap, after);
+    if (changedRatio >= 0.4) {
+        throw new Error("still in save UI after confirm");
+    }
+    void dialog;
+    const afterSave = await waitForStableFrame(page, {
+        region: INTERFACE_BAR,
+        maxChanged: 0.01,
+        timeout: 180_000,
+    });
+    await snap(testInfo, `${prefix}after-save`, afterSave);
+    return afterSave;
+}
+
+/**
+ * Main menu `l` -> pick `slot` (ArrowDown from the first) -> Enter until the
+ * load dialog is gone -> stable map with a lit interface bar.
+ *
+ * @param {Page} page
+ * @param {TestInfo} testInfo
+ * @param {{ prefix?: string, slot?: number }} [opts]
+ * @returns {Promise<Buffer>} loaded map frame
+ */
+export async function loadFromMainMenu(page, testInfo, opts = {}) {
+    const prefix = opts.prefix ?? "";
+    const menu = await waitForMainMenu(page, { timeout: 480_000 });
+    await snap(testInfo, `${prefix}main-menu`, menu);
+    await pressKey(page, "l");
+    await waitForCanvasChange(page, menu, {
+        minChanged: 0.1,
+        timeout: 120_000,
+    });
+    await waitForStableFrame(page, { maxChanged: 0.01 });
+    if (opts.slot) {
+        // The dialog opens on slotdat.ini CurrentSlot; Home = first slot of
+        // the page on the current engine (no-op where unsupported).
+        await pressKey(page, "Home");
+        await page.waitForTimeout(300);
+        for (let i = 1; i < opts.slot; i++) {
+            await pressKey(page, "ArrowDown");
+            await page.waitForTimeout(300);
+        }
+    }
+    await waitForGameDataIdle(page, { timeout: 180_000 });
+    const loadDialog = await canvasPng(page);
+    await snap(testInfo, `${prefix}load-dialog`, loadDialog);
+    await page.keyboard.press("Enter");
+    const deadline = Date.now() + 480_000;
+    let left = false;
+    let enters = 1;
+    while (Date.now() < deadline) {
+        const frame = await canvasPng(page);
+        const { changedRatio } = await comparePngs(page, loadDialog, frame);
+        if (changedRatio > 0.35) {
+            left = true;
+            break;
+        }
+        if (enters < 6) {
+            await page.keyboard.press("Enter");
+            enters += 1;
+        }
+        await page.waitForTimeout(2_000);
+    }
+    if (!left) throw new Error("still on load dialog after Enter");
+    const loaded = await waitForStableFrame(page, {
+        region: INTERFACE_BAR,
+        maxChanged: 0.01,
+        timeout: 480_000,
+    });
+    await snap(testInfo, `${prefix}loaded`, loaded);
+    const bar = await canvasPng(page, INTERFACE_BAR);
+    const { nonBlackRatioB } = await comparePngs(page, bar, bar);
+    if (nonBlackRatioB < 0.25) {
+        throw new Error("interface bar is dark after load: not on a map");
+    }
+    return loaded;
 }
