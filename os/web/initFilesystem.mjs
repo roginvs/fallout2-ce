@@ -166,6 +166,18 @@ export async function initFilesystem(
         "/" + folderName,
     );
 
+    // Engine looks for "ce.dat" in the current (game) directory. CE resources
+    // are embedded into the wasm at /ce.dat, so expose them via a symlink
+    // unless the game ships its own ce.dat.
+    const gameRootNode = FS.lookupPath("/" + folderName).node;
+    if (
+        !Object.keys(gameRootNode.childNodes).some(
+            (name) => name.toLowerCase() === "ce.dat",
+        )
+    ) {
+        FS.symlink("/ce.dat", "/" + folderName + "/ce.dat");
+    }
+
     FS.mount(IDBFS, {}, "/" + folderName + "/data/SAVEGAME");
 
     FS.mount(MEMFS, {}, "/" + folderName + "/data/MAPS");

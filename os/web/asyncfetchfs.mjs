@@ -343,13 +343,33 @@ export const ASYNCFETCHFS = {
             }
             return entries;
         },
-        symlink: function (
-            /** @type {unknown} */ parent,
-            /** @type {unknown} */ newName,
-            /** @type {unknown} */ oldPath,
+        readlink: function (
+            /** @type {AsyncFetchFsNode & {link?: string}} */ node,
         ) {
-            console.info(`ASYNCFETCHFS node_ops.rmdir: `, newName);
-            throw new FS.ErrnoError(EPERM);
+            if (!FS.isLink(node.mode) || node.link === undefined) {
+                throw new FS.ErrnoError(EINVAL);
+            }
+            return node.link;
+        },
+        symlink: function (
+            /** @type {AsyncFetchFsNode} */ parent,
+            /** @type {string} */ newName,
+            /** @type {string} */ oldPath,
+        ) {
+            if (!parent.childNodes) {
+                throw new FS.ErrnoError(EPERM);
+            }
+            /** @type {AsyncFetchFsNode & {link?: string}} */
+            const node = FS.createNode(parent, newName, 0o120777, 0);
+            node.node_ops = ASYNCFETCHFS.node_ops;
+            node.stream_ops = ASYNCFETCHFS.stream_ops;
+            node.link = oldPath;
+            node.size = oldPath.length;
+            node.timestamp = Date.now();
+            node.is_memfs = true;
+            parent.childNodes[newName] = node;
+            parent.timestamp = node.timestamp;
+            return node;
         },
     },
     stream_ops: {

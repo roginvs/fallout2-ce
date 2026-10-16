@@ -1366,13 +1366,6 @@ static void TryLoadBaseCEMod()
         return;
     }
 
-#ifdef __EMSCRIPTEN__
-    // Embedded engine resources live outside the selected game's mount point.
-    if (tryLoadBaseCEModAtPath("/ce.dat", &found, &openFailed)) {
-        return;
-    }
-#endif
-
 #if __APPLE__ && TARGET_OS_OSX
     const char* bundleResourcesPath = getMacOsBundleResourcesPath();
     if (bundleResourcesPath != nullptr) {
