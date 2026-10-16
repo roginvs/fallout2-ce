@@ -23,8 +23,9 @@ const IGNORED = [
     "pointer ?lock",
     "favicon",
     // Network flakes of the live site (third-party chat widget, slow requests).
+    // INTERNET_DISCONNECTED is expected under context.setOffline (fork offline e2e).
     // Real game data failures surface as shell status/errors or test timeouts.
-    "Failed to load resource: net::ERR_(TIMED_OUT|FAILED|CONNECTION_RESET)",
+    "Failed to load resource: net::ERR_(TIMED_OUT|FAILED|CONNECTION_RESET|INTERNET_DISCONNECTED)",
     // Live site rate-limits when several agents hit it at once.
     "Failed to load resource: the server responded with a status of 429",
     "embed\\.tawk\\.to",
