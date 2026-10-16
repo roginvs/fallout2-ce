@@ -2108,6 +2108,10 @@ static int lsgLoadGameInSlot(int slot)
     _loadingMapId = -1;
 
     debugPrint("LOADSAVE: Total load data read: %ld bytes.\n", fileTell(_flptr));
+    if (fileGetSize(_flptr) != fileTell(_flptr)) {
+        debugPrint("\nLOADSAVE: ** Warning reading load, some data is left! file_size=%ld **\n", fileGetSize(_flptr));
+        displayMonitorAddMessage("Warning: save file has unread data left.");
+    }
     fileClose(_flptr);
 
     // SFALL: Load sfallgv.sav.
