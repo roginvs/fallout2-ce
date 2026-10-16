@@ -1,7 +1,8 @@
 // Section 7A: normal (F4) or first quick (F6) save on the published engine (E2E_LIVE_URL, default the
 // live site; a non-candidate caching proxy keeps the same engine/data) ->
 // download .tar -> import into the candidate (baseURL, E2E_CANDIDATE_DIR) ->
-// load -> new candidate save in slot 2 -> reload -> download -> load slot 2.
+// load -> new candidate save in slot 2 -> reload -> download (SAVE.DAT, ce.sav,
+// nested proto/) -> load slot 2.
 import { expect, test } from "../helpers/fixtures.mjs";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
@@ -151,6 +152,14 @@ for (const { folder, label, tag } of ALL_GAMES) {
             expect(candPaths.some((p) => /(^|\/)SAVE\.DAT$/.test(p))).toBe(
                 true,
             );
+            // The shell export must take the new engine's ce.sav and the
+            // nested proto/ files of the slot.
+            expect(candPaths.some((p) => /(^|\/)ce\.sav$/.test(p))).toBe(true);
+            expect(
+                candPaths.some((p) =>
+                    /(^|\/)proto\/[^/]+\/[^/]+\.pro$/.test(p),
+                ),
+            ).toBe(true);
             await launchGameRetry(page, folder);
             const reloaded = await loadFromMainMenu(page, testInfo, {
                 prefix: "cand-05-",
