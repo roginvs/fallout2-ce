@@ -5,10 +5,12 @@
 // cursor to the touch first.
 import { expect, test } from "../helpers/fixtures.mjs";
 import {
+    canvasPng,
     comparePngs,
     launchGame,
     snap,
     waitForCanvasChange,
+    waitForMainMenu,
     waitForStableFrame,
 } from "../helpers/game.mjs";
 
@@ -20,12 +22,14 @@ test.use({
 });
 
 /**
- * Touch down/up in 640x480 game coordinates, with a short hold.
+ * Touch down/up in 640x480 game coordinates, with a short hold. With `dx`
+ * the finger moves that many game pixels right while held and lifts there.
  * @param {import("@playwright/test").Page} page
  * @param {number} gx
  * @param {number} gy
+ * @param {number} [dx]
  */
-async function holdTapGame(page, gx, gy) {
+async function holdTapGame(page, gx, gy, dx = 0) {
     await page.evaluate(() => {
         if (document.pointerLockElement) {
             document.exitPointerLock();
@@ -45,6 +49,20 @@ async function holdTapGame(page, gx, gy) {
             touchPoints: [{ x, y }],
         });
         await page.waitForTimeout(150);
+        if (dx) {
+            // A few small steps, each held for several game frames, so the
+            // engine sees the finger still down and already moved.
+            for (let step = 1; step <= 4; step++) {
+                await client.send("Input.dispatchTouchEvent", {
+                    type: "touchMove",
+                    touchPoints: [
+                        { x: x + (box.width * dx * step) / 4 / 640, y },
+                    ],
+                });
+                await page.waitForTimeout(80);
+            }
+            await page.waitForTimeout(150);
+        }
         await client.send("Input.dispatchTouchEvent", {
             type: "touchEnd",
             touchPoints: [],
@@ -77,4 +95,34 @@ test("tap on 'New game' opens character selection", async ({
 
     const { changedRatio } = await comparePngs(page, mainMenu, next);
     expect(changedRatio).toBeGreaterThanOrEqual(0.2);
+});
+
+// Fork touch.cc: PAN_MINIMUM_MOVEMENT is 15 (upstream 4), so a finger that
+// jitters a few pixels is still a tap (click); a longer drag is a pan that
+// only moves the cursor.
+test("fork: 8 px jitter is still a tap, 30 px drag is a pan", async ({
+    page,
+}, testInfo) => {
+    await launchGame(page, FOLDER);
+    const mainMenu = await waitForMainMenu(page);
+    await snap(testInfo, "01-main-menu", mainMenu);
+
+    // Drag that ends on the 'New game' button: pan, no click.
+    await holdTapGame(page, 43 - 30, 73, 30);
+    await page.waitForTimeout(5_000);
+    const afterDrag = await canvasPng(page);
+    await snap(testInfo, "02-after-drag", afterDrag);
+    const drag = await comparePngs(page, mainMenu, afterDrag);
+    expect(
+        drag.changedRatio,
+        "30 px drag must not press New game",
+    ).toBeLessThan(0.2);
+
+    // Jittered tap on the same button: click.
+    await holdTapGame(page, 43 - 4, 73, 8);
+    await waitForCanvasChange(page, mainMenu, { timeout: 30_000 });
+    const next = await waitForStableFrame(page, { timeout: 60_000 });
+    await snap(testInfo, "03-after-jitter-tap", next);
+    const tap = await comparePngs(page, mainMenu, next);
+    expect(tap.changedRatio).toBeGreaterThanOrEqual(0.2);
 });
