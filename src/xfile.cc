@@ -488,6 +488,7 @@ bool xbaseReopenAll(char* paths)
 bool xbaseOpen(const char* path)
 {
     assert(path); // "path", "xfile.c", 747
+    debugPrint("[xfile] xbaseOpen: %s\n", path);
 
     // Register atexit handler so that underlying dbase (if any) can be
     // gracefully closed.
