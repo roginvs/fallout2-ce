@@ -29,6 +29,14 @@ const IGNORED = [
     // Live site rate-limits when several agents hit it at once.
     "Failed to load resource: the server responded with a status of 429",
     "embed\\.tawk\\.to",
+    // Third-party error/replay SDKs on the live shell; CORS fails on 127.0.0.1 candidate.
+    "api\\.rollbar\\.com",
+    "Rollbar:",
+    "browser\\.sentry-cdn\\.com",
+    // Empty-reason HTTP errors are usually third-party XHR (Rollbar 413 etc.);
+    // game data problems show up as shell status or timeouts.
+    "Failed to load resource: the server responded with a status of \\d+ \\(\\)",
+    "Access to XMLHttpRequest at .* has been blocked by CORS policy",
     // Chromium Cache Storage put can flake under load (Sonora hi-res e2e);
     // game still boots from network/proxy. Not a product regression.
     "Failed to execute 'put' on 'Cache': Unexpected internal error",

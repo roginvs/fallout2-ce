@@ -319,12 +319,13 @@ export async function waitForMainMenu(page, opts = {}) {
                     confirm,
                 );
                 if (c2 < 0.012) {
-                    // After 120 s idle the main menu plays the intro movie
-                    // (MAIN_MENU_TIMEOUT); a slow movie frame looks "stable"
-                    // (Sonora Eng windmill). Space is not a main menu hotkey
-                    // but skips a movie: if the picture jumps, keep waiting.
-                    await pressKey(page, "Space");
-                    await page.waitForTimeout(3_000);
+                    // After 120 s idle the main menu may play the intro movie
+                    // (MAIN_MENU_TIMEOUT); a slow movie frame can look "stable"
+                    // (Sonora Eng windmill). Do NOT probe with Space/Enter: on
+                    // Sonora ru Space activates ИНТРО and then stalls on
+                    // intro.mve download. A longer idle confirm distinguishes
+                    // a real menu from a slow movie instead.
+                    await page.waitForTimeout(5_000);
                     const probe = await canvasPng(page);
                     const { changedRatio: c3 } = await comparePngs(
                         page,
