@@ -85,12 +85,16 @@ test("fork P1: broken or foreign archive shows error, slot intact", async ({
         ["SLOT01/SAVE.DAT", saveDat("FORK-KEEP")],
     ]);
     await importSlot(page, FOLDER, 4, good);
-    await expect(slotName(page, 4)).toHaveText("FORK-KEEP", { timeout: 30_000 });
+    await expect(slotName(page, 4)).toHaveText("FORK-KEEP", {
+        timeout: 30_000,
+    });
 
     const garbage = testInfo.outputPath("garbage.tar");
     await fs.writeFile(
         garbage,
-        Buffer.from(Array.from({ length: 1500 }, (_, i) => (i * 37 + 11) % 251)),
+        Buffer.from(
+            Array.from({ length: 1500 }, (_, i) => (i * 37 + 11) % 251),
+        ),
     );
     const noSave = await writeTar(testInfo.outputPath("nosave.tar"), [
         ["SLOT01/AUTOMAP.SAV", new Uint8Array([1, 2, 3])],
