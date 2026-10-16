@@ -1,8 +1,7 @@
 import { configuration } from "./config.mjs";
 import { showContextMenu } from "./contextmenu.mjs";
 import { addDebugTag } from "./debugTags.mjs";
-import { createFetcher } from "./fetcher.mjs";
-import { getCacheName, removeGameCache } from "./gamecache.mjs";
+import { removeGameCache } from "./gamecache.mjs";
 import { addHotkeysForFullscreen } from "./hotkeys_and_workarounds.mjs";
 import { IniParser } from "./iniparser.mjs";
 import { downloadAllGameFiles, initFilesystem } from "./initFilesystem.mjs";
@@ -1081,38 +1080,6 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         index.some(
                             (f) => f.name.toLowerCase() === name.toLowerCase(),
                         );
-
-                    const ddrawEntry = index.find(
-                        (f) => f.name.toLowerCase() === "ddraw.ini",
-                    );
-                    if (ddrawEntry) {
-                        try {
-                            const readDdraw = createFetcher(
-                                `./game/${game.folder}/`,
-                                getCacheName(game.folder, game.filesVersion),
-                                configuration.useGzip,
-                                () => {},
-                                null,
-                                game.filesVersion,
-                            );
-                            const ddrawBytes = await readDdraw(
-                                ddrawEntry.name,
-                                ddrawEntry.size,
-                                ddrawEntry.sha256hash,
-                            );
-                            const configFile = new IniParser(ddrawBytes)
-                                .getValue("Misc", "ConfigFile")
-                                ?.trim();
-                            if (configFile) {
-                                gameConfigFileName = configFile;
-                            }
-                        } catch (e) {
-                            console.warn(
-                                "Could not read [Misc] ConfigFile from ddraw.ini",
-                                e,
-                            );
-                        }
-                    }
 
                     for (const filePath of [
                         "ddraw.ini",
