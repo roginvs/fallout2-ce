@@ -1,6 +1,6 @@
 // Section 5/8: after quicksave slot is set, F7 quickloads without a dialog.
 // Inventory opened then closed first: F7 ignored inside inventory UI.
-// Nevada Eng covered by baseline-quickload-f7-nevada-eng.e2e.mjs.
+// One parameterized test per game folder (all nine, Nevada Eng included).
 import { expect, test } from "../helpers/fixtures.mjs";
 import {
     canvasPng,
@@ -17,6 +17,11 @@ import {
 
 /** @type {{ folder: string, label: string, saveName: string }[]} */
 const GAMES = [
+    {
+        folder: "FalloutNevadaEng",
+        label: "Nevada Eng",
+        saveName: "audit-nveng-ql",
+    },
     {
         folder: "Fallout_Sonora_1_15_dlc_eng",
         label: "Sonora 1.15 Eng",
