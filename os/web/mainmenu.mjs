@@ -1295,7 +1295,7 @@ const langData = /** @type {const} */ ({
  */
 
 export function renderMenu() {
-    const menuDiv = document.getElementById("menu");
+    const menuDiv = document.getElementById("menu_content");
     if (!menuDiv) {
         throw new Error(`No menu div!`);
     }

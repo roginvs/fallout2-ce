@@ -124,3 +124,13 @@
 .languages_links a {
     color: #959595;
 }
+
+.build_version {
+    color: #666;
+    font-size: 11px;
+}
+.build_version a {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}

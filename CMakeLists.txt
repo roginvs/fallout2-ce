@@ -527,7 +527,10 @@ else()
        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/sonora-*.png"
     )
     set(WEB_STATIC_TO_COPY "${WEB_STATIC}")
-    list(REMOVE_ITEM WEB_STATIC_TO_COPY "${CMAKE_CURRENT_SOURCE_DIR}/os/web/index.sw.js")
+    list(REMOVE_ITEM WEB_STATIC_TO_COPY
+        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/index.sw.js"
+        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/index.html"
+    )
     # Copy each file individually, excluding symlinks
     foreach(file IN LISTS WEB_STATIC_TO_COPY)
         # Symlinks are skipped because I run devserver from os/web directory,
@@ -537,6 +540,20 @@ else()
             file(COPY "${file}" DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
         endif()
     endforeach()
+
+    execute_process(
+        COMMAND git rev-parse HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE WEB_COMMIT_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    execute_process(
+        COMMAND git log -1 "--date=format:%d.%m.%Y %H:%M:%S" --pretty=format:%cd
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE WEB_COMMIT_DATE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    configure_file("os/web/index.html" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/index.html" @ONLY)
 
     # Hash the finished assets, including JS/WASM, on every build.
     add_custom_target(web-service-worker ALL

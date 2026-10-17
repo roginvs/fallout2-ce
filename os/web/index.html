@@ -15,7 +15,15 @@
             <div id="status_text">Загрузка... / Loading...</div>
             <div id="error_text"></div>
             <canvas id="canvas" style="display: none"></canvas>
-            <div id="menu"></div>
+            <div id="menu">
+                <div id="menu_content"></div>
+                <div class="build_version">
+                    <a
+                        href="https://github.com/roginvs/fallout2-ce/commit/@WEB_COMMIT_HASH@"
+                        >@HASH@</a
+                    > · @WEB_COMMIT_DATE@
+                </div>
+            </div>
         </div>
 
         <script type="module" src="./index.mjs"></script>

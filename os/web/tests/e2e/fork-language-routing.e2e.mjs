@@ -37,7 +37,7 @@ for (const { locale, lang, start, other } of VARIANTS) {
             }
             if (lang === "en") {
                 const text = await page
-                    .locator("#menu > div:not(:has(.languages_links))")
+                    .locator("#menu_content > div:not(:has(.languages_links))")
                     .allInnerTexts();
                 expect(text.join("")).toContain("Fallout");
                 expect(
