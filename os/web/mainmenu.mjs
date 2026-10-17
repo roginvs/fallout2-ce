@@ -921,6 +921,8 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                           )
                         : 1;
                     iniParser.setValue("screen", "windowed", "1");
+                    // Preserve pointer lock and relative mouse input in the web player.
+                    iniParser.setValue("screen", "mouse_lock", "1");
                     iniParser.setValue(
                         "screen",
                         "resolution_x",
