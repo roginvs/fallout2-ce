@@ -1,18 +1,25 @@
 #include "svga.h"
 
 #include <limits.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <SDL.h>
 
+#include "color.h"
 #include "config.h"
+#include "dinput.h"
 #include "draw.h"
+#include "game.h"
 #include "interface.h"
 #include "memory.h"
 #include "mouse.h"
+#include "movie.h"
 #include "scan_unimplemented.h"
+#include "settings.h"
+#include "text_font.h"
+#include "tile.h"
 #include "win32.h"
-#include "window_manager.h"
 #include "window_manager_private.h"
 
 namespace fallout {
@@ -23,10 +30,10 @@ static void destroyRenderer();
 // screen rect
 Rect _scr_size;
 
-// 0x6ACA18
-void (*_scr_blit)(unsigned char* src, int src_pitch, int a3, int src_x, int src_y, int src_width, int src_height, int dest_x, int dest_y) = _GNW95_ShowRect;
+// 0x6ACA18 scr_blit
+void (*_scr_blit)(unsigned char* src, int src_pitch, int unused, int src_x, int src_y, int src_width, int src_height, int dest_x, int dest_y) = _GNW95_ShowRect;
 
-// 0x6ACA1C
+// 0x6ACA1C zero_mem
 void (*_zero_mem)() = nullptr;
 
 SDL_Window* gSdlWindow = nullptr;
@@ -38,49 +45,49 @@ SDL_Surface* gSdlTextureSurface = nullptr;
 // TODO: Remove once migration to update-render cycle is completed.
 FpsLimiter sharedFpsLimiter;
 
-// 0x4CAD08
+// 0x4CAD08 init_mode_320_200
 int _init_mode_320_200()
 {
     return _GNW95_init_mode_ex(320, 200, 8);
 }
 
-// 0x4CAD40
+// 0x4CAD40 init_mode_320_400
 int _init_mode_320_400()
 {
     return _GNW95_init_mode_ex(320, 400, 8);
 }
 
-// 0x4CAD5C
+// 0x4CAD5C init_mode_640_480_16
 int _init_mode_640_480_16()
 {
     return -1;
 }
 
-// 0x4CAD64
+// 0x4CAD64 init_mode_640_480
 int _init_mode_640_480()
 {
     return _init_vesa_mode(640, 480);
 }
 
-// 0x4CAD94
+// 0x4CAD94 init_mode_640_400
 int _init_mode_640_400()
 {
     return _init_vesa_mode(640, 400);
 }
 
-// 0x4CADA8
+// 0x4CADA8 init_mode_800_600
 int _init_mode_800_600()
 {
     return _init_vesa_mode(800, 600);
 }
 
-// 0x4CADBC
+// 0x4CADBC init_mode_1024_768
 int _init_mode_1024_768()
 {
     return _init_vesa_mode(1024, 768);
 }
 
-// 0x4CADD0
+// 0x4CADD0 init_mode_1280_1024
 int _init_mode_1280_1024()
 {
     return _init_vesa_mode(1280, 1024);
@@ -91,7 +98,7 @@ void _get_start_mode_()
 {
 }
 
-// 0x4CADFC
+// 0x4CADFC zero_vid_mem
 void _zero_vid_mem()
 {
     if (_zero_mem) {
@@ -99,67 +106,22 @@ void _zero_vid_mem()
     }
 }
 
-// 0x4CAE1C
+// 0x4CAE1C GNW95_init_mode_ex
 int _GNW95_init_mode_ex(int width, int height, int bpp)
 {
-    bool fullscreen = true;
-    int scale = 1;
+    width = settings.screen.resolution_x;
+    height = settings.screen.resolution_y;
+    int scale = settings.screen.scale;
 
-    Config resolutionConfig;
-    if (configInit(&resolutionConfig)) {
-        if (configRead(&resolutionConfig, "f2_res.ini", false)) {
-            int screenWidth;
-            if (configGetInt(&resolutionConfig, "MAIN", "SCR_WIDTH", &screenWidth)) {
-                width = screenWidth;
-            }
-
-            int screenHeight;
-            if (configGetInt(&resolutionConfig, "MAIN", "SCR_HEIGHT", &screenHeight)) {
-                height = screenHeight;
-            }
-
-            bool windowed;
-            if (configGetBool(&resolutionConfig, "MAIN", "WINDOWED", &windowed)) {
-                fullscreen = !windowed;
-            }
-
-            int scaleValue;
-            if (configGetInt(&resolutionConfig, "MAIN", "SCALE_2X", &scaleValue)) {
-                scale = scaleValue + 1; // 0 = 1x, 1 = 2x
-                // Only allow scaling if resulting game resolution is >= 640x480
-                if ((width / scale) < 640 || (height / scale) < 480) {
-                    scale = 1;
-                } else {
-                    width /= scale;
-                    height /= scale;
-                }
-            }
-
-            configGetBool(&resolutionConfig, "IFACE", "IFACE_BAR_MODE", &gInterfaceBarMode);
-            configGetInt(&resolutionConfig, "IFACE", "IFACE_BAR_WIDTH", &gInterfaceBarWidth);
-            configGetInt(&resolutionConfig, "IFACE", "IFACE_BAR_SIDE_ART", &gInterfaceSidePanelsImageId);
-            configGetBool(&resolutionConfig, "IFACE", "IFACE_BAR_SIDES_ORI", &gInterfaceSidePanelsExtendFromScreenEdge);
-
-            {
-                ConfigMap f2_res_defaults;
-                f2_res_defaults["MAIN"]["SCR_WIDTH"] = "640";
-                f2_res_defaults["MAIN"]["SCR_HEIGHT"] = "480";
-                f2_res_defaults["MAIN"]["WINDOWED"] = "0";
-                f2_res_defaults["MAIN"]["SCALE_2X"] = "0";
-                f2_res_defaults["IFACE"]["IFACE_BAR_MODE"] = "0";
-                f2_res_defaults["IFACE"]["IFACE_BAR_WIDTH"] = "0";
-                f2_res_defaults["IFACE"]["IFACE_BAR_SIDE_ART"] = "0";
-                f2_res_defaults["IFACE"]["IFACE_BAR_SIDES_ORI"] = "0";
-                f2_res_defaults["STATIC_SCREENS"]["SPLASH_SCRN_SIZE"] = "0";
-
-                auto configChecker = ConfigChecker(f2_res_defaults, "f2_res.ini");
-                configChecker.check(resolutionConfig);
-            }
-        }
-        configFree(&resolutionConfig);
+    // Only allow scaling if resulting game resolution is >= 640x480
+    if ((width / scale) < 640 || (height / scale) < 480) {
+        scale = 1;
+    } else {
+        width /= scale;
+        height /= scale;
     }
 
-    if (_GNW95_init_window(width, height, fullscreen, scale) == -1) {
+    if (_GNW95_init_window(width, height, settings.screen.windowed, scale) == -1) {
         return -1;
     }
 
@@ -189,14 +151,14 @@ int _GNW95_init_mode_ex(int width, int height, int bpp)
     return 0;
 }
 
-// 0x4CAECC
+// 0x4CAECC init_vesa_mode
 int _init_vesa_mode(int width, int height)
 {
     return _GNW95_init_mode_ex(width, height, 8);
 }
 
-// 0x4CAEDC
-int _GNW95_init_window(int width, int height, bool fullscreen, int scale)
+// 0x4CAEDC GNW95_init_window
+int _GNW95_init_window(int width, int height, WindowMode mode, int scale)
 {
     if (gSdlWindow == nullptr) {
         SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
@@ -208,8 +170,11 @@ int _GNW95_init_window(int width, int height, bool fullscreen, int scale)
         // and then we scale it on the css side
         Uint32 windowFlags = SDL_WINDOW_OPENGL;
 #endif
-        if (fullscreen) {
+
+        if (mode == WindowMode::Fullscreen) {
             windowFlags |= SDL_WINDOW_FULLSCREEN;
+        } else if (mode == WindowMode::WindowedFullscreen) {
+            windowFlags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
         }
 
         gSdlWindow = SDL_CreateWindow(gProgramWindowTitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width * scale, height * scale, windowFlags);
@@ -230,7 +195,7 @@ int _GNW95_init_window(int width, int height, bool fullscreen, int scale)
     return 0;
 }
 
-// 0x4CAF9C
+// 0x4CAF9C GNW95_init_DirectDraw
 int directDrawInit(int width, int height, int bpp)
 {
     if (gSdlSurface != nullptr) {
@@ -247,6 +212,10 @@ int directDrawInit(int width, int height, int bpp)
     }
 
     gSdlSurface = SDL_CreateRGBSurface(0, width, height, bpp, 0, 0, 0, 0);
+    if (gSdlSurface == nullptr || gSdlSurface->format->palette == nullptr) {
+        directDrawFree();
+        return -1;
+    }
 
     SDL_Color colors[256];
     for (int index = 0; index < 256; index++) {
@@ -261,7 +230,7 @@ int directDrawInit(int width, int height, int bpp)
     return 0;
 }
 
-// 0x4CB1B0
+// 0x4CB1B0 GNW95_reset_mode
 void directDrawFree()
 {
     if (gSdlSurface != nullptr) {
@@ -270,7 +239,7 @@ void directDrawFree()
     }
 }
 
-// 0x4CB310
+// 0x4CB310 GNW95_SetPaletteEntries
 void directDrawSetPaletteInRange(unsigned char* palette, int start, int count)
 {
     if (gSdlSurface != nullptr && gSdlSurface->format->palette != nullptr) {
@@ -290,7 +259,7 @@ void directDrawSetPaletteInRange(unsigned char* palette, int start, int count)
     }
 }
 
-// 0x4CB568
+// 0x4CB568 GNW95_SetPalette
 void directDrawSetPalette(unsigned char* palette)
 {
     if (gSdlSurface != nullptr && gSdlSurface->format->palette != nullptr) {
@@ -308,7 +277,7 @@ void directDrawSetPalette(unsigned char* palette)
     }
 }
 
-// 0x4CB68C
+// 0x4CB68C GNW95_GetPalette
 unsigned char* directDrawGetPalette()
 {
     // 0x6ACA24
@@ -328,9 +297,11 @@ unsigned char* directDrawGetPalette()
     return palette;
 }
 
-// 0x4CB850
-void _GNW95_ShowRect(unsigned char* src, int srcPitch, int _, int srcX, int srcY, int srcWidth, int srcHeight, int destX, int destY)
+// 0x4CB850 GNW95_ShowRect
+void _GNW95_ShowRect(unsigned char* src, int srcPitch, int unused, int srcX, int srcY, int srcWidth, int srcHeight, int destX, int destY)
 {
+    (void)unused;
+
     blitBufferToBuffer(src + srcPitch * srcY + srcX, srcWidth, srcHeight, srcPitch, (unsigned char*)gSdlSurface->pixels + gSdlSurface->pitch * destY + destX, gSdlSurface->pitch);
 
     SDL_Rect srcRect;
@@ -347,7 +318,7 @@ void _GNW95_ShowRect(unsigned char* src, int srcPitch, int _, int srcX, int srcY
 
 // Clears drawing surface.
 //
-// 0x4CBBC8
+// 0x4CBBC8 GNW95_zero_vid_mem
 void _GNW95_zero_vid_mem()
 {
     if (!gProgramIsActive) {
@@ -379,10 +350,17 @@ int screenGetVisibleHeight()
 {
     int windowBottomMargin = 0;
 
-    if (!gInterfaceBarMode) {
+    if (!settings.ui.iface_bar_mode) {
         windowBottomMargin = INTERFACE_BAR_HEIGHT;
     }
     return screenGetHeight() - windowBottomMargin;
+}
+
+// returns true if the game is running in fullscreen mode, false otherwise (including windowed fullscreen mode)
+bool screenIsExclusiveFullscreen()
+{
+    Uint32 flags = SDL_GetWindowFlags(gSdlWindow);
+    return (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN;
 }
 
 static bool createRenderer(int width, int height)
@@ -434,8 +412,66 @@ static void destroyRenderer()
 
 void handleWindowSizeChanged()
 {
+    movieHandleRendererReset();
     destroyRenderer();
     createRenderer(screenGetWidth(), screenGetHeight());
+    mouseDeviceRefreshWindowMapping();
+}
+
+void renderFpsCounter()
+{
+    if (!settings.debug.show_fps || gSdlSurface == nullptr || gSdlTextureSurface == nullptr) {
+        return;
+    }
+
+    static unsigned int sampleStartTicks = 0;
+    static int sampleFrames = 0;
+    static double fps = 0.0;
+
+    unsigned int now = SDL_GetTicks();
+    if (sampleStartTicks == 0) {
+        sampleStartTicks = now;
+    }
+
+    sampleFrames++;
+
+    unsigned int elapsed = now - sampleStartTicks;
+    if (elapsed >= 500) {
+        fps = sampleFrames * 1000.0 / elapsed;
+        sampleFrames = 0;
+        sampleStartTicks = now;
+    }
+
+    char text[32];
+    snprintf(text, sizeof(text), "FPS: %.1f", fps);
+
+    ScopedFont font(101);
+
+    constexpr int kPadding = 2;
+    int textWidth = fontGetStringWidth(text);
+    int textHeight = fontGetLineHeight();
+    int width = textWidth + kPadding * 2;
+    int height = textHeight + kPadding * 2;
+
+    if (width > gSdlSurface->w) {
+        width = gSdlSurface->w;
+    }
+
+    if (height > gSdlSurface->h) {
+        height = gSdlSurface->h;
+    }
+
+    bufferFill(static_cast<unsigned char*>(gSdlSurface->pixels), width, height, gSdlSurface->pitch, COLOR_BLACK);
+    if (width > kPadding * 2 && height > kPadding * 2) {
+        fontDrawText(static_cast<unsigned char*>(gSdlSurface->pixels) + gSdlSurface->pitch * kPadding + kPadding, text, width - kPadding * 2, gSdlSurface->pitch, COLOR_LIGHT_GREY);
+    }
+
+    SDL_Rect rect;
+    rect.x = 0;
+    rect.y = 0;
+    rect.w = width;
+    rect.h = height;
+    SDL_BlitSurface(gSdlSurface, &rect, gSdlTextureSurface, &rect);
 }
 
 void renderPresent()
@@ -443,6 +479,8 @@ void renderPresent()
     SDL_UpdateTexture(gSdlTexture, nullptr, gSdlTextureSurface->pixels, gSdlTextureSurface->pitch);
     SDL_RenderClear(gSdlRenderer);
     SDL_RenderCopy(gSdlRenderer, gSdlTexture, nullptr, nullptr);
+    // render movie SDL texture if present
+    movieRenderDirectOverlay();
     SDL_RenderPresent(gSdlRenderer);
 }
 

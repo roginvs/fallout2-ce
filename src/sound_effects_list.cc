@@ -22,60 +22,57 @@ typedef struct SoundEffectsListEntry {
 
 static int soundEffectsListTagToIndex(int tag, int* indexPtr);
 static void soundEffectsListClear();
+static void soundEffectsListReset();
 static int soundEffectsListPopulateFileNames();
 static int soundEffectsListCopyFileNames(char** fileNameList);
-static int soundEffectsListPopulateFileSizes();
+static int soundEffectsListPopulateFileSizes(int startIndex, int endIndex);
 static int soundEffectsListSort();
-static int soundEffectsListCompareByName(const void* a1, const void* a2);
+static int soundEffectsListCompareByName(const void* a, const void* b);
 static int soundEffectsListSoundDecoderReadHandler(void* data, void* buf, unsigned int size);
 
-// 0x51C8F8
+// 0x51C8F8 sfxl_initialized
 static bool gSoundEffectsListInitialized = false;
 
-// 0x51C8FC
+// 0x51C8FC sfxl_dlevel
 static int gSoundEffectsListDebugLevel = INT_MAX;
 
 // sfxl_effect_path
-// 0x51C900
+// 0x51C900 sfxl_effect_path
 static char* gSoundEffectsListPath = nullptr;
 
 // sfxl_effect_path_len
-// 0x51C904
+// 0x51C904 sfxl_effect_path_len
 static int gSoundEffectsListPathLength = 0;
 
 // sndlist.lst
 //
 // sfxl_list
-// 0x51C908
+// 0x51C908 sfxl_list
 static SoundEffectsListEntry* gSoundEffectsListEntries = nullptr;
 
 // The length of [gSoundEffectsListEntries] array.
 //
-// 0x51C90C
+// 0x51C90C sfxl_files_total
 static int gSoundEffectsListEntriesLength = 0;
 
-// 0x667F94
+// 0x667F94 sfxl_compression
 static int _sfxl_compression;
 
 // sfxl_tag_is_legal
-// 0x4A98E0
-bool soundEffectsListIsValidTag(int a1)
+// 0x4A98E0 sfxl_tag_is_legal
+bool soundEffectsListIsValidTag(int tag)
 {
-    return soundEffectsListTagToIndex(a1, nullptr) == SFXL_OK;
+    return soundEffectsListTagToIndex(tag, nullptr) == SFXL_OK;
 }
 
 // sfxl_init
-// 0x4A98F4
-int soundEffectsListInit(const char* soundEffectsPath, int a2, int debugLevel)
+// 0x4A98F4 sfxl_init
+int soundEffectsListInit(const char* soundEffectsPath, int compression, int debugLevel)
 {
-    char path[COMPAT_MAX_PATH];
-
-    // TODO: What for?
-    // memcpy(path, byte_4A97E0, 0xFF);
-
     gSoundEffectsListDebugLevel = debugLevel;
-    _sfxl_compression = a2;
+    _sfxl_compression = compression;
     gSoundEffectsListEntriesLength = 0;
+    gSoundEffectsListPathLength = 0;
 
     gSoundEffectsListPath = internal_strdup(soundEffectsPath);
     if (gSoundEffectsListPath == nullptr) {
@@ -83,106 +80,35 @@ int soundEffectsListInit(const char* soundEffectsPath, int a2, int debugLevel)
     }
 
     gSoundEffectsListPathLength = strlen(gSoundEffectsListPath);
-
-    if (gSoundEffectsListPathLength == 0 || soundEffectsPath[gSoundEffectsListPathLength - 1] == '\\') {
-        snprintf(path, sizeof(path), "%sSNDLIST.LST", soundEffectsPath);
-    } else {
-        snprintf(path, sizeof(path), "%s\\SNDLIST.LST", soundEffectsPath);
+    int err = soundEffectsListPopulateFileNames();
+    if (err != SFXL_OK) {
+        soundEffectsListReset();
+        return err;
     }
 
-    File* stream = fileOpen(path, "rt");
-    if (stream != nullptr) {
-        fileReadString(path, 255, stream);
-        gSoundEffectsListEntriesLength = atoi(path);
-
-        gSoundEffectsListEntries = (SoundEffectsListEntry*)internal_malloc(sizeof(*gSoundEffectsListEntries) * gSoundEffectsListEntriesLength);
-        for (int index = 0; index < gSoundEffectsListEntriesLength; index++) {
-            SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
-
-            fileReadString(path, 255, stream);
-
-            // Remove trailing newline.
-            *(path + strlen(path) - 1) = '\0';
-            entry->name = internal_strdup(path);
-
-            fileReadString(path, 255, stream);
-            entry->dataSize = atoi(path);
-
-            fileReadString(path, 255, stream);
-            entry->fileSize = atoi(path);
-
-            fileReadString(path, 255, stream);
-            entry->tag = atoi(path);
-        }
-
-        fileClose(stream);
-
-        debugPrint("Reading SNDLIST.LST Sound FX Count: %d", gSoundEffectsListEntriesLength);
-    } else {
-        int err;
-
-        err = soundEffectsListPopulateFileNames();
-        if (err != SFXL_OK) {
-            internal_free(gSoundEffectsListPath);
-            return err;
-        }
-
-        err = soundEffectsListPopulateFileSizes();
-        if (err != SFXL_OK) {
-            soundEffectsListClear();
-            internal_free(gSoundEffectsListPath);
-            return err;
-        }
-
-        // NOTE: For unknown reason tag generation functionality is missing.
-        // You won't be able to produce the same SNDLIST.LST as the game have.
-        // All tags will be 0 (see [soundEffectsListPopulateFileNames]).
-        //
-        // On the other hand, tags read from the SNDLIST.LST are not used in
-        // the game. Instead tag is automatically determined from entry's
-        // index (see [soundEffectsListGetTag]).
-
-        // NOTE: Uninline.
-        soundEffectsListSort();
-
-        File* stream = fileOpen(path, "wt");
-        if (stream != nullptr) {
-            filePrintFormatted(stream, "%d\n", gSoundEffectsListEntriesLength);
-
-            for (int index = 0; index < gSoundEffectsListEntriesLength; index++) {
-                SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
-
-                filePrintFormatted(stream, "%s\n", entry->name);
-                filePrintFormatted(stream, "%d\n", entry->dataSize);
-                filePrintFormatted(stream, "%d\n", entry->fileSize);
-                filePrintFormatted(stream, "%d\n", entry->tag);
-            }
-
-            fileClose(stream);
-        } else {
-            debugPrint("SFXLIST: Can't open file for write %s\n", path);
-        }
-    }
+    soundEffectsListSort();
 
     gSoundEffectsListInitialized = true;
 
     return SFXL_OK;
 }
 
-// 0x4A9C04
+// 0x4A9C04 sfxl_exit
 void soundEffectsListExit()
 {
     if (gSoundEffectsListInitialized) {
-        soundEffectsListClear();
-        internal_free(gSoundEffectsListPath);
-        gSoundEffectsListInitialized = false;
+        soundEffectsListReset();
     }
 }
 
 // sfxl_name_to_tag
-// 0x4A9C28
+// 0x4A9C28 sfxl_name_to_tag
 int soundEffectsListGetTag(char* name, int* tagPtr)
 {
+    if (gSoundEffectsListPath == nullptr) {
+        return SFXL_ERR;
+    }
+
     if (compat_strnicmp(gSoundEffectsListPath, name, gSoundEffectsListPathLength) != 0) {
         return SFXL_ERR;
     }
@@ -206,9 +132,13 @@ int soundEffectsListGetTag(char* name, int* tagPtr)
 }
 
 // sfxl_name
-// 0x4A9CD8
+// 0x4A9CD8 sfxl_name
 int soundEffectsListGetFilePath(int tag, char** pathPtr)
 {
+    if (gSoundEffectsListPath == nullptr) {
+        return SFXL_ERR;
+    }
+
     int index;
     int err = soundEffectsListTagToIndex(tag, &index);
     if (err != SFXL_OK) {
@@ -230,7 +160,7 @@ int soundEffectsListGetFilePath(int tag, char** pathPtr)
     return SFXL_OK;
 }
 
-// 0x4A9D90
+// 0x4A9D90 sfxl_size_full
 int soundEffectsListGetDataSize(int tag, int* sizePtr)
 {
     int index;
@@ -240,12 +170,18 @@ int soundEffectsListGetDataSize(int tag, int* sizePtr)
     }
 
     SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
+    if ((entry->fileSize == -1 || entry->dataSize == -1)
+        && soundEffectsListPopulateFileSizes(index, index + 1) != SFXL_OK) {
+        *sizePtr = 0;
+        return SFXL_ERR;
+    }
+
     *sizePtr = entry->dataSize;
 
     return SFXL_OK;
 }
 
-// 0x4A9DBC
+// 0x4A9DBC sfxl_size_cached
 int soundEffectsListGetFileSize(int tag, int* sizePtr)
 {
     int index;
@@ -255,13 +191,19 @@ int soundEffectsListGetFileSize(int tag, int* sizePtr)
     }
 
     SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
+    if ((entry->fileSize == -1 || entry->dataSize == -1)
+        && soundEffectsListPopulateFileSizes(index, index + 1) != SFXL_OK) {
+        *sizePtr = 0;
+        return SFXL_ERR;
+    }
+
     *sizePtr = entry->fileSize;
 
     return SFXL_OK;
 }
 
 // sfxl_tag_to_index
-// 0x4A9DE8
+// 0x4A9DE8 sfxl_index
 static int soundEffectsListTagToIndex(int tag, int* indexPtr)
 {
     if (tag <= 0) {
@@ -284,7 +226,7 @@ static int soundEffectsListTagToIndex(int tag, int* indexPtr)
     return SFXL_OK;
 }
 
-// 0x4A9E44
+// 0x4A9E44 sfxl_destroy
 static void soundEffectsListClear()
 {
     if (gSoundEffectsListEntriesLength < 0) {
@@ -308,8 +250,22 @@ static void soundEffectsListClear()
     gSoundEffectsListEntriesLength = 0;
 }
 
+static void soundEffectsListReset()
+{
+    soundEffectsListClear();
+
+    if (gSoundEffectsListPath != nullptr) {
+        internal_free(gSoundEffectsListPath);
+        gSoundEffectsListPath = nullptr;
+    }
+
+    gSoundEffectsListPathLength = 0;
+    gSoundEffectsListEntriesLength = 0;
+    gSoundEffectsListInitialized = false;
+}
+
 // sfxl_get_names
-// 0x4A9EA0
+// 0x4A9EA0 sfxl_get_names
 static int soundEffectsListPopulateFileNames()
 {
     const char* extension;
@@ -333,7 +289,7 @@ static int soundEffectsListPopulateFileNames()
     strcat(pattern, extension);
 
     char** fileNameList;
-    gSoundEffectsListEntriesLength = fileNameListInit(pattern, &fileNameList, 0, 0);
+    gSoundEffectsListEntriesLength = fileNameListInit(pattern, &fileNameList);
     internal_free(pattern);
 
     if (gSoundEffectsListEntriesLength > 10000) {
@@ -366,11 +322,13 @@ static int soundEffectsListPopulateFileNames()
 }
 
 // sfxl_copy_names
-// 0x4AA000
+// 0x4AA000 sfxl_copy_names
 static int soundEffectsListCopyFileNames(char** fileNameList)
 {
     for (int index = 0; index < gSoundEffectsListEntriesLength; index++) {
         SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
+        entry->fileSize = -1;
+        entry->dataSize = -1;
         entry->name = internal_strdup(*fileNameList++);
         if (entry->name == nullptr) {
             soundEffectsListClear();
@@ -381,11 +339,10 @@ static int soundEffectsListCopyFileNames(char** fileNameList)
     return SFXL_OK;
 }
 
-// 0x4AA050
-static int soundEffectsListPopulateFileSizes()
+// 0x4AA050 sfxl_get_sizes
+static int soundEffectsListPopulateFileSizes(int startIndex, int endIndex)
 {
-
-    char* path = (char*)internal_malloc(gSoundEffectsListPathLength + 13);
+    char* path = (char*)internal_malloc(gSoundEffectsListPathLength + COMPAT_MAX_PATH);
     if (path == nullptr) {
         return SFXL_ERR;
     }
@@ -394,7 +351,7 @@ static int soundEffectsListPopulateFileSizes()
 
     char* fileName = path + gSoundEffectsListPathLength;
 
-    for (int index = 0; index < gSoundEffectsListEntriesLength; index++) {
+    for (int index = startIndex; index < endIndex; index++) {
         SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
         strcpy(fileName, entry->name);
 
@@ -427,6 +384,13 @@ static int soundEffectsListPopulateFileSizes()
                 int sampleRate;
                 int sampleCount;
                 SoundDecoder* soundDecoder = soundDecoderInit(soundEffectsListSoundDecoderReadHandler, stream, &channels, &sampleRate, &sampleCount);
+                if (soundDecoder == nullptr) {
+                    debugPrint("SFXLIST: Failed to decode ACM header for %s\n", path);
+                    fileClose(stream);
+                    internal_free(path);
+                    return SFXL_ERR;
+                }
+
                 entry->dataSize = 2 * sampleCount;
                 soundDecoderFree(soundDecoder);
                 fileClose(stream);
@@ -445,7 +409,7 @@ static int soundEffectsListPopulateFileSizes()
 
 // NOTE: Inlined.
 //
-// 0x4AA200
+// 0x4AA200 sfxl_sort_by_name
 static int soundEffectsListSort()
 {
     if (gSoundEffectsListEntriesLength != 1) {
@@ -454,13 +418,13 @@ static int soundEffectsListSort()
     return 0;
 }
 
-// 0x4AA228
-static int soundEffectsListCompareByName(const void* a1, const void* a2)
+// 0x4AA228 sfxl_compare_by_name
+static int soundEffectsListCompareByName(const void* a, const void* b)
 {
-    SoundEffectsListEntry* v1 = (SoundEffectsListEntry*)a1;
-    SoundEffectsListEntry* v2 = (SoundEffectsListEntry*)a2;
+    SoundEffectsListEntry* lhs = (SoundEffectsListEntry*)a;
+    SoundEffectsListEntry* rhs = (SoundEffectsListEntry*)b;
 
-    return compat_stricmp(v1->name, v2->name);
+    return compat_stricmp(lhs->name, rhs->name);
 }
 
 // read via xfile

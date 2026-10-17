@@ -8,6 +8,13 @@ export function addRightMouseButtonWorkaround() {
     if (!canvas) {
         throw new Error(`Canvas element is not found`);
     }
+
+    // RMB belongs to the game even in absolute mouse mode or after Escape
+    // releases pointer lock. Keep the browser menu from swallowing mouseup.
+    canvas.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+    });
+
     const RIGHT_BUTTON_ID = 2;
 
     let isRightDown = false;

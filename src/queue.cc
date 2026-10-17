@@ -5,6 +5,7 @@
 #include "display_monitor.h"
 #include "game.h"
 #include "game_sound.h"
+#include "inventory.h"
 #include "item.h"
 #include "map.h"
 #include "memory.h"
@@ -19,7 +20,7 @@ namespace fallout {
 
 typedef struct QueueListNode {
     unsigned int time;
-    int type;
+    EventType type;
     Object* owner;
     void* data;
     struct QueueListNode* next;
@@ -30,57 +31,71 @@ typedef struct EventTypeDescription {
     QueueEventDataFreeProc* freeProc;
     QueueEventDataReadProc* readProc;
     QueueEventDataWriteProc* writeProc;
-    bool field_10;
-    QueueEventHandler* field_14;
+    bool clearOnMapExit; // unused
+    QueueEventHandler* mapExitHandlerProc; // unused
 } EventTypeDescription;
 
 static int flareEventProcess(Object* obj, void* data);
 static int explosionEventProcess(Object* obj, void* data);
-static int _queue_explode_exit(Object* obj, void* data);
-static int _queue_do_explosion_(Object* obj, bool animate);
+static int explosionExit(Object* obj, void* data);
+static int explosionProcess(Object* obj, bool animate);
 static int explosionFailureEventProcess(Object* obj, void* data);
 
 // Last queue list node found during [queueFindFirstEvent] and
 // [queueFindNextEvent] calls.
 //
-// 0x51C690
+// 0x51C690 tmpQNode
 static QueueListNode* gLastFoundQueueListNode = nullptr;
 
-// 0x6648C0
+// 0x6648C0 queue
 static QueueListNode* gQueueListHead;
 
-// 0x51C540
+// 0x51C540 q_func
 static EventTypeDescription gEventTypeDescriptions[EVENT_TYPE_COUNT] = {
-    { drugEffectEventProcess, internal_free, drugEffectEventRead, drugEffectEventWrite, true, _item_d_clear },
-    { knockoutEventProcess, nullptr, nullptr, nullptr, true, _critter_wake_clear },
-    { withdrawalEventProcess, internal_free, withdrawalEventRead, withdrawalEventWrite, true, _item_wd_clear },
+    // EVENT_TYPE_DRUG
+    { drugEffectEventProcess, internal_free, drugEffectEventRead, drugEffectEventWrite, true, drugItemClear },
+    // EVENT_TYPE_KNOCKOUT
+    { knockoutEventProcess, nullptr, nullptr, nullptr, true, knockoutClear },
+    // EVENT_TYPE_WITHDRAWAL
+    { withdrawalEventProcess, internal_free, withdrawalEventRead, withdrawalEventWrite, true, withdrawalClear },
+    // EVENT_TYPE_SCRIPT
     { scriptEventProcess, internal_free, scriptEventRead, scriptEventWrite, true, nullptr },
+    // EVENT_TYPE_GAME_TIME
     { gameTimeEventProcess, nullptr, nullptr, nullptr, true, nullptr },
+    // EVENT_TYPE_POISON
     { poisonEventProcess, nullptr, nullptr, nullptr, false, nullptr },
+    // EVENT_TYPE_RADIATION
     { radiationEventProcess, internal_free, radiationEventRead, radiationEventWrite, false, nullptr },
+    // EVENT_TYPE_FLARE
     { flareEventProcess, nullptr, nullptr, nullptr, true, flareEventProcess },
-    { explosionEventProcess, nullptr, nullptr, nullptr, true, _queue_explode_exit },
-    { miscItemTrickleEventProcess, nullptr, nullptr, nullptr, true, _item_m_turn_off_from_queue },
-    { sneakEventProcess, nullptr, nullptr, nullptr, true, _critter_sneak_clear },
-    { explosionFailureEventProcess, nullptr, nullptr, nullptr, true, _queue_explode_exit },
+    // EVENT_TYPE_EXPLOSION
+    { explosionEventProcess, nullptr, nullptr, nullptr, true, explosionExit },
+    // EVENT_TYPE_ITEM_TRICKLE
+    { miscItemTrickleEventProcess, nullptr, nullptr, nullptr, true, miscItemTurnOffFromQueue },
+    // EVENT_TYPE_SNEAK
+    { sneakEventProcess, nullptr, nullptr, nullptr, true, critterDisableSneak },
+    // EVENT_TYPE_EXPLOSION_FAILURE
+    { explosionFailureEventProcess, nullptr, nullptr, nullptr, true, explosionExit },
+    // EVENT_TYPE_MAP_UPDATE_EVENT
     { mapUpdateEventProcess, nullptr, nullptr, nullptr, true, nullptr },
+    // EVENT_TYPE_GSOUND_SFX_EVENT
     { ambientSoundEffectEventProcess, internal_free, nullptr, nullptr, true, nullptr },
 };
 
-// 0x4A2320
+// 0x4A2320 queue_init
 void queueInit()
 {
     gQueueListHead = nullptr;
 }
 
-// 0x4A2330
+// 0x4A2330 queue_reset
 int queueExit()
 {
     queueClear();
     return 0;
 }
 
-// 0x4A2338
+// 0x4A2338 queue_load
 int queueLoad(File* stream)
 {
     int count;
@@ -107,7 +122,13 @@ int queueLoad(File* stream)
             break;
         }
 
-        if (fileReadInt32(stream, &(queueListNode->type)) == -1) {
+        if (fileReadInt32Enum<EventType>(stream, &(queueListNode->type)) == -1) {
+            internal_free(queueListNode);
+            rc = -1;
+            break;
+        }
+
+        if (queueListNode->type < EVENT_TYPE_FIRST || queueListNode->type >= EVENT_TYPE_COUNT) {
             internal_free(queueListNode);
             rc = -1;
             break;
@@ -126,7 +147,7 @@ int queueLoad(File* stream)
         } else {
             obj = objectFindFirst();
             while (obj != nullptr) {
-                obj = _inven_find_id(obj, objectId);
+                obj = inventoryFindById(obj, objectId);
                 if (obj != nullptr) {
                     break;
                 }
@@ -187,7 +208,7 @@ int queueLoad(File* stream)
     return rc;
 }
 
-// 0x4A24E0
+// 0x4A24E0 queue_save
 int queueSave(File* stream)
 {
     QueueListNode* queueListNode;
@@ -234,8 +255,8 @@ int queueSave(File* stream)
     return 0;
 }
 
-// 0x4A258C
-int queueAddEvent(int delay, Object* obj, void* data, int eventType)
+// 0x4A258C queue_add
+int queueAddEvent(int delay, Object* obj, void* data, EventType eventType)
 {
     QueueListNode* newQueueListNode = (QueueListNode*)internal_malloc(sizeof(QueueListNode));
     if (newQueueListNode == nullptr) {
@@ -267,7 +288,7 @@ int queueAddEvent(int delay, Object* obj, void* data, int eventType)
     return 0;
 }
 
-// 0x4A25F4
+// 0x4A25F4 queue_remove
 int queueRemoveEvents(Object* owner)
 {
     QueueListNode* queueListNode = gQueueListHead;
@@ -295,8 +316,8 @@ int queueRemoveEvents(Object* owner)
     return 0;
 }
 
-// 0x4A264C
-int queueRemoveEventsByType(Object* owner, int eventType)
+// 0x4A264C queue_remove_this
+int queueRemoveEventsByType(Object* owner, EventType eventType)
 {
     QueueListNode* queueListNode = gQueueListHead;
     QueueListNode** queueListNodePtr = &gQueueListHead;
@@ -325,8 +346,8 @@ int queueRemoveEventsByType(Object* owner, int eventType)
 
 // Returns true if there is at least one event of given type scheduled.
 //
-// 0x4A26A8
-bool queueHasEvent(Object* owner, int eventType)
+// 0x4A26A8 queue_find
+bool queueHasEvent(Object* owner, EventType eventType)
 {
     QueueListNode* queueListEvent = gQueueListHead;
     while (queueListEvent != nullptr) {
@@ -340,7 +361,7 @@ bool queueHasEvent(Object* owner, int eventType)
     return false;
 }
 
-// 0x4A26D0
+// 0x4A26D0 queue_process
 int queueProcessEvents()
 {
     unsigned int time = gameTimeGetTime();
@@ -368,7 +389,7 @@ int queueProcessEvents()
     return stopProcess;
 }
 
-// 0x4A2748
+// 0x4A2748 queue_clear
 void queueClear()
 {
     QueueListNode* queueListNode = gQueueListHead;
@@ -388,8 +409,8 @@ void queueClear()
     gQueueListHead = nullptr;
 }
 
-// 0x4A2790
-void _queue_clear_type(int eventType, QueueEventHandler* fn)
+// 0x4A2790 queue_clear_type
+void queueClearByEventType(EventType eventType, QueueEventHandler* fn)
 {
     QueueListNode** ptr = &gQueueListHead;
     QueueListNode* curr = *ptr;
@@ -424,7 +445,7 @@ void _queue_clear_type(int eventType, QueueEventHandler* fn)
     }
 }
 
-// 0x4A2808
+// 0x4A2808 queue_next_time
 unsigned int queueGetNextEventTime()
 {
     if (gQueueListHead == nullptr) {
@@ -434,27 +455,36 @@ unsigned int queueGetNextEventTime()
     return gQueueListHead->time;
 }
 
-// 0x4A281C
+// 0x4A281C queue_destroy
 static int flareEventProcess(Object* obj, void* data)
 {
-    _obj_destroy(obj);
+    Object* holder = objectGetOwner(obj);
+    bool wasHeld = (obj->flags & OBJECT_IN_ANY_HAND) != OBJECT_NONE;
+
+    objectDestroy(obj);
+
+    // CE: Restore the holder's light once the burnt-out flare has left their hand.
+    if (wasHeld && holder != nullptr) {
+        critterRestoreLightWithoutFlare(holder);
+    }
+
     return 1;
 }
 
-// 0x4A2828
+// 0x4A2828 queue_explode
 static int explosionEventProcess(Object* obj, void* data)
 {
-    return _queue_do_explosion_(obj, true);
+    return explosionProcess(obj, true);
 }
 
-// 0x4A2830
-static int _queue_explode_exit(Object* obj, void* data)
+// 0x4A2830 queue_explode_exit
+static int explosionExit(Object* obj, void* data)
 {
-    return _queue_do_explosion_(obj, false);
+    return explosionProcess(obj, false);
 }
 
 // 0x4A2834
-static int _queue_do_explosion_(Object* explosive, bool animate)
+static int explosionProcess(Object* explosive, bool animate)
 {
     int tile;
     int elevation;
@@ -472,27 +502,27 @@ static int _queue_do_explosion_(Object* explosive, bool animate)
     int minDamage;
 
     // SFALL
-    explosiveGetDamage(explosive->pid, &minDamage, &maxDamage);
+    explosiveGetDamage(explosive, &minDamage, &maxDamage);
 
     // FIXME: I guess this is a little bit wrong, dude can never be null, I
     // guess it needs to check if owner is dude.
     if (gDude != nullptr) {
         if (perkHasRank(gDude, PERK_DEMOLITION_EXPERT)) {
-            maxDamage += 10;
-            minDamage += 10;
+            maxDamage += perkGetDemolitionExpertBonus();
+            minDamage += perkGetDemolitionExpertBonus();
         }
     }
 
     if (actionExplode(tile, elevation, minDamage, maxDamage, gDude, animate) == -2) {
         queueAddEvent(50, explosive, nullptr, EVENT_TYPE_EXPLOSION);
     } else {
-        _obj_destroy(explosive);
+        objectDestroy(explosive);
     }
 
     return 1;
 }
 
-// 0x4A28E4
+// 0x4A28E4 queue_premature
 static int explosionFailureEventProcess(Object* obj, void* data)
 {
     MessageListItem msg;
@@ -503,28 +533,28 @@ static int explosionFailureEventProcess(Object* obj, void* data)
         displayMonitorAddMessage(msg.text);
     }
 
-    return _queue_do_explosion_(obj, true);
+    return explosionProcess(obj, true);
 }
 
-// 0x4A2920
+// 0x4A2920 queue_leaving_map
 void _queue_leaving_map()
 {
-    for (int eventType = 0; eventType < EVENT_TYPE_COUNT; eventType++) {
+    for (EventType eventType = EVENT_TYPE_FIRST; eventType < EVENT_TYPE_COUNT; eventType++) {
         EventTypeDescription* eventTypeDescription = &(gEventTypeDescriptions[eventType]);
-        if (eventTypeDescription->field_10) {
-            _queue_clear_type(eventType, eventTypeDescription->field_14);
+        if (eventTypeDescription->clearOnMapExit) {
+            queueClearByEventType(eventType, eventTypeDescription->mapExitHandlerProc);
         }
     }
 }
 
-// 0x4A294C
+// 0x4A294C queue_is_empty
 bool queueIsEmpty()
 {
     return gQueueListHead == nullptr;
 }
 
-// 0x4A295C
-void* queueFindFirstEvent(Object* owner, int eventType)
+// 0x4A295C queue_find_first
+void* queueFindFirstEvent(Object* owner, EventType eventType)
 {
     QueueListNode* queueListNode = gQueueListHead;
     while (queueListNode != nullptr) {
@@ -539,8 +569,8 @@ void* queueFindFirstEvent(Object* owner, int eventType)
     return nullptr;
 }
 
-// 0x4A2994
-void* queueFindNextEvent(Object* owner, int eventType)
+// 0x4A2994 queue_find_next
+void* queueFindNextEvent(Object* owner, EventType eventType)
 {
     if (gLastFoundQueueListNode != nullptr) {
         QueueListNode* queueListNode = gLastFoundQueueListNode->next;

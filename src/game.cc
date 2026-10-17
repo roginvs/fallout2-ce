@@ -13,6 +13,7 @@
 #include "color.h"
 #include "combat.h"
 #include "combat_ai.h"
+#include "content_config.h"
 #include "critter.h"
 #include "cycle.h"
 #include "db.h"
@@ -22,6 +23,7 @@
 #include "draw.h"
 #include "endgame.h"
 #include "font_manager.h"
+#include "game.h"
 #include "game_dialog.h"
 #include "game_memory.h"
 #include "game_mouse.h"
@@ -59,17 +61,23 @@
 #include "sfall_global_vars.h"
 #include "sfall_ini.h"
 #include "sfall_lists.h"
+#include "sfall_script_hooks.h"
 #include "skill.h"
 #include "skilldex.h"
 #include "stat.h"
+#include "string_utils.h"
 #include "svga.h"
 #include "text_font.h"
 #include "tile.h"
 #include "trait.h"
 #include "version.h"
+#include "win32.h"
 #include "window_manager.h"
-#include "window_manager_private.h"
 #include "worldmap.h"
+
+#if __APPLE__
+#include <TargetConditionals.h>
+#endif
 
 namespace fallout {
 
@@ -80,45 +88,48 @@ namespace fallout {
 #define SPLASH_HEIGHT (480)
 #define SPLASH_COUNT (10)
 
-static int gameLoadGlobalVars();
 static int gameTakeScreenshot(int width, int height, unsigned char* buffer, unsigned char* palette);
 static void gameFreeGlobalVars();
-static void showHelp();
+static bool tryLoadBaseCEModAtPath(const char* path, bool* found, bool* openFailed);
 static int gameDbInit();
 static void showSplash();
 
-// 0x501C9C
+inline constexpr char kBaseModPath[] = "ce.dat";
+
+// 0x501C9C aGame_0
 static char _aGame_0[] = "game\\";
 
-// 0x5020B8
+// 0x5020B8 aDec11199816543
 static char _aBuildDate[] = _BUILD_DATE;
 static char _aBuildHash[] = _BUILD_HASH;
 
-// 0x5186B4
+// 0x5186B4 game_ui_disabled
 static bool gGameUiDisabled = false;
 
-// 0x5186B8
-static int gGameState = GAME_STATE_0;
+// 0x5186B8 game_state_cur
+static GameState gGameState = GameState::Normal;
 
-// 0x5186BC
+// 0x5186BC game_in_mapper
 static bool gIsMapper = false;
 
-// 0x5186C0
+// 0x5186C0 game_global_vars
 int* gGameGlobalVars = nullptr;
 
-// 0x5186C4
+// 0x5186C4 num_game_global_vars
 int gGameGlobalVarsLength = 0;
 
-// 0x5186C8
+// 0x5186C8 msg_path
 const char* asc_5186C8 = _aGame_0;
 
-// 0x5186CC
-int _game_user_wants_to_quit = 0;
+// 0x5186CC game_user_wants_to_quit
+GameQuitRequest _game_user_wants_to_quit = GAME_QUIT_REQUEST_NONE;
 
 // misc.msg
 //
-// 0x58E940
+// 0x58E940 misc_message_file
 MessageList gMiscMessageList;
+
+bool gGameLoaded = false;
 
 // CE: Sonora folks like to store objects in global variables.
 static void** gGameGlobalPointers = nullptr;
@@ -141,6 +152,8 @@ int gameInitWithOptions(const char* windowTitle, bool isMapper, int font, int fl
 
     settingsInit(isMapper, argc, argv);
 
+    debugModeInit(settings.debug.mode.c_str());
+
     gIsMapper = isMapper;
 
     if (gameDbInit() == -1) {
@@ -149,12 +162,30 @@ int gameInitWithOptions(const char* windowTitle, bool isMapper, int font, int fl
         return -1;
     }
 
+    // Content config reads from the VFS, so it must be initialized after gameDbInit.
+    contentConfigInit();
+
     // Message list repository is considered a specialized file manager, so
     // it should be initialized early in the process.
     messageListRepositoryInit();
 
     programWindowSetTitle(windowTitle);
-    _initWindow(1, flags);
+
+    const char* visibleWindowTitle = windowTitle;
+    char versionWindowTitle[256];
+    if (settings.screen.windowed == WindowMode::Windowed) {
+        char* configuredWindowTitle = nullptr;
+        configGetString(&gContentConfig, CONTENT_CONFIG_MISC_SECTION, "window_title", &configuredWindowTitle, "");
+        if (configuredWindowTitle != nullptr && configuredWindowTitle[0] != '\0') {
+            visibleWindowTitle = configuredWindowTitle;
+        } else {
+            versionGetVersion(versionWindowTitle, sizeof(versionWindowTitle));
+            visibleWindowTitle = versionWindowTitle;
+        }
+    }
+
+    programWindowSetTitle(visibleWindowTitle);
+    windowInit(1, flags);
     paletteInit();
 
     // SFALL: Execute all code that should be executed ON game init
@@ -172,8 +203,7 @@ int gameInitWithOptions(const char* windowTitle, bool isMapper, int font, int fl
     }
 
     // SFALL: Allow to skip splash screen
-    int skipOpeningMovies = 0;
-    configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_SKIP_OPENING_MOVIES_KEY, &skipOpeningMovies);
+    int skipOpeningMovies = settings.ui.skip_opening_movies;
 
     // load preferences before Splash screen to get proper brightness
     if (_init_options_menu() != 0) {
@@ -185,20 +215,6 @@ int gameInitWithOptions(const char* windowTitle, bool isMapper, int font, int fl
 
     if (!gIsMapper && skipOpeningMovies < 2) {
         showSplash();
-    }
-
-    // CE: Handle debug mode (exactly as seen in `mapper2.exe`).
-    const char* debugMode = settings.debug.mode.c_str();
-    if (compat_stricmp(debugMode, "environment") == 0) {
-        _debug_register_env();
-    } else if (compat_stricmp(debugMode, "screen") == 0) {
-        _debug_register_screen();
-    } else if (compat_stricmp(debugMode, "log") == 0) {
-        _debug_register_log("debug.log", "wt");
-    } else if (compat_stricmp(debugMode, "mono") == 0) {
-        _debug_register_mono();
-    } else if (compat_stricmp(debugMode, "gnw") == 0) {
-        _debug_register_func(_win_debug);
     }
 
     interfaceFontsInit();
@@ -225,7 +241,7 @@ int gameInitWithOptions(const char* windowTitle, bool isMapper, int font, int fl
     queueInit();
     critterInit();
     aiInit();
-    _inven_reset_dude();
+    inventoryResetDude();
 
     if (gameSoundInit() != 0) {
         debugPrint("Sound initialization failed.\n");
@@ -386,6 +402,11 @@ int gameInitWithOptions(const char* windowTitle, bool isMapper, int font, int fl
         return -1;
     }
 
+    if (!scriptHooksInit()) {
+        debugPrint("Failed on scriptHooksInit");
+        return -1;
+    }
+
     char* customConfigBasePath;
     configGetString(&gSfallConfig, SFALL_CONFIG_SCRIPTS_KEY, SFALL_CONFIG_INI_CONFIG_FOLDER, &customConfigBasePath);
     sfall_ini_set_base_path(customConfigBasePath);
@@ -414,8 +435,15 @@ void gameReset()
     lsgInit();
     critterReset();
     aiReset();
-    _inven_reset_dude();
+    inventoryResetDude();
     gameSoundReset();
+
+    // Flush the art cache during game loads if the target map differs from the current one.
+    // This prevents memory fragmentation and avoids heavy eviction loops on the art heap.
+    if (_isLoadingGame() && gMapHeader.index != mapIdBeingLoaded()) {
+        artCacheFlush();
+    }
+
     _movieStop();
     movieEffectsReset();
     gameMoviesReset();
@@ -423,6 +451,7 @@ void gameReset()
     gameMouseReset();
     protoReset();
     _scr_reset();
+    gameFreeGlobalVars();
     gameLoadGlobalVars();
     scriptsReset();
     wmWorldMap_reset();
@@ -432,7 +461,7 @@ void gameReset()
     _ResetLoadSave();
     gameDialogReset();
     combatReset();
-    _game_user_wants_to_quit = 0;
+    _game_user_wants_to_quit = GAME_QUIT_REQUEST_NONE;
     automapReset();
     _init_options_menu();
 
@@ -440,9 +469,12 @@ void gameReset()
     sfall_gl_vars_reset();
     sfallListsReset();
     messageListRepositoryReset();
+    scriptHooksReset();
     sfallArraysReset();
     sfall_gl_scr_reset();
+    sfall_ini_cache_clear();
     sfallOnGameReset();
+    gGameLoaded = false;
 }
 
 // 0x442C34
@@ -450,7 +482,10 @@ void gameExit()
 {
     debugPrint("\nGame Exit\n");
 
+    sfallOnGameModeChange(1, GameMode::getCurrentGameMode());
+
     // SFALL
+    scriptHooksExit();
     sfall_gl_scr_exit();
     sfallArraysExit();
     sfallListsExit();
@@ -493,10 +528,11 @@ void gameExit()
     partyMembersExit();
     endgameDeathEndingExit();
     interfaceFontsExit();
-    _windowClose();
+    windowClose();
     messageListRepositoryExit();
-    dbExit();
+    dbCloseAll();
     settingsExit(true);
+    contentConfigExit();
     sfallConfigExit();
 }
 
@@ -504,7 +540,7 @@ void gameExit()
 int gameHandleKey(int eventCode, bool isInCombatMode)
 {
     // NOTE: Uninline.
-    if (gameGetState() == GAME_STATE_5) {
+    if (gameGetState() == GameState::DialogRequested) {
         _gdialogSystemEnter();
     }
 
@@ -676,8 +712,8 @@ int gameHandleKey(int eventCode, bool isInCombatMode)
                 // Pipboy not available in combat!
                 MessageListItem messageListItem;
                 char title[128];
-                strcpy(title, getmsg(&gMiscMessageList, &messageListItem, 7));
-                showDialogBox(title, nullptr, 0, 192, 116, _colorTable[32328], nullptr, _colorTable[32328], 0);
+                stringCopy(title, getmsg(&gMiscMessageList, &messageListItem, 7));
+                showDialogBox(title, nullptr, 0, 192, 116, COLOR_AMBER, nullptr, COLOR_AMBER, 0);
             } else {
                 soundPlayFile("ib1p1xx1");
                 pipboyOpen(PIPBOY_OPEN_INTENT_UNSPECIFIED);
@@ -690,49 +726,11 @@ int gameHandleKey(int eventCode, bool isInCombatMode)
         if (interfaceBarEnabled()) {
             soundPlayFile("ib1p1xx1");
 
-            int mode = -1;
-
             // NOTE: There is an `inc` for this value to build jump table which
             // is not needed.
-            int rc = skilldexOpen();
+            SkilldexRC rc = skilldexOpen();
 
-            // Remap Skilldex result code to action.
-            switch (rc) {
-            case SKILLDEX_RC_ERROR:
-                debugPrint("\n ** Error calling skilldex_select()! ** \n");
-                break;
-            case SKILLDEX_RC_SNEAK:
-                _action_skill_use(SKILL_SNEAK);
-                break;
-            case SKILLDEX_RC_LOCKPICK:
-                mode = GAME_MOUSE_MODE_USE_LOCKPICK;
-                break;
-            case SKILLDEX_RC_STEAL:
-                mode = GAME_MOUSE_MODE_USE_STEAL;
-                break;
-            case SKILLDEX_RC_TRAPS:
-                mode = GAME_MOUSE_MODE_USE_TRAPS;
-                break;
-            case SKILLDEX_RC_FIRST_AID:
-                mode = GAME_MOUSE_MODE_USE_FIRST_AID;
-                break;
-            case SKILLDEX_RC_DOCTOR:
-                mode = GAME_MOUSE_MODE_USE_DOCTOR;
-                break;
-            case SKILLDEX_RC_SCIENCE:
-                mode = GAME_MOUSE_MODE_USE_SCIENCE;
-                break;
-            case SKILLDEX_RC_REPAIR:
-                mode = GAME_MOUSE_MODE_USE_REPAIR;
-                break;
-            default:
-                break;
-            }
-
-            if (mode != -1) {
-                gameMouseSetCursor(MOUSE_CURSOR_USE_CROSSHAIR);
-                gameMouseSetMode(mode);
-            }
+            gameHandleSkilldexResult(rc);
         }
         break;
     case KEY_UPPERCASE_Z:
@@ -744,8 +742,8 @@ int gameHandleKey(int eventCode, bool isInCombatMode)
                 // Pipboy not available in combat!
                 MessageListItem messageListItem;
                 char title[128];
-                strcpy(title, getmsg(&gMiscMessageList, &messageListItem, 7));
-                showDialogBox(title, nullptr, 0, 192, 116, _colorTable[32328], nullptr, _colorTable[32328], 0);
+                stringCopy(title, getmsg(&gMiscMessageList, &messageListItem, 7));
+                showDialogBox(title, nullptr, 0, 192, 116, COLOR_AMBER, nullptr, COLOR_AMBER, 0);
             } else {
                 soundPlayFile("ib1p1xx1");
                 pipboyOpen(PIPBOY_OPEN_INTENT_REST);
@@ -1000,9 +998,9 @@ bool gameUiIsDisabled()
 }
 
 // 0x443C68
-int gameGetGlobalVar(int var)
+int gameGetGlobalVar(GameGlobalVar var)
 {
-    if (var < 0 || var >= gGameGlobalVarsLength) {
+    if (!globalVariableIsValid(var)) {
         debugPrint("ERROR: attempt to reference global var out of range: %d", var);
         return 0;
     }
@@ -1011,17 +1009,16 @@ int gameGetGlobalVar(int var)
 }
 
 // 0x443C98
-int gameSetGlobalVar(int var, int value)
+int gameSetGlobalVar(GameGlobalVar var, int value)
 {
-    if (var < 0 || var >= gGameGlobalVarsLength) {
+    if (!globalVariableIsValid(var)) {
         debugPrint("ERROR: attempt to reference global var out of range: %d", var);
         return -1;
     }
 
     // SFALL: Display karma changes.
     if (var == GVAR_PLAYER_REPUTATION) {
-        bool shouldDisplayKarmaChanges = false;
-        configGetBool(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_DISPLAY_KARMA_CHANGES_KEY, &shouldDisplayKarmaChanges);
+        bool shouldDisplayKarmaChanges = settings.ui.display_karma_changes;
         if (shouldDisplayKarmaChanges) {
             int diff = value - gGameGlobalVars[var];
             if (diff != 0) {
@@ -1043,7 +1040,7 @@ int gameSetGlobalVar(int var, int value)
 
 // game_load_info
 // 0x443CC8
-static int gameLoadGlobalVars()
+int gameLoadGlobalVars()
 {
     if (globalVarsRead("data\\vault13.gam", "GAME_GLOBAL_VARS:", &gGameGlobalVarsLength, &gGameGlobalVars) != 0) {
         return -1;
@@ -1062,7 +1059,7 @@ static int gameLoadGlobalVars()
 // 0x443CE8
 int globalVarsRead(const char* path, const char* section, int* variablesListLengthPtr, int** variablesListPtr)
 {
-    _inven_reset_dude();
+    inventoryResetDude();
 
     File* stream = fileOpen(path, "rt");
     if (stream == nullptr) {
@@ -1109,7 +1106,7 @@ int globalVarsRead(const char* path, const char* section, int* variablesListLeng
         if (equals != nullptr) {
             sscanf(equals + 1, "%d", *variablesListPtr + *variablesListLengthPtr - 1);
         } else {
-            *variablesListPtr[*variablesListLengthPtr - 1] = 0;
+            (*variablesListPtr)[*variablesListLengthPtr - 1] = 0;
         }
     }
 
@@ -1119,27 +1116,29 @@ int globalVarsRead(const char* path, const char* section, int* variablesListLeng
 }
 
 // 0x443E2C
-int gameGetState()
+GameState gameGetState()
 {
     return gGameState;
 }
 
 // 0x443E34
-int gameRequestState(int newGameState)
+int gameRequestState(GameState newGameState)
 {
     switch (newGameState) {
-    case GAME_STATE_0:
-        newGameState = GAME_STATE_1;
+    case GameState::Normal:
+        newGameState = GameState::NormalPending;
         break;
-    case GAME_STATE_2:
-        newGameState = GAME_STATE_3;
+    case GameState::DialogFinished:
+        newGameState = GameState::DialogFinishedPending;
         break;
-    case GAME_STATE_4:
-        newGameState = GAME_STATE_5;
+    case GameState::DialogActive:
+        newGameState = GameState::DialogRequested;
+        break;
+    default:
         break;
     }
 
-    if (gGameState == GAME_STATE_4 && newGameState == GAME_STATE_5) {
+    if (gGameState == GameState::DialogActive && newGameState == GameState::DialogRequested) {
         return -1;
     }
 
@@ -1151,14 +1150,16 @@ int gameRequestState(int newGameState)
 void gameUpdateState()
 {
     switch (gGameState) {
-    case GAME_STATE_1:
-        gGameState = GAME_STATE_0;
+    case GameState::NormalPending:
+        gGameState = GameState::Normal;
         break;
-    case GAME_STATE_3:
-        gGameState = GAME_STATE_2;
+    case GameState::DialogFinishedPending:
+        gGameState = GameState::DialogFinished;
         break;
-    case GAME_STATE_5:
-        gGameState = GAME_STATE_4;
+    case GameState::DialogRequested:
+        gGameState = GameState::DialogActive;
+        break;
+    default:
         break;
     }
 }
@@ -1170,8 +1171,7 @@ static int gameTakeScreenshot(int width, int height, unsigned char* buffer, unsi
 
     ScreenshotHandler* handler = screenshotHandlerDefaultImpl;
 
-    char* formatName = nullptr;
-    configGetString(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_SCREENSHOTS_FORMAT, &formatName);
+    const char* formatName = settings.system.screenshots_format.c_str();
 
     if (compat_stricmp(formatName, "png") == 0) {
         handler = screenshotHandlerPngImpl;
@@ -1214,12 +1214,21 @@ static void gameFreeGlobalVars()
 }
 
 // 0x443F74
-static void showHelp()
+void showHelp()
 {
     ScopedGameMode gm(GameMode::kHelp);
 
     bool isoWasEnabled = isoDisable();
-    gameMouseObjectsHide();
+    bool gameMouseWasVisible;
+    if (isoWasEnabled) {
+        gameMouseWasVisible = gameMouseObjectsIsVisible();
+    } else {
+        gameMouseWasVisible = false;
+    }
+
+    if (gameMouseWasVisible) {
+        gameMouseObjectsHide();
+    }
 
     gameMouseSetCursor(MOUSE_CURSOR_NONE);
 
@@ -1228,17 +1237,16 @@ static void showHelp()
 
     // CE: Help screen uses separate color palette which is incompatible with
     // colors in other windows. Setup overlay to hide everything.
-    int overlay = windowCreate(0, 0, screenGetWidth(), screenGetHeight(), 0, WINDOW_HIDDEN | WINDOW_MOVE_ON_TOP);
+    int overlay = windowCreate(0, 0, screenGetWidth(), screenGetHeight(), COLOR_FIRST, WINDOW_HIDDEN | WINDOW_MOVE_ON_TOP);
 
     int helpWindowX = (screenGetWidth() - HELP_SCREEN_WIDTH) / 2;
     int helpWindowY = (screenGetHeight() - HELP_SCREEN_HEIGHT) / 2;
-    int win = windowCreate(helpWindowX, helpWindowY, HELP_SCREEN_WIDTH, HELP_SCREEN_HEIGHT, 0, WINDOW_HIDDEN | WINDOW_MOVE_ON_TOP);
+    int win = windowCreate(helpWindowX, helpWindowY, HELP_SCREEN_WIDTH, HELP_SCREEN_HEIGHT, COLOR_FIRST, WINDOW_HIDDEN | WINDOW_MOVE_ON_TOP);
     if (win != -1) {
         unsigned char* windowBuffer = windowGetBuffer(win);
         if (windowBuffer != nullptr) {
             FrmImage backgroundFrmImage;
-            int backgroundFid = buildFid(OBJ_TYPE_INTERFACE, 297, 0, 0, 0);
-            if (backgroundFrmImage.lock(backgroundFid)) {
+            if (backgroundFrmImage.lock(InterfaceFrameId::HelpBackground)) {
                 paletteSetEntries(gPaletteBlack);
                 blitBufferToBuffer(backgroundFrmImage.getData(), HELP_SCREEN_WIDTH, HELP_SCREEN_HEIGHT, HELP_SCREEN_WIDTH, windowBuffer, HELP_SCREEN_WIDTH);
 
@@ -1251,12 +1259,12 @@ static void showHelp()
                     screenGetWidth(),
                     screenGetHeight(),
                     screenGetWidth(),
-                    intensityColorTable[_colorTable[0]][0]);
+                    intensityColorTable[COLOR_BLACK][0]);
 
                 windowShow(overlay);
                 windowShow(win);
 
-                while (inputGetInput() == -1 && _game_user_wants_to_quit == 0) {
+                while (inputGetInput() == -1 && _game_user_wants_to_quit == GAME_QUIT_REQUEST_NONE) {
                     sharedFpsLimiter.mark();
                     renderPresent();
                     sharedFpsLimiter.throttle();
@@ -1285,7 +1293,9 @@ static void showHelp()
         colorCycleEnable();
     }
 
-    gameMouseObjectsShow();
+    if (gameMouseWasVisible) {
+        gameMouseObjectsShow();
+    }
 
     if (isoWasEnabled) {
         isoEnable();
@@ -1313,7 +1323,7 @@ int showQuitConfirmationDialog()
         mouseShowCursor();
     }
 
-    int oldCursor = gameMouseGetCursor();
+    MouseCursorType oldCursor = gameMouseGetCursor();
     gameMouseSetCursor(MOUSE_CURSOR_ARROW);
 
     int rc;
@@ -1322,9 +1332,9 @@ int showQuitConfirmationDialog()
     MessageListItem messageListItem;
     messageListItem.num = 0;
     if (messageListGetItem(&gMiscMessageList, &messageListItem)) {
-        rc = showDialogBox(messageListItem.text, nullptr, 0, 169, 117, _colorTable[32328], nullptr, _colorTable[32328], DIALOG_BOX_YES_NO);
+        rc = showDialogBox(messageListItem.text, nullptr, 0, 169, 117, COLOR_AMBER, nullptr, COLOR_AMBER, DIALOG_BOX_YES_NO);
         if (rc != 0) {
-            _game_user_wants_to_quit = 2;
+            _game_user_wants_to_quit = GAME_QUIT_REQUEST_MAIN_MENU;
         }
     } else {
         rc = -1;
@@ -1347,76 +1357,127 @@ int showQuitConfirmationDialog()
     return rc;
 }
 
+static void TryLoadBaseCEMod()
+{
+    bool found = false;
+    bool openFailed = false;
+
+    if (tryLoadBaseCEModAtPath(kBaseModPath, &found, &openFailed)) {
+        return;
+    }
+
+#if __APPLE__ && TARGET_OS_OSX
+    const char* bundleResourcesPath = getMacOsBundleResourcesPath();
+    if (bundleResourcesPath != nullptr) {
+        char absolutePath[COMPAT_MAX_PATH];
+        snprintf(absolutePath, sizeof(absolutePath), "%s/ce.dat", bundleResourcesPath);
+        if (tryLoadBaseCEModAtPath(absolutePath, &found, &openFailed)) {
+            return;
+        }
+    }
+#endif
+
+    if (openFailed) {
+        debugPrint("Error opening base mod file/folder!\n");
+    } else {
+        debugPrint("Error opening base mod: no file or folder name %s found.\n", kBaseModPath);
+    }
+}
+
+static bool tryLoadBaseCEModAtPath(const char* path, bool* found, bool* openFailed)
+{
+    if (compat_access(path, 0) != 0) {
+        return false;
+    }
+
+    if (found != nullptr) {
+        *found = true;
+    }
+
+    debugPrint("Loading base FO:CE mod: %s\n", path);
+    if (dbOpen(path) == -1) {
+        if (openFailed != nullptr) {
+            *openFailed = true;
+        }
+        return false;
+    }
+
+    return true;
+}
+
 // 0x44418C
 static int gameDbInit()
 {
-    const char* main_file_name;
-    const char* patch_file_name;
-    int patch_index;
-    char filename[COMPAT_MAX_PATH];
-
-    main_file_name = nullptr;
-    patch_file_name = nullptr;
-
-    main_file_name = settings.system.master_dat_path.c_str();
-    if (*main_file_name == '\0') {
-        main_file_name = nullptr;
+    const char* master_dat_path = settings.system.master_dat_path.c_str();
+    if (*master_dat_path == '\0') {
+        master_dat_path = nullptr;
     }
 
-    patch_file_name = settings.system.master_patches_path.c_str();
-    if (*patch_file_name == '\0') {
-        patch_file_name = nullptr;
+    const char* master_patches_path = settings.system.master_patches_path.c_str();
+    if (*master_patches_path == '\0') {
+        master_patches_path = nullptr;
+    }
+    // Try to ensure that patches dir exists early. This is needed for auto-generated game.cfg later.
+    if (master_patches_path != nullptr) {
+        compat_mkdir_recursive(master_patches_path);
     }
 
-    int master_db_handle = dbOpen(main_file_name, 0, patch_file_name, 1);
-    if (master_db_handle == -1) {
-        showMesageBox("Could not find the master datafile. Please make sure the FALLOUT CD is in the drive and that you are running FALLOUT from the directory you installed it to.");
+    const char* critter_dat_path = settings.system.critter_dat_path.c_str();
+    if (*critter_dat_path == '\0') {
+        critter_dat_path = nullptr;
+    }
+
+    const char* critter_patches_path = settings.system.critter_patches_path.c_str();
+    if (*critter_patches_path == '\0') {
+        critter_patches_path = nullptr;
+    }
+
+    // Load archives in reverse priority order (dbOpen prepends to chain).
+    // Resulting chain (head = highest priority):
+    //   master_patches > critter_patches > mods > patchXXX.dat > ce.dat > f2_res_dat > critter.dat > master.dat
+
+    if (dbOpen(master_dat_path) == -1) {
+        showMessageBox("Could not find the master datafile. Please make sure the FALLOUT CD is in the drive and that you are running FALLOUT from the directory you installed it to.");
         return -1;
     }
 
-    main_file_name = settings.system.critter_dat_path.c_str();
-    if (*main_file_name == '\0') {
-        main_file_name = nullptr;
-    }
-
-    patch_file_name = settings.system.critter_patches_path.c_str();
-    if (*patch_file_name == '\0') {
-        patch_file_name = nullptr;
-    }
-
-    int critter_db_handle = dbOpen(main_file_name, 0, patch_file_name, 1);
-    if (critter_db_handle == -1) {
-        showMesageBox("Could not find the critter datafile. Please make sure the FALLOUT CD is in the drive and that you are running FALLOUT from the directory you installed it to.");
+    if (dbOpen(critter_dat_path) == -1) {
+        showMessageBox("Could not find the critter datafile. Please make sure the FALLOUT CD is in the drive and that you are running FALLOUT from the directory you installed it to.");
         return -1;
     }
 
-    // SFALL: custom patch file name.
+    const char* highResPatchDatPath = settings.system.f2_res_dat_path.c_str();
+    if (*highResPatchDatPath != '\0' && compat_access(highResPatchDatPath, 0) == 0) {
+        debugPrint("Loading HRP data mod: %s\n", highResPatchDatPath);
+        dbOpen(highResPatchDatPath);
+    }
+
+    TryLoadBaseCEMod();
+
     char* path_file_name_template = nullptr;
     configGetString(&gSfallConfig, SFALL_CONFIG_MISC_KEY, SFALL_CONFIG_PATCH_FILE, &path_file_name_template);
     if (path_file_name_template == nullptr || *path_file_name_template == '\0') {
         path_file_name_template = (char*)"patch%03d.dat";
     }
 
-    for (patch_index = 0; patch_index < 1000; patch_index++) {
+    char filename[COMPAT_MAX_PATH];
+    for (int patch_index = 0; patch_index < 1000; patch_index++) {
         snprintf(filename, sizeof(filename), path_file_name_template, patch_index);
 
-        if (compat_access(filename, 0) == 0) {
-#ifdef EMSCRIPTEN
-            // We unpack files in web build and then it fails to save game
-            // See https://github.com/alexbatalov/fallout2-ce/issues/334
-            // As workaround we add patch_file_name (/data folder) to be before patchsXXX.dat
-            // Original game have NULL here but for some reasons works with unpacked patches
-            dbOpen(filename, 0, patch_file_name, 1);
-#else
-            dbOpen(filename, 0, nullptr, 1);
-#endif
+        if (compat_access(filename, 0) != 0) {
+            break;
         }
+        dbOpen(filename);
     }
 
     sfallLoadMods();
 
-    if (compat_access("f2_res.dat", 0) == 0) {
-        dbOpen("f2_res.dat", 0, nullptr, 1);
+    if (critter_patches_path != nullptr) {
+        dbOpen(critter_patches_path);
+    }
+
+    if (master_patches_path != nullptr) {
+        dbOpen(master_patches_path);
     }
 
     return 0;
@@ -1500,17 +1561,7 @@ static void showSplash()
         }
     }
 
-    int size = 0;
-
-    // TODO: Move to settings.
-    Config config;
-    if (configInit(&config)) {
-        if (configRead(&config, "f2_res.ini", false)) {
-            configGetInt(&config, "STATIC_SCREENS", "SPLASH_SCRN_SIZE", &size);
-        }
-
-        configFree(&config);
-    }
+    int size = settings.ui.splash_screen_size;
 
     int screenWidth = screenGetWidth();
     int screenHeight = screenGetHeight();
@@ -1532,7 +1583,7 @@ static void showSplash()
             }
         }
 
-        unsigned char* scaled = reinterpret_cast<unsigned char*>(internal_malloc(scaledWidth * scaledHeight));
+        unsigned char* scaled = reinterpret_cast<unsigned char*>(internal_malloc(static_cast<size_t>(scaledWidth) * scaledHeight));
         if (scaled != nullptr) {
             blitBufferToBufferStretch(data, width, height, width, scaled, scaledWidth, scaledHeight, scaledWidth);
 
@@ -1576,13 +1627,13 @@ int gameShowDeathDialog(const char* message)
         mouseShowCursor();
     }
 
-    int oldCursor = gameMouseGetCursor();
+    MouseCursorType oldCursor = gameMouseGetCursor();
     gameMouseSetCursor(MOUSE_CURSOR_ARROW);
 
-    int oldUserWantsToQuit = _game_user_wants_to_quit;
-    _game_user_wants_to_quit = 0;
+    GameQuitRequest oldUserWantsToQuit = _game_user_wants_to_quit;
+    _game_user_wants_to_quit = GAME_QUIT_REQUEST_NONE;
 
-    int rc = showDialogBox(message, nullptr, 0, 169, 117, _colorTable[32328], nullptr, _colorTable[32328], DIALOG_BOX_LARGE);
+    int rc = showDialogBox(message, nullptr, 0, 169, 117, COLOR_AMBER, nullptr, COLOR_AMBER, DIALOG_BOX_LARGE);
 
     _game_user_wants_to_quit = oldUserWantsToQuit;
 
@@ -1603,9 +1654,9 @@ int gameShowDeathDialog(const char* message)
     return rc;
 }
 
-void* gameGetGlobalPointer(int var)
+void* gameGetGlobalPointer(GameGlobalVar var)
 {
-    if (var < 0 || var >= gGameGlobalVarsLength) {
+    if (!globalVariableIsValid(var)) {
         debugPrint("ERROR: attempt to reference global pointer out of range: %d", var);
         return nullptr;
     }
@@ -1613,9 +1664,9 @@ void* gameGetGlobalPointer(int var)
     return gGameGlobalPointers[var];
 }
 
-int gameSetGlobalPointer(int var, void* value)
+int gameSetGlobalPointer(GameGlobalVar var, void* value)
 {
-    if (var < 0 || var >= gGameGlobalVarsLength) {
+    if (!globalVariableIsValid(var)) {
         debugPrint("ERROR: attempt to reference global var out of range: %d", var);
         return -1;
     }
@@ -1625,24 +1676,38 @@ int gameSetGlobalPointer(int var, void* value)
     return 0;
 }
 
-int GameMode::currentGameMode = 0;
+GameMode::Flags GameMode::currentGameMode = kNone;
 
-void GameMode::enterGameMode(int gameMode)
+void GameMode::enterGameMode(GameMode::Flags gameMode)
 {
-    currentGameMode |= gameMode;
+    GameMode::Flags previousGameMode = currentGameMode;
+    currentGameMode = currentGameMode | gameMode;
+    if (currentGameMode != previousGameMode) {
+        sfallOnGameModeChange(0, previousGameMode);
+    }
 }
 
-void GameMode::exitGameMode(int gameMode)
+void GameMode::exitGameMode(GameMode::Flags gameMode)
 {
-    currentGameMode &= ~gameMode;
+    GameMode::Flags previousGameMode = currentGameMode;
+    currentGameMode = currentGameMode & ~gameMode;
+    if (currentGameMode != previousGameMode) {
+        sfallOnGameModeChange(0, previousGameMode);
+    }
 }
 
-bool GameMode::isInGameMode(int gameMode)
+// remove game mode without triggering hooks
+void GameMode::exitGameModeQuietly(GameMode::Flags gameMode)
 {
-    return (currentGameMode & gameMode) != 0;
+    currentGameMode = currentGameMode & ~gameMode;
 }
 
-ScopedGameMode::ScopedGameMode(int gameMode)
+bool GameMode::isInGameMode(GameMode::Flags gameMode)
+{
+    return (currentGameMode & gameMode) != kNone;
+}
+
+ScopedGameMode::ScopedGameMode(GameMode::Flags gameMode)
 {
     this->gameMode = gameMode;
     GameMode::enterGameMode(gameMode);
@@ -1651,6 +1716,48 @@ ScopedGameMode::ScopedGameMode(int gameMode)
 ScopedGameMode::~ScopedGameMode()
 {
     GameMode::exitGameMode(gameMode);
+}
+
+void gameHandleSkilldexResult(SkilldexRC rc)
+{
+    GameMouseMode mode = GAME_MOUSE_MODE_INVALID;
+
+    switch (rc) {
+    case SKILLDEX_RC_ERROR:
+        debugPrint("\n ** Error calling skilldex_select()! ** \n");
+        break;
+    case SKILLDEX_RC_SNEAK:
+        _action_skill_use(SKILL_SNEAK);
+        break;
+    case SKILLDEX_RC_LOCKPICK:
+        mode = GAME_MOUSE_MODE_USE_LOCKPICK;
+        break;
+    case SKILLDEX_RC_STEAL:
+        mode = GAME_MOUSE_MODE_USE_STEAL;
+        break;
+    case SKILLDEX_RC_TRAPS:
+        mode = GAME_MOUSE_MODE_USE_TRAPS;
+        break;
+    case SKILLDEX_RC_FIRST_AID:
+        mode = GAME_MOUSE_MODE_USE_FIRST_AID;
+        break;
+    case SKILLDEX_RC_DOCTOR:
+        mode = GAME_MOUSE_MODE_USE_DOCTOR;
+        break;
+    case SKILLDEX_RC_SCIENCE:
+        mode = GAME_MOUSE_MODE_USE_SCIENCE;
+        break;
+    case SKILLDEX_RC_REPAIR:
+        mode = GAME_MOUSE_MODE_USE_REPAIR;
+        break;
+    default:
+        break;
+    }
+
+    if (mode != GAME_MOUSE_MODE_INVALID) {
+        gameMouseSetCursor(MOUSE_CURSOR_USE_CROSSHAIR);
+        gameMouseSetMode(mode);
+    }
 }
 
 } // namespace fallout

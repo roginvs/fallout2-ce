@@ -16,6 +16,7 @@
 
 #include <SDL.h>
 
+#include "audio.h"
 #include "audio_engine.h"
 #include "debug.h"
 #include "platform_compat.h"
@@ -49,7 +50,7 @@ static long soundFileSize(int fileHandle);
 static long soundTellData(int fileHandle);
 static int soundWriteData(int fileHandle, const void* buf, unsigned int size);
 static int soundReadData(int fileHandle, void* buf, unsigned int size);
-static int soundOpenData(const char* filePath, int* sampleRate);
+static int soundOpenData(const char* filePath, AudioFileInfo* openInfo, bool* isMemoryBackedPtr);
 static long soundSeekData(int fileHandle, long offset, int origin);
 static int soundCloseData(int fileHandle);
 static char* soundFileManglerDefaultImpl(char* fname);
@@ -67,22 +68,22 @@ static void _removeFadeSound(FadeSound* fadeSound);
 static void _fadeSounds();
 static int _internalSoundFade(Sound* sound, int duration, int targetVolume, bool pause);
 
-// 0x51D478
+// 0x51D478 fadeHead
 static FadeSound* _fadeHead = nullptr;
 
-// 0x51D47C
+// 0x51D47C fadeFreeList
 static FadeSound* _fadeFreeList = nullptr;
 
-// 0x51D488
+// 0x51D488 mallocPtr_2
 static MallocProc* gSoundMallocProc = soundMallocProcDefaultImpl;
 
-// 0x51D48C
+// 0x51D48C reallocPtr_2
 static ReallocProc* gSoundReallocProc = soundReallocProcDefaultImpl;
 
-// 0x51D490
+// 0x51D490 freePtr_2
 static FreeProc* gSoundFreeProc = soundFreeProcDefaultImpl;
 
-// 0x51D494
+// 0x51D494 defaultStream
 static SoundFileIO gSoundDefaultFileIO = {
     soundOpenData,
     soundCloseData,
@@ -94,10 +95,10 @@ static SoundFileIO gSoundDefaultFileIO = {
     -1,
 };
 
-// 0x51D4B4
+// 0x51D4B4 nameMangler
 static SoundFileNameMangler* gSoundFileNameMangler = soundFileManglerDefaultImpl;
 
-// 0x51D4B8
+// 0x51D4B8 errorMsgs
 static const char* gSoundErrorDescriptions[SOUND_ERR_COUNT] = {
     "sound.c: No error",
     "sound.c: SOS driver not loaded",
@@ -134,33 +135,33 @@ static const char* gSoundErrorDescriptions[SOUND_ERR_COUNT] = {
     "sound.c: unknown error",
 };
 
-// 0x668150
+// 0x668150 soundErrorno
 static int gSoundLastError;
 
-// 0x668154
+// 0x668154 masterVol
 static int _masterVol;
 
-// 0x66815C
+// 0x66815C sampleRate
 static int _sampleRate;
 
 // Number of sounds currently playing.
 //
-// 0x668160
+// 0x668160 numSounds
 static int _numSounds;
 
-// 0x668164
+// 0x668164 deviceInit
 static int _deviceInit;
 
-// 0x668168
+// 0x668168 dataSize
 static int _dataSize;
 
-// 0x66816C
+// 0x66816C numBuffers
 static int _numBuffers;
 
-// 0x668170
+// 0x668170 shouldUseSound
 static bool gSoundInitialized;
 
-// 0x668174
+// 0x668174 soundMgrList
 static Sound* gSoundListHead;
 
 static SDL_TimerID gFadeSoundsTimerId = 0;
@@ -223,7 +224,7 @@ static int soundReadData(int fileHandle, void* buf, unsigned int size)
 }
 
 // 0x4AC768
-static int soundOpenData(const char* filePath, int* sampleRate)
+static int soundOpenData(const char* filePath, AudioFileInfo* openInfo, bool* isMemoryBackedPtr)
 {
     int flags;
 
@@ -375,7 +376,7 @@ void _refreshSoundBuffers(Sound* sound)
                         if (sound->loops == -1) {
                             sound->io.seek(sound->io.fd, sound->field_54, SEEK_SET);
                             if (sound->callback != nullptr) {
-                                sound->callback(sound->callbackUserData, 0x0400);
+                                sound->callback(sound->callbackUserData, SOUND_CALLBACK_EVENT_LOOP);
                             }
                         } else {
                             if (sound->loops <= 0) {
@@ -391,7 +392,7 @@ void _refreshSoundBuffers(Sound* sound)
                             sound->io.seek(sound->io.fd, sound->field_54, SEEK_SET);
 
                             if (sound->callback != nullptr) {
-                                sound->callback(sound->callbackUserData, 0x400);
+                                sound->callback(sound->callbackUserData, SOUND_CALLBACK_EVENT_LOOP);
                             }
                         }
 
@@ -441,9 +442,9 @@ void _refreshSoundBuffers(Sound* sound)
 }
 
 // 0x4ACC58
-int soundInit(int _, int numBuffers, int __, int dataSize, int rate)
+int soundInit(int _, int numBuffers, int __, int dataSize, int rate, int channelCount)
 {
-    if (!audioEngineInit()) {
+    if (!audioEngineInit(channelCount)) {
         debugPrint("soundInit: Unable to init audio engine\n");
 
         gSoundLastError = SOUND_SOS_DETECTION_FAILURE;
@@ -616,10 +617,27 @@ int soundLoad(Sound* sound, char* filePath)
         return gSoundLastError;
     }
 
-    sound->io.fd = sound->io.open(gSoundFileNameMangler(filePath), &(sound->rate));
+    char* mangledFilePath = gSoundFileNameMangler(filePath);
+
+    AudioFileInfo openInfo = {
+        sound->channels,
+        sound->rate,
+        sound->bitsPerSample,
+    };
+    bool isMemoryBacked = (sound->type & SOUND_TYPE_MEMORY) != 0;
+
+    sound->io.fd = sound->io.open(mangledFilePath, &openInfo, &isMemoryBacked);
     if (sound->io.fd == -1) {
         gSoundLastError = SOUND_FILE_NOT_FOUND;
         return gSoundLastError;
+    }
+
+    sound->channels = openInfo.channels;
+    sound->rate = openInfo.sampleRate;
+    sound->bitsPerSample = openInfo.bitsPerSample;
+    if (isMemoryBacked) {
+        sound->type &= ~SOUND_TYPE_STREAMING;
+        sound->type |= SOUND_TYPE_MEMORY;
     }
 
     return _preloadBuffers(sound);
@@ -866,7 +884,7 @@ int soundContinue(Sound* sound)
         }
     } else if ((sound->statusFlags & SOUND_STATUS_IS_PAUSED) == 0) {
         if (sound->callback != nullptr) {
-            sound->callback(sound->callbackUserData, 1);
+            sound->callback(sound->callbackUserData, SOUND_CALLBACK_EVENT_DONE);
             sound->callback = nullptr;
         }
 
@@ -967,7 +985,7 @@ int soundGetDuration(Sound* sound)
         return gSoundLastError;
     }
 
-    int bytesPerSec = sound->bitsPerSample / 8 * sound->rate;
+    int bytesPerSec = sound->bitsPerSample / 8 * sound->channels * sound->rate;
     int v3 = sound->fileSize;
     int v4 = v3 % bytesPerSec;
     int result = v3 / bytesPerSec;
@@ -1121,7 +1139,7 @@ int soundSetReadLimit(Sound* sound, int readLimit)
     }
 
     if (sound == nullptr) {
-        gSoundLastError = SOUND_NO_DEVICE;
+        gSoundLastError = SOUND_NO_SOUND;
         return gSoundLastError;
     }
 
@@ -1283,12 +1301,13 @@ void soundDeleteInternal(Sound* sound)
 
     if (sound->soundBuffer != -1) {
         // NOTE: Uninline.
-        if (!soundIsPlaying(sound)) {
+        if (soundIsPlaying(sound)) {
             soundStop(sound);
         }
 
         if (sound->callback != nullptr) {
-            sound->callback(sound->callbackUserData, 1);
+            sound->callback(sound->callbackUserData, SOUND_CALLBACK_EVENT_DONE);
+            sound->callback = nullptr;
         }
 
         audioEngineSoundBufferRelease(sound->soundBuffer);
@@ -1379,11 +1398,15 @@ int _soundGetPosition(Sound* sound)
     audioEngineSoundBufferGetCurrentPosition(sound->soundBuffer, &readPos, &writePos);
 
     if ((sound->type & SOUND_TYPE_STREAMING) != 0) {
+        int offset;
+        // Original code uses <=, but equality can also mean the cursor has not
+        // advanced. Match _refreshSoundBuffers by treating only < as wrap.
         if (readPos < sound->lastPosition) {
-            readPos += sound->numBytesRead + sound->numBuffers * sound->dataSize - sound->lastPosition;
+            offset = readPos + sound->numBuffers * sound->dataSize - sound->lastPosition;
         } else {
-            readPos -= sound->lastPosition + sound->numBytesRead;
+            offset = readPos - sound->lastPosition;
         }
+        return sound->numBytesRead + offset;
     }
 
     return readPos;
@@ -1412,7 +1435,7 @@ int _soundSetPosition(Sound* sound, int pos)
 
         audioEngineSoundBufferSetCurrentPosition(sound->soundBuffer, section * sound->dataSize + pos % sound->dataSize);
 
-        sound->io.seek(sound->io.fd, section * sound->dataSize, SEEK_SET);
+        sound->io.seek(sound->io.fd, static_cast<long>(section) * sound->dataSize, SEEK_SET);
         int bytesRead = sound->io.read(sound->io.fd, sound->data, sound->dataSize);
         if (bytesRead < sound->dataSize) {
             if ((sound->type & SOUND_TYPE_STREAMING) != 0) {
@@ -1487,6 +1510,8 @@ void _fadeSounds()
 
     fadeSound = _fadeHead;
     while (fadeSound != nullptr) {
+        FadeSound* next = fadeSound->next;
+
         if ((fadeSound->currentVolume > fadeSound->targetVolume || fadeSound->currentVolume + fadeSound->deltaVolume < fadeSound->targetVolume) && (fadeSound->currentVolume < fadeSound->targetVolume || fadeSound->currentVolume + fadeSound->deltaVolume > fadeSound->targetVolume)) {
             fadeSound->currentVolume += fadeSound->deltaVolume;
             soundSetVolume(fadeSound->sound, fadeSound->currentVolume);
@@ -1512,6 +1537,8 @@ void _fadeSounds()
 
             _removeFadeSound(fadeSound);
         }
+
+        fadeSound = next;
     }
 
     if (_fadeHead == nullptr) {

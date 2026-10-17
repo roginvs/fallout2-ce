@@ -2,7 +2,7 @@
 
 ## Installation
 
-Install emscripten version `3.1.74`.
+Install the emscripten version from `.github/workflows/ci-build-web.yml` (`EMSDK_VERSION`), the single source of truth. `./os/web/emsdk-version.sh` prints it; the docker commands below use it (run them from the repo root).
 
 ## Build
 
@@ -22,10 +22,10 @@ Or alternatively using docker (no need to install emscipten)
 
 ```bash
 # Release build
-docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) emscripten/emsdk:3.1.74 sh -c 'mkdir -p build && cd build && export SOURCE_MAP_BASE=https://fallout-nevada.ru/ && export EM_CACHE=$(pwd)/build/emcache &&  emcmake cmake -DCMAKE_BUILD_TYPE="Release" ../ && emmake make VERBOSE=1 -j 8'
+docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) "emscripten/emsdk:$(./os/web/emsdk-version.sh)" sh -c 'mkdir -p build && cd build && export SOURCE_MAP_BASE=https://fallout-nevada.ru/ && export EM_CACHE=$(pwd)/build/emcache &&  emcmake cmake -DCMAKE_BUILD_TYPE="Release" ../ && emmake make VERBOSE=1 -j 8'
 
 # Debug build
-docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) emscripten/emsdk:3.1.74 sh -c 'mkdir -p build && cd build && export EM_CACHE=$(pwd)/build/emcache-debug &&  emcmake cmake -DCMAKE_BUILD_TYPE="Debug" ../ && emmake make VERBOSE=1 -j 8'
+docker run --rm --user $(id -u):$(id -g) -v $(pwd):$(pwd) -w $(pwd) "emscripten/emsdk:$(./os/web/emsdk-version.sh)" sh -c 'mkdir -p build && cd build && export EM_CACHE=$(pwd)/build/emcache-debug &&  emcmake cmake -DCMAKE_BUILD_TYPE="Debug" ../ && emmake make VERBOSE=1 -j 8'
 
 ```
 
@@ -45,31 +45,6 @@ Due to async loading it is recommended to unpack game data. https://github.com/f
 for f in master.dat critter.dat patch001.dat; do
   test -f $f && echo $f && mkdir $f.dir && dat-unpacker -s $f -d $f.dir && rm $f && mv $f.dir $f && echo "ok"
 done
-```
-
-### Update game configuration
-
-Skip intro videos by adding those lines in `ddraw.ini`:
-
-```ini
-[Misc]
-SkipOpeningMovies=1
-```
-
-Force game resolution in `f2_res.ini` (optional because it is overritten by javascript code):
-
-```ini
-[MAIN]
-SCR_WIDTH=640
-SCR_HEIGHT=480
-WINDOWED=1
-```
-
-(optional) Change cache size in `fallout2.cfg`
-
-```ini
-[system]
-art_cache_size=64
 ```
 
 ### Change line endings in text files (if .dat files were unpacked)
@@ -174,17 +149,6 @@ MovieTimer_artimer1=36000
 MovieTimer_artimer2=36030
 MovieTimer_artimer3=36060
 MovieTimer_artimer4=36090
-
-```
-
-### Fix music path
-
-Some distributions have music path equal to `sound\music\` in `fallout2.cfg`. Change in into `data\sound\music`:
-
-```ini
-[sound]
-music_path1=data\sound\music\
-music_path2=data\sound\music\
 
 ```
 

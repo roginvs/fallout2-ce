@@ -1,17 +1,22 @@
 #ifndef PARTY_MEMBER_H
 #define PARTY_MEMBER_H
 
+#include <vector>
+
+#include "combat_ai_defs.h"
+#include "config.h"
 #include "db.h"
 #include "obj_types.h"
+#include "proto_types.h"
 #include "scripts.h"
-
-#include <vector>
+#include "skill_defs.h"
 
 namespace fallout {
 
 extern int gPartyMemberDescriptionsLength;
-extern int* gPartyMemberPids;
+extern std::vector<ProtoId> gPartyMemberProtoIds;
 
+int partyMemberParseConfig(Config* config, bool reindex = false);
 int partyMembersInit();
 void partyMembersReset();
 void partyMembersExit();
@@ -25,24 +30,28 @@ int _partyMemberRecoverLoad();
 int partyMembersLoad(File* stream);
 void _partyMemberClear();
 int _partyMemberSyncPosition();
-int _partyMemberRestingHeal(int a1);
-Object* partyMemberFindByPid(int a1);
+int _partyMemberRestingHeal(int hours);
+Object* partyMemberFindByProtoId(const ProtoId& protoId);
 bool _isPotentialPartyMember(Object* object);
 bool objectIsPartyMember(Object* object);
+bool partyMemberProtoIdCanEquipArmor(const ProtoId& protoId);
 int _getPartyMemberCount();
 int _partyMemberPrepItemSaveAll();
-int partyMemberGetBestSkill(Object* object);
-Object* partyMemberGetBestInSkill(int skill);
-int partyGetBestSkillValue(int skill);
+int partyMemberGetCurrentLevel(Object* object);
+Skill partyMemberGetBestSkill(Object* object);
+Object* partyMemberGetBestInSkill(Skill skill);
+int partyGetBestSkillValue(Skill skill);
 void _partyMemberSaveProtos();
-bool partyMemberSupportsDisposition(Object* object, int disposition);
-bool partyMemberSupportsAreaAttackMode(Object* object, int areaAttackMode);
-bool partyMemberSupportsRunAwayMode(Object* object, int runAwayMode);
-bool partyMemberSupportsBestWeapon(Object* object, int bestWeapon);
-bool partyMemberSupportsDistance(Object* object, int distanceMode);
-bool partyMemberSupportsAttackWho(Object* object, int attackWho);
-bool partyMemberSupportsChemUse(Object* object, int chemUse);
+bool partyMemberSupportsDisposition(Object* object, Disposition disposition);
+bool partyMemberSupportsAreaAttackMode(Object* object, AreaAttackMode areaAttackMode);
+bool partyMemberSupportsRunAwayMode(Object* object, RunAwayMode runAwayMode);
+bool partyMemberSupportsBestWeapon(Object* object, BestWeapon bestWeapon);
+bool partyMemberSupportsDistance(Object* object, DistanceMode distanceMode);
+bool partyMemberSupportsAttackWho(Object* object, AttackWho attackWho);
+bool partyMemberSupportsChemUse(Object* object, ChemUse chemUse);
 int _partyMemberIncLevels();
+bool partyMemberEngineLevelUpEnabled();
+void partyMemberSetEngineLevelUpEnabled(bool enabled);
 bool partyIsAnyoneCanBeHealedByRest();
 int partyGetMaxWoundToHealByRest();
 std::vector<Object*> get_all_party_members_objects(bool include_hidden);

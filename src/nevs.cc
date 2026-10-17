@@ -20,7 +20,7 @@ typedef struct Nevs {
     int type;
     int hits;
     bool busy;
-    void (*field_38)();
+    void (*callbackProc)(); // unused
 } Nevs;
 
 static Nevs* _nevs_alloc();
@@ -28,14 +28,14 @@ static void _nevs_reset(Nevs* nevs);
 static void _nevs_removeprogramreferences(Program* program);
 static Nevs* _nevs_find(const char* name);
 
-// 0x6391C8
+// 0x6391C8 nevs
 static Nevs* gNevs;
 
-// 0x6391CC
+// 0x6391CC anyhits
 static int gNevsHits;
 
 // nevs_alloc
-// 0x488340
+// 0x488340 nevs_alloc
 static Nevs* _nevs_alloc()
 {
     if (gNevs == nullptr) {
@@ -57,14 +57,14 @@ static Nevs* _nevs_alloc()
 
 // NOTE: Inlined.
 //
-// 0x488394
+// 0x488394 nevs_free
 static void _nevs_reset(Nevs* nevs)
 {
     nevs->used = false;
     memset(nevs, 0, sizeof(*nevs));
 }
 
-// 0x4883AC
+// 0x4883AC nevs_close
 void _nevs_close()
 {
     if (gNevs != nullptr) {
@@ -73,7 +73,7 @@ void _nevs_close()
     }
 }
 
-// 0x4883D4
+// 0x4883D4 nevs_removeprogramreferences
 static void _nevs_removeprogramreferences(Program* program)
 {
     if (gNevs != nullptr) {
@@ -88,7 +88,7 @@ static void _nevs_removeprogramreferences(Program* program)
 }
 
 // nevs_initonce
-// 0x488418
+// 0x488418 nevs_initonce
 void _nevs_initonce()
 {
     intLibRegisterProgramDeleteCallback(_nevs_removeprogramreferences);
@@ -103,7 +103,7 @@ void _nevs_initonce()
 }
 
 // nevs_find
-// 0x48846C
+// 0x48846C nevs_find
 static Nevs* _nevs_find(const char* name)
 {
     if (gNevs == nullptr) {
@@ -121,7 +121,7 @@ static Nevs* _nevs_find(const char* name)
     return nullptr;
 }
 
-// 0x4884C8
+// 0x4884C8 nevs_addevent
 int _nevs_addevent(const char* name, Program* program, int proc, int type)
 {
     Nevs* nevs = _nevs_find(name);
@@ -138,18 +138,18 @@ int _nevs_addevent(const char* name, Program* program, int proc, int type)
     nevs->program = program;
     nevs->proc = proc;
     nevs->type = type;
-    nevs->field_38 = nullptr;
+    nevs->callbackProc = nullptr;
 
     return 0;
 }
 
 // nevs_clearevent
-// 0x48859C
-int _nevs_clearevent(const char* a1)
+// 0x48859C nevs_clearevent
+int _nevs_clearevent(const char* name)
 {
-    debugPrint("nevs_clearevent( '%s');\n", a1);
+    debugPrint("nevs_clearevent( '%s');\n", name);
 
-    Nevs* nevs = _nevs_find(a1);
+    Nevs* nevs = _nevs_find(name);
     if (nevs != nullptr) {
         // NOTE: Uninline.
         _nevs_reset(nevs);
@@ -160,7 +160,7 @@ int _nevs_clearevent(const char* a1)
 }
 
 // nevs_signal
-// 0x48862C
+// 0x48862C nevs_signal
 int _nevs_signal(const char* name)
 {
     debugPrint("nevs_signal( '%s');\n", name);
@@ -173,7 +173,7 @@ int _nevs_signal(const char* name)
     debugPrint("nep: %p,  used = %u, prog = %p, proc = %d", nevs, nevs->used, nevs->program, nevs->proc);
 
     if (nevs->used
-        && ((nevs->program != nullptr && nevs->proc != 0) || nevs->field_38 != nullptr)
+        && ((nevs->program != nullptr && nevs->proc != 0) || nevs->callbackProc != nullptr)
         && !nevs->busy) {
         nevs->hits++;
         gNevsHits++;
@@ -184,7 +184,7 @@ int _nevs_signal(const char* name)
 }
 
 // nevs_update
-// 0x4886AC
+// 0x4886AC nevs_update
 void _nevs_update()
 {
     if (gNevsHits == 0) {
@@ -195,10 +195,14 @@ void _nevs_update()
 
     gNevsHits = 0;
 
+    if (gNevs == nullptr) {
+        return;
+    }
+
     for (int index = 0; index < NEVS_COUNT; index++) {
         Nevs* nevs = &(gNevs[index]);
         if (nevs->used
-            && ((nevs->program != nullptr && nevs->proc != 0) || nevs->field_38 != nullptr)
+            && ((nevs->program != nullptr && nevs->proc != 0) || nevs->callbackProc != nullptr)
             && !nevs->busy) {
             if (nevs->hits > 0) {
                 nevs->busy = true;
@@ -206,10 +210,10 @@ void _nevs_update()
                 nevs->hits -= 1;
                 gNevsHits += nevs->hits;
 
-                if (nevs->field_38 == nullptr) {
-                    _executeProc(nevs->program, nevs->proc);
+                if (nevs->callbackProc == nullptr) {
+                    programExecuteProcedureAsync(nevs->program, nevs->proc);
                 } else {
-                    nevs->field_38();
+                    nevs->callbackProc();
                 }
 
                 nevs->busy = false;

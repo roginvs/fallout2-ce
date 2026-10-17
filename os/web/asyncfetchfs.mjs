@@ -1,12 +1,12 @@
 const S_IFDIR = 0o0040000;
 const S_IFREG = 0o0100000;
-const ENOENT = 2;
-const EPERM = 1;
-const EIO = 5;
+// Emscripten uses WASI errno values, rather than the host Linux values.
+const ENOENT = 44;
+const EPERM = 63;
 const SEEK_SET = 0;
 const SEEK_CUR = 1;
 const SEEK_END = 2;
-const EINVAL = 22;
+const EINVAL = 28;
 
 /**
  * @param {AsyncFetchFsNode} node
@@ -204,13 +204,29 @@ export const ASYNCFETCHFS = {
         },
         setattr: function (
             /** @type {AsyncFetchFsNode} */ node,
-            /** @type {{mode?: number, timestamp?: number}} */ attr,
+            /** @type {{mode?: number, timestamp?: number, size?: number}} */ attr,
         ) {
             if (attr.mode !== undefined) {
                 node.mode = attr.mode;
             }
             if (attr.timestamp !== undefined) {
                 node.timestamp = attr.timestamp;
+            }
+            if (attr.size !== undefined) {
+                if (attr.size > 0 && !node.contents) {
+                    // Unloaded remote data must be fetched before resizing.
+                    throw new FS.ErrnoError(EINVAL);
+                }
+                const contents = new Uint8Array(attr.size);
+                if (node.contents) {
+                    contents.set(node.contents.subarray(0, attr.size));
+                }
+                if (node.unloadTimerId) {
+                    clearTimeout(node.unloadTimerId);
+                }
+                node.contents = contents;
+                node.size = attr.size;
+                node.is_memfs = true;
             }
         },
         lookup: function (
@@ -271,19 +287,36 @@ export const ASYNCFETCHFS = {
             return node;
         },
         rename: function (
-            /** @type {unknown} */ oldNode,
-            /** @type {unknown} */ newDir,
-            /** @type {unknown} */ newName,
+            /** @type {AsyncFetchFsNode} */ oldNode,
+            /** @type {AsyncFetchFsNode} */ newDir,
+            /** @type {string} */ newName,
         ) {
-            console.info(`ASYNCFETCHFS node_ops.rename: `, newName);
-            throw new FS.ErrnoError(EPERM);
+            // CE writes configuration to a temporary file, then renames it.
+            if (
+                !FS.isFile(oldNode.mode) ||
+                !oldNode.parent.childNodes ||
+                !newDir.childNodes
+            ) {
+                throw new FS.ErrnoError(EPERM);
+            }
+            const replacedNode = newDir.childNodes[newName];
+            if (replacedNode) {
+                FS.hashRemoveNode(replacedNode);
+            }
+            delete oldNode.parent.childNodes[oldNode.name];
+            newDir.childNodes[newName] = oldNode;
+            oldNode.name = newName;
+            oldNode.parent.timestamp = newDir.timestamp = Date.now();
         },
         unlink: function (
-            /** @type {unknown} */ parent,
-            /** @type {unknown} */ name,
+            /** @type {AsyncFetchFsNode} */ parent,
+            /** @type {string} */ name,
         ) {
-            console.info(`ASYNCFETCHFS node_ops.unlink: `, name);
-            throw new FS.ErrnoError(EPERM);
+            if (!parent.childNodes) {
+                throw new FS.ErrnoError(EPERM);
+            }
+            delete parent.childNodes[name];
+            parent.timestamp = Date.now();
         },
         rmdir: function (
             /** @type {unknown} */ parent,
@@ -310,13 +343,33 @@ export const ASYNCFETCHFS = {
             }
             return entries;
         },
-        symlink: function (
-            /** @type {unknown} */ parent,
-            /** @type {unknown} */ newName,
-            /** @type {unknown} */ oldPath,
+        readlink: function (
+            /** @type {AsyncFetchFsNode & {link?: string}} */ node,
         ) {
-            console.info(`ASYNCFETCHFS node_ops.rmdir: `, newName);
-            throw new FS.ErrnoError(EPERM);
+            if (!FS.isLink(node.mode) || node.link === undefined) {
+                throw new FS.ErrnoError(EINVAL);
+            }
+            return node.link;
+        },
+        symlink: function (
+            /** @type {AsyncFetchFsNode} */ parent,
+            /** @type {string} */ newName,
+            /** @type {string} */ oldPath,
+        ) {
+            if (!parent.childNodes) {
+                throw new FS.ErrnoError(EPERM);
+            }
+            /** @type {AsyncFetchFsNode & {link?: string}} */
+            const node = FS.createNode(parent, newName, 0o120777, 0);
+            node.node_ops = ASYNCFETCHFS.node_ops;
+            node.stream_ops = ASYNCFETCHFS.stream_ops;
+            node.link = oldPath;
+            node.size = oldPath.length;
+            node.timestamp = Date.now();
+            node.is_memfs = true;
+            parent.childNodes[newName] = node;
+            parent.timestamp = node.timestamp;
+            return node;
         },
     },
     stream_ops: {

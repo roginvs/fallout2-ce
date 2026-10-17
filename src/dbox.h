@@ -1,6 +1,8 @@
 #ifndef DBOX_H
 #define DBOX_H
 
+#include "color.h"
+
 namespace fallout {
 
 typedef enum DialogBoxOptions {
@@ -12,7 +14,16 @@ typedef enum DialogBoxOptions {
     DIALOG_BOX_NO_BUTTONS = 0x20, // sfall: CLEAN
 } DialogBoxOptions;
 
-int showDialogBox(const char* title, const char** body, int bodyLength, int x, int y, int titleColor, const char* a8, int bodyColor, int flags);
+int showDialogBox(const char* title, const char** body, int bodyLength, int x, int y, ColorWithFlags titleColor, const char* secondaryButtonText, ColorWithFlags bodyColor, int flags);
+
+inline int showDialogBox(const char* title, const char** body, int bodyLength, int x, int y, Color titleColor, const char* secondaryButtonText, Color bodyColor, int flags)
+{
+    return showDialogBox(title, body, bodyLength, x, y, titleColor | DRAW_TEXT_FLAG_NONE, secondaryButtonText, bodyColor | DRAW_TEXT_FLAG_NONE, flags);
+}
+
+const char* showInputDialog(const char* currentInput, int x, int y, const char* doneText, int flags);
+const char* showInputDialog(const char* currentInput, int x, int y, const char* doneText);
+
 int showLoadFileDialog(char* title, char** fileList, char* dest, int fileListLength, int x, int y, int flags);
 int showSaveFileDialog(char* title, char** fileList, char* dest, int fileListLength, int x, int y, int flags);
 

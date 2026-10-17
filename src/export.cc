@@ -30,37 +30,37 @@ static ExternalVariable* externalVariableFind(const char* identifier);
 static ExternalVariable* externalVariableAdd(const char* identifier);
 static void _removeProgramReferences(Program* program);
 
-// 0x570C00
+// 0x570C00 procHashTable
 static ExternalProcedure gExternalProcedures[1013];
 
-// 0x57BA1C
+// 0x57BA1C varHashTable
 static ExternalVariable gExternalVariables[1013];
 
 // NOTE: Inlined.
 //
-// 0x440F10
-unsigned int _hashName(const char* identifier)
+// 0x440F10 hashName
+static unsigned int _hashName(const char* identifier)
 {
-    unsigned int v1 = 0;
-    const char* pch = identifier;
-    while (*pch != '\0') {
-        int ch = *pch & 0xFF;
-        v1 += (tolower(ch) & 0xFF) + (v1 * 8) + (v1 >> 29);
-        pch++;
+    unsigned int h = 0;
+    const char* p = identifier;
+    while (*p != '\0') {
+        int ch = *p & 0xFF;
+        h += (tolower(ch) & 0xFF) + (h * 8) + (h >> 29);
+        p++;
     }
 
-    v1 = v1 % 1013;
-    return v1;
+    h = h % 1013;
+    return h;
 }
 
-// 0x440F58
-ExternalProcedure* externalProcedureFind(const char* identifier)
+// 0x440F58 findProc
+static ExternalProcedure* externalProcedureFind(const char* identifier)
 {
     // NOTE: Uninline.
-    unsigned int v1 = _hashName(identifier);
-    unsigned int v2 = v1;
+    unsigned int idx = _hashName(identifier);
+    unsigned int start = idx;
 
-    ExternalProcedure* externalProcedure = &(gExternalProcedures[v1]);
+    ExternalProcedure* externalProcedure = &(gExternalProcedures[idx]);
     if (externalProcedure->program != nullptr) {
         if (compat_stricmp(externalProcedure->name, identifier) == 0) {
             return externalProcedure;
@@ -68,109 +68,109 @@ ExternalProcedure* externalProcedureFind(const char* identifier)
     }
 
     do {
-        v1 += 7;
-        if (v1 >= 1013) {
-            v1 -= 1013;
+        idx += 7;
+        if (idx >= 1013) {
+            idx -= 1013;
         }
 
-        externalProcedure = &(gExternalProcedures[v1]);
+        externalProcedure = &(gExternalProcedures[idx]);
         if (externalProcedure->program != nullptr) {
             if (compat_stricmp(externalProcedure->name, identifier) == 0) {
                 return externalProcedure;
             }
         }
-    } while (v1 != v2);
+    } while (idx != start);
 
     return nullptr;
 }
 
-// 0x441018
-ExternalProcedure* externalProcedureAdd(const char* identifier)
+// 0x441018 findEmptyProc
+static ExternalProcedure* externalProcedureAdd(const char* identifier)
 {
     // NOTE: Uninline.
-    unsigned int v1 = _hashName(identifier);
-    unsigned int a2 = v1;
+    unsigned int idx = _hashName(identifier);
+    unsigned int start = idx;
 
-    ExternalProcedure* externalProcedure = &(gExternalProcedures[v1]);
+    ExternalProcedure* externalProcedure = &(gExternalProcedures[idx]);
     if (externalProcedure->name[0] == '\0') {
         return externalProcedure;
     }
 
     do {
-        v1 += 7;
-        if (v1 >= 1013) {
-            v1 -= 1013;
+        idx += 7;
+        if (idx >= 1013) {
+            idx -= 1013;
         }
 
-        externalProcedure = &(gExternalProcedures[v1]);
+        externalProcedure = &(gExternalProcedures[idx]);
         if (externalProcedure->name[0] == '\0') {
             return externalProcedure;
         }
-    } while (v1 != a2);
+    } while (idx != start);
 
     return nullptr;
 }
 
-// 0x4410AC
-ExternalVariable* externalVariableFind(const char* identifier)
+// 0x4410AC findVar
+static ExternalVariable* externalVariableFind(const char* identifier)
 {
     // NOTE: Uninline.
-    unsigned int v1 = _hashName(identifier);
-    unsigned int v2 = v1;
+    unsigned int idx = _hashName(identifier);
+    unsigned int start = idx;
 
-    ExternalVariable* exportedVariable = &(gExternalVariables[v1]);
+    ExternalVariable* exportedVariable = &(gExternalVariables[idx]);
     if (compat_stricmp(exportedVariable->name, identifier) == 0) {
         return exportedVariable;
     }
 
     do {
-        exportedVariable = &(gExternalVariables[v1]);
+        exportedVariable = &(gExternalVariables[idx]);
         if (exportedVariable->name[0] == '\0') {
             break;
         }
 
-        v1 += 7;
-        if (v1 >= 1013) {
-            v1 -= 1013;
+        idx += 7;
+        if (idx >= 1013) {
+            idx -= 1013;
         }
 
-        exportedVariable = &(gExternalVariables[v1]);
+        exportedVariable = &(gExternalVariables[idx]);
         if (compat_stricmp(exportedVariable->name, identifier) == 0) {
             return exportedVariable;
         }
-    } while (v1 != v2);
+    } while (idx != start);
 
     return nullptr;
 }
 
-// 0x44118C
-ExternalVariable* externalVariableAdd(const char* identifier)
+// 0x44118C findEmptyVar
+static ExternalVariable* externalVariableAdd(const char* identifier)
 {
     // NOTE: Uninline.
-    unsigned int v1 = _hashName(identifier);
-    unsigned int v2 = v1;
+    unsigned int idx = _hashName(identifier);
+    unsigned int start = idx;
 
-    ExternalVariable* exportedVariable = &(gExternalVariables[v1]);
+    ExternalVariable* exportedVariable = &(gExternalVariables[idx]);
     if (exportedVariable->name[0] == '\0') {
         return exportedVariable;
     }
 
     do {
-        v1 += 7;
-        if (v1 >= 1013) {
-            v1 -= 1013;
+        idx += 7;
+        if (idx >= 1013) {
+            idx -= 1013;
         }
 
-        exportedVariable = &(gExternalVariables[v1]);
+        exportedVariable = &(gExternalVariables[idx]);
         if (exportedVariable->name[0] == '\0') {
             return exportedVariable;
         }
-    } while (v1 != v2);
+    } while (idx != start);
 
     return nullptr;
 }
 
-// 0x44127C
+// 0x44127C exportStoreVariable
 int externalVariableSetValue(Program* program, const char* name, ProgramValue& programValue)
 {
     ExternalVariable* exportedVariable = externalVariableFind(name);
@@ -197,7 +197,7 @@ int externalVariableSetValue(Program* program, const char* name, ProgramValue& p
     return 0;
 }
 
-// 0x4413D4
+// 0x4413D4 exportFetchVariable
 int externalVariableGetValue(Program* program, const char* name, ProgramValue& value)
 {
     ExternalVariable* exportedVariable = externalVariableFind(name);
@@ -215,7 +215,7 @@ int externalVariableGetValue(Program* program, const char* name, ProgramValue& v
     return 0;
 }
 
-// 0x4414B8
+// 0x4414B8 exportExportVariable
 int externalVariableCreate(Program* program, const char* identifier)
 {
     const char* programName = program->name;
@@ -247,8 +247,8 @@ int externalVariableCreate(Program* program, const char* identifier)
     return 0;
 }
 
-// 0x4414FC
-void _removeProgramReferences(Program* program)
+// 0x4414FC removeProgramReferences
+static void _removeProgramReferences(Program* program)
 {
     for (int index = 0; index < 1013; index++) {
         ExternalProcedure* externalProcedure = &(gExternalProcedures[index]);
@@ -259,13 +259,13 @@ void _removeProgramReferences(Program* program)
     }
 }
 
-// 0x44152C
+// 0x44152C initExport
 void _initExport()
 {
     intLibRegisterProgramDeleteCallback(_removeProgramReferences);
 }
 
-// 0x441538
+// 0x441538 exportClose
 void externalVariablesClear()
 {
     for (int index = 0; index < 1013; index++) {
@@ -281,7 +281,7 @@ void externalVariablesClear()
     }
 }
 
-// 0x44158C
+// 0x44158C exportFindProcedure
 Program* externalProcedureGetProgram(const char* identifier, int* addressPtr, int* argumentCountPtr)
 {
     ExternalProcedure* externalProcedure = externalProcedureFind(identifier);
@@ -299,7 +299,7 @@ Program* externalProcedureGetProgram(const char* identifier, int* addressPtr, in
     return externalProcedure->program;
 }
 
-// 0x4415B0
+// 0x4415B0 exportExportProcedure
 int externalProcedureCreate(Program* program, const char* identifier, int address, int argumentCount)
 {
     ExternalProcedure* externalProcedure = externalProcedureFind(identifier);
@@ -323,7 +323,7 @@ int externalProcedureCreate(Program* program, const char* identifier, int addres
     return 0;
 }
 
-// 0x441824
+// 0x441824 exportClearAllVariables
 void _exportClearAllVariables()
 {
     for (int index = 0; index < 1013; index++) {

@@ -792,11 +792,21 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
             await requestPointerLockPromise;
 
+            let gameConfigFileName = "fallout2.cfg";
+
+            // Path (relative to the game root, lower case) of the ini that the
+            // embedded ce.dat gl_highlighting.int reads, when it already exists
+            // in the game files. Set in the ddraw.ini branch below.
+            /** @type {string | null} */
+            let sfallModsIniPathToPatch = null;
+
             /** @type {import("./fetcher.mjs").FileTransformer} */
             const fileTransformer = async (filePath, data) => {
-                if (filePath.toLowerCase() === "f2_res.ini") {
+                if (
+                    filePath.toLowerCase() === gameConfigFileName.toLowerCase()
+                ) {
                     //
-                    // When f2_res.ini is requested we need to
+                    // When the game configuration is requested we need to
                     // provide screen size to the game
                     //
                     // We calculate it based on the canvas size
@@ -898,75 +908,121 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
                     // Feed the data to the game
 
+                    // Current CE reads screen settings from fallout2.cfg.
+                    // Set them directly even if legacy migration has run.
                     const iniParser = new IniParser(data);
-
-                    iniParser.setValue("MAIN", "WINDOWED", "1");
-
-                    if (!isUsingHiRes) {
-                        iniParser.setValue("MAIN", "SCR_WIDTH", `640`);
-                        iniParser.setValue("MAIN", "SCR_HEIGHT", `480`);
-                        iniParser.setValue("MAIN", "SCALE_2X", "0");
-                    } else {
-                        iniParser.setValue(
-                            "MAIN",
-                            "SCR_WIDTH",
-                            `${gameScreenWidth}`,
-                        );
-                        iniParser.setValue(
-                            "MAIN",
-                            "SCR_HEIGHT",
-                            `${gameScreenHeight}`,
-                        );
-
-                        const scaling = Math.min(
-                            Math.floor(gameScreenWidth / 640),
-                            Math.floor(gameScreenHeight / 480),
-                        );
-
-                        iniParser.setValue(
-                            "MAIN",
-                            "SCALE_2X",
-                            (scaling - 1).toString(),
-                        );
-
-                        iniParser.setValue("IFACE", "IFACE_BAR_MODE", "0");
-                        iniParser.setValue(
-                            "IFACE",
-                            "IFACE_BAR_WIDTH",
-                            `${gameScreenWidth / scaling >= 800 ? 800 : 640}`,
-                        );
-                        iniParser.setValue("IFACE", "IFACE_BAR_SIDE_ART", "2");
-                        iniParser.setValue("IFACE", "IFACE_BAR_SIDES_ORI", "0");
-
-                        iniParser.setValue(
-                            "STATIC_SCREENS",
-                            "SPLASH_SCRN_SIZE",
-                            `1`,
-                        );
-                    }
-
-                    const iniData = iniParser.pack();
-                    console.info(
-                        "f2_res.ini:\n\n" + String.fromCharCode(...iniData),
+                    const scaling = isUsingHiRes
+                        ? Math.max(
+                              1,
+                              Math.min(
+                                  Math.floor(gameScreenWidth / 640),
+                                  Math.floor(gameScreenHeight / 480),
+                              ),
+                          )
+                        : 1;
+                    iniParser.setValue("screen", "windowed", "1");
+                    // Preserve pointer lock and relative mouse input in the web player.
+                    iniParser.setValue("screen", "mouse_lock", "1");
+                    iniParser.setValue(
+                        "screen",
+                        "resolution_x",
+                        isUsingHiRes ? `${gameScreenWidth}` : "640",
                     );
-                    return iniData;
+                    iniParser.setValue(
+                        "screen",
+                        "resolution_y",
+                        isUsingHiRes ? `${gameScreenHeight}` : "480",
+                    );
+                    iniParser.setValue("screen", "scale", `${scaling}`);
+                    iniParser.setValue(
+                        "ui",
+                        "enable_high_resolution_stencil",
+                        isUsingHiRes ? "1" : "0",
+                    );
+                    // Upstream default is 0. The web player previously
+                    // walked while sneaking; keep that with the stock option.
+                    iniParser.setValue("qol", "walk_when_sneaking", "1");
+                    // Hi-res UI presets, same as before the merge. The cfg
+                    // is regenerated on every launch and not persisted, so
+                    // overriding is fine. f2_res.ini is not migrated because
+                    // [screen] resolution_x is always set here.
+                    if (isUsingHiRes) {
+                        iniParser.setValue("ui", "iface_bar_mode", "0");
+                        iniParser.setValue(
+                            "ui",
+                            "iface_bar_width",
+                            gameScreenWidth / scaling >= 800 ? "800" : "640",
+                        );
+                        iniParser.setValue("ui", "iface_bar_side_art", "2");
+                        iniParser.setValue("ui", "iface_bar_sides_ori", "0");
+                        iniParser.setValue("ui", "splash_screen_size", "1");
+                        iniParser.setValue("ui", "death_screen_size", "1");
+                        iniParser.setValue("ui", "end_slide_size", "1");
+                    }
+                    // Same defaults for all games. The engine no longer reads
+                    // these from ddraw.ini / f2_res.ini (see
+                    // SFALL_COMPATIBILITY.md), so set them in the cfg.
+                    for (const [section, key, value] of [
+                        ["ui", "skip_opening_movies", "1"],
+                        ["ui", "display_karma_changes", "1"],
+                        ["ui", "display_bonus_damage", "1"],
+                        ["ui", "numbers_in_dialogue", "1"],
+                        ["ui", "auto_quick_save", "0"],
+                        ["ui", "alternate_ammo_meter", "1"],
+                        ["ui", "movie_aspect_fit", "1"],
+                        ["preferences", "subtitles", "1"],
+                        ["preferences", "running", "1"],
+                        ["qol", "use_walk_distance", "3"],
+                        ["sound", "gapless_music", "1"],
+                        ["sound", "music_path2", "data\\sound\\music\\"],
+                        ["system", "art_cache_size", "256"],
+                    ]) {
+                        iniParser.setValue(section, key, value);
+                    }
+                    return iniParser.pack();
                 } else if (filePath.toLowerCase() === "ddraw.ini") {
                     const iniParser = new IniParser(data);
 
-                    iniParser.setValue(
-                        "Main",
-                        "EnableHighResolutionStencil",
-                        isUsingHiRes ? "1" : "0",
+                    gameConfigFileName =
+                        iniParser.getValue("Misc", "ConfigFile")?.trim() ||
+                        "fallout2.cfg";
+
+                    ensureHighlightingIni(
+                        game.folder,
+                        iniParser.getValue("Scripts", "IniConfigFolder"),
+                        (existingPath) => {
+                            sfallModsIniPathToPatch = existingPath;
+                        },
                     );
 
                     // I like this feature but it it is not visible in Sonora
-                    iniParser.setValue("Misc", "WorldMapTravelMarkers", "0");
+                    iniParser.setValue(
+                        "Interface",
+                        "WorldMapTravelMarkers",
+                        "0",
+                    );
 
                     const iniData = iniParser.pack();
                     console.info(
                         "ddraw.ini:\n\n" + String.fromCharCode(...iniData),
                     );
                     return iniData;
+                } else if (
+                    sfallModsIniPathToPatch !== null &&
+                    filePath.toLowerCase().replace(/^\.\//, "") ===
+                        sfallModsIniPathToPatch
+                ) {
+                    // Game ships its own sfall-mods.ini at the path the
+                    // embedded script reads: only turn the hotkey on.
+                    const iniParser = new IniParser(data);
+                    const key = iniParser
+                        .getValue("Highlighting", "Key")
+                        ?.trim();
+                    if (!key || parseInt(key, 10) === 0) {
+                        iniParser.setValue("Highlighting", "Key", "42");
+                        return iniParser.pack();
+                    }
+                    return data;
                 } else if (
                     filePath.toLowerCase() ===
                         "data/art/intrface/hr_ifacelft2.frm" ||
@@ -1004,10 +1060,16 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                 game.filesVersion,
                 async (indexOriginal) => {
                     const index = [...indexOriginal];
+                    const indexHas = (/** @type {string} */ name) =>
+                        index.some(
+                            (f) => f.name.toLowerCase() === name.toLowerCase(),
+                        );
 
                     for (const filePath of [
-                        "f2_res.ini",
                         "ddraw.ini",
+                        // Active cfg from [Misc] ConfigFile, e.g. Nevada.cfg.
+                        // Do not invent fallout2.cfg when another file is active.
+                        gameConfigFileName,
 
                         // Those files are missing in the index
                         // This is workaround to skip re-calculation of index
@@ -1016,11 +1078,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         "data/art/intrface/hr_ifacerht2.frm",
                         "data/art/intrface/HR_IFACE_800.frm",
                     ]) {
-                        if (
-                            !index.find(
-                                (f) => f.name.toLowerCase() === filePath,
-                            )
-                        ) {
+                        if (!indexHas(filePath)) {
                             // If file is not present then we have to add it here with content
                             const fileContent = await fileTransformer(
                                 filePath,
@@ -1237,7 +1295,7 @@ const langData = /** @type {const} */ ({
  */
 
 export function renderMenu() {
-    const menuDiv = document.getElementById("menu");
+    const menuDiv = document.getElementById("menu_content");
     if (!menuDiv) {
         throw new Error(`No menu div!`);
     }
@@ -1394,5 +1452,75 @@ function setGameCacheDownloadedStatus(gameName, isDownloaded) {
         localStorage.setItem(key, "yes");
     } else {
         localStorage.removeItem(key);
+    }
+}
+
+/**
+ * Sfall object highlighting (hold a key to outline items on the map) is the
+ * global script gl_highlighting.int embedded in ce.dat. It reads
+ * [Highlighting] from "mods\\sfall-mods.ini" relative to ddraw.ini
+ * [Scripts] IniConfigFolder, and Key defaults to 0, i.e. disabled.
+ *
+ * Called when the engine reads ddraw.ini, which happens at startup before
+ * any global script runs. If the ini is missing, it is created in memory
+ * (not persisted, recreated on every launch). If it exists, its path is
+ * passed to onExisting so the file transformer can patch Key.
+ *
+ * Games that ship their own gl_highlighting.int override the embedded one
+ * (game data has priority over ce.dat) and read their own ini; for them the
+ * created file is simply unused.
+ *
+ * @param {string} gameFolder
+ * @param {string | null | undefined} iniConfigFolder
+ * @param {(existingPath: string) => void} onExisting
+ */
+function ensureHighlightingIni(gameFolder, iniConfigFolder, onExisting) {
+    const folderParts = (iniConfigFolder || "")
+        .trim()
+        .replace(/\\/g, "/")
+        .split("/")
+        .filter((part) => part !== "" && part !== ".");
+    const parts = [...folderParts, "mods", "sfall-mods.ini"];
+    try {
+        let dirPath = "/" + gameFolder;
+        let node = FS.lookupPath(dirPath).node;
+        for (const part of parts.slice(0, -1)) {
+            const existing = Object.keys(node.childNodes || {}).find(
+                (name) => name.toLowerCase() === part.toLowerCase(),
+            );
+            if (existing === undefined) {
+                FS.mkdir(dirPath + "/" + part);
+                dirPath += "/" + part;
+            } else {
+                dirPath += "/" + existing;
+            }
+            node = FS.lookupPath(dirPath).node;
+        }
+        const fileName = parts[parts.length - 1];
+        const existingFile = Object.keys(node.childNodes || {}).find(
+            (name) => name.toLowerCase() === fileName,
+        );
+        if (existingFile !== undefined) {
+            onExisting(parts.join("/").toLowerCase());
+            return;
+        }
+        FS.writeFile(
+            dirPath + "/" + fileName,
+            [
+                "[Highlighting]",
+                "Key=42",
+                "Containers=1",
+                "Corpses=1",
+                "Critters=0",
+                "CheckLOS=1",
+                "OutlineColor=16",
+                "MotionScanner=0",
+                "",
+            ].join("\r\n"),
+        );
+        console.info(`Created ${dirPath}/${fileName} for highlighting`);
+    } catch (e) {
+        // Highlighting is optional, never block the game start
+        console.warn(`Failed to set up highlighting ini`, e);
     }
 }

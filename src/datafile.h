@@ -1,27 +1,19 @@
 #ifndef DATAFILE_H
 #define DATAFILE_H
 
+#include <cstdint>
+
 namespace fallout {
 
-typedef unsigned char*(DatafileLoader)(char* path, unsigned char* palette, int* widthPtr, int* heightPtr);
+typedef uint8_t*(DatafileLoader)(char* path, uint8_t* palette, int* widthPtr, int* heightPtr);
 typedef char*(DatafileNameMangler)(char* path);
 
-extern DatafileLoader* gDatafileLoader;
-extern DatafileNameMangler* gDatafileNameMangler;
-
-extern unsigned char gDatafilePalette[768];
-
 char* datafileDefaultNameManglerImpl(char* path);
-void datafileSetNameMangler(DatafileNameMangler* mangler);
-void datafileSetLoader(DatafileLoader* loader);
-void sub_42EE84(unsigned char* data, unsigned char* palette, int width, int height);
-void sub_42EEF8(unsigned char* data, unsigned char* palette, int width, int height);
-unsigned char* datafileReadRaw(char* path, int* widthPtr, int* heightPtr);
-unsigned char* datafileRead(char* path, int* widthPtr, int* heightPtr);
-unsigned char* sub_42EFF4(char* path);
-void sub_42F024(unsigned char* data, int* widthPtr, int* heightPtr);
-unsigned char* datafileGetPalette();
-unsigned char* datafileLoad(char* path, int* sizePtr);
+void datafileRemapPixelsRgb8(uint8_t* data, uint8_t* palette, int width, int height);
+uint8_t* datafileReadRaw(char* path, int* widthPtr, int* heightPtr);
+uint8_t* datafileRead(char* path, int* widthPtr, int* heightPtr);
+uint8_t* datafileGetPalette();
+uint8_t* datafileLoad(char* path, int* sizePtr);
 
 } // namespace fallout
 

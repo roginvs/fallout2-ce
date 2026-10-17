@@ -300,9 +300,17 @@ bool touch_get_gesture(Gesture* gesture)
 void touch_set_touchscreen_mode(const bool value)
 {
     gUseTouchscreenMode = value;
-    // I want touchscreen mode to be always enabled.
-    //                                  Vasilii
+#if defined(__EMSCRIPTEN__)
+    // Fork-specific (roginvs/fallout2-ce web shell): the browser build always
+    // stays in touchscreen mode. Native builds, including iOS, keep the value
+    // passed by the caller so upstream can turn the mode off.
     gUseTouchscreenMode = true;
+#endif
+}
+
+bool touch_get_touchscreen_mode()
+{
+    return gUseTouchscreenMode;
 }
 
 void touch_set_pan_mode(const bool value)

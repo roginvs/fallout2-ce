@@ -1,8 +1,10 @@
 #include "tile_hires_stencil.h"
 #include "debug.h"
 #include "draw.h"
+#include "game.h"
 #include "geometry.h"
-#include "sfall_config.h"
+#include "map_edge.h"
+#include "settings.h"
 #include "stdio.h"
 #include "tile.h"
 #include <string.h>
@@ -63,7 +65,7 @@ static_assert(screen_view_width % (2 * square_width) == 0);
 // which is covered by squares but theoretically could be seen in the original game
 static_assert(screen_view_height % (2 * square_height) == 20);
 
-static bool gIsTileHiresStencilEnabled = true;
+static bool gIsTileHiresStencilEnabled = false;
 
 static void clean_cache()
 {
@@ -94,7 +96,7 @@ static Point get_screen_diff()
         for (int t = 0; t < HEX_GRID_SIZE; t++) {
             int x;
             int y;
-            tileToScreenXY(t, &x, &y, gElevation);
+            tileToScreenXY(t, &x, &y);
             if (x < minX) {
                 minX = x;
                 minTileX = t;
@@ -124,8 +126,8 @@ static Point get_screen_diff()
     int offsetX;
     int tmp;
     int offsetY;
-    tileToScreenXY(hex_tile_with_lowest_x, &offsetX, &tmp, gElevation);
-    tileToScreenXY(hex_tile_with_lowest_y, &tmp, &offsetY, gElevation);
+    tileToScreenXY(hex_tile_with_lowest_x, &offsetX, &tmp);
+    tileToScreenXY(hex_tile_with_lowest_y, &tmp, &offsetY);
 
     Point out;
     out.x = offsetX;
@@ -147,7 +149,7 @@ static void mark_screen_tiles_around_as_visible(int center_tile, const Point& sc
 {
     int centerTileScreenX;
     int centerTileScreenY;
-    tileToScreenXY(center_tile, &centerTileScreenX, &centerTileScreenY, gElevation);
+    tileToScreenXY(center_tile, &centerTileScreenX, &centerTileScreenY);
 
     int centerTileGlobalX = centerTileScreenX - screen_diff.x;
     int centerTileGlobalY = centerTileScreenY - screen_diff.y;
@@ -209,20 +211,11 @@ void tile_hires_stencil_on_center_tile_or_elevation_change()
     if (!gIsTileHiresStencilEnabled) {
         return;
     }
-
-    if (!gTileBorderInitialized) {
+    // With EDG loaded, the EdgeClipping path handles blackening via ClearRect/CheckRect.
+    // The stencil used as a backup when no EDG is present.
+    if (mapEdgeIsEnabled() || !gTileBorderInitialized || visited_tiles[gElevation][gCenterTile]) {
         return;
-    };
-
-    if (visited_tiles[gElevation][gCenterTile]) {
-        debugPrint("tile_hires_stencil_on_center_tile_or_elevation_change tile was visited gElevation=%i gCenterTile=%i so doing nothing\n",
-            gElevation, gCenterTile);
-
-        return;
-    };
-
-    debugPrint("tile_hires_stencil_on_center_tile_or_elevation_change non-visited tile gElevation=%i gCenterTile=%i\n",
-        gElevation, gCenterTile);
+    }
 
     clean_cache_for_elevation(gElevation);
 
@@ -248,19 +241,17 @@ void tile_hires_stencil_on_center_tile_or_elevation_change()
             continue;
         }
 
-        if (tileInfo.tile != gCenterTile) [[unlikely]] {
+        if (tileInfo.tile != gCenterTile) {
             if (tileInfo.tile < 0 || tileInfo.tile >= HEX_GRID_SIZE) {
                 continue;
             }
             if (_obj_scroll_blocking_at(tileInfo.tile, gElevation) == 0) {
                 continue;
             }
-
             // TODO: Maybe create new function in tile.cc and use it here
             int tile_x = HEX_GRID_WIDTH - 1 - tileInfo.tile % HEX_GRID_WIDTH;
             int tile_y = tileInfo.tile / HEX_GRID_WIDTH;
-            if (
-                tile_x <= gTileBorderMinX || tile_x >= gTileBorderMaxX || tile_y <= gTileBorderMinY || tile_y >= gTileBorderMaxY) {
+            if (tile_x <= gTileBorderMinX || tile_x >= gTileBorderMaxX || tile_y <= gTileBorderMinY || tile_y >= gTileBorderMaxY) {
                 continue;
             }
         }
@@ -272,7 +263,7 @@ void tile_hires_stencil_on_center_tile_or_elevation_change()
 
         int tileScreenX;
         int tileScreenY;
-        tileToScreenXY(tileInfo.tile, &tileScreenX, &tileScreenY, gElevation);
+        tileToScreenXY(tileInfo.tile, &tileScreenX, &tileScreenY);
 
         // tile size is 32 x 18
         //
@@ -301,26 +292,26 @@ void tile_hires_stencil_on_center_tile_or_elevation_change()
         tiles_to_visit.push_back({ tileFromScreenXY(
                                        tileScreenX - pixels_per_horizontal_move + tile_center_offset_x,
                                        tileScreenY + tile_center_offset_y,
-                                       gElevation, true),
+                                       true),
             MarkOnlyPart::LEFT });
         tiles_to_visit.push_back({ tileFromScreenXY(
                                        tileScreenX + pixels_per_horizontal_move + tile_center_offset_x,
                                        tileScreenY + tile_center_offset_y,
-                                       gElevation, true),
+                                       true),
             MarkOnlyPart::RIGHT });
         tiles_to_visit.push_back({ tileFromScreenXY(
                                        tileScreenX + tile_center_offset_x,
                                        tileScreenY - pixels_per_vertical_move + tile_center_offset_y,
-                                       gElevation, true),
+                                       true),
             MarkOnlyPart::UP });
         tiles_to_visit.push_back({ tileFromScreenXY(
                                        tileScreenX + tile_center_offset_x,
                                        tileScreenY + pixels_per_vertical_move + tile_center_offset_y,
-                                       gElevation, true),
+                                       true),
             MarkOnlyPart::DOWN });
     }
 
-    debugPrint("tile_hires_stencil_on_center_tile_or_elevation_change visited_tiles_count=%i\n", visited_tiles_count);
+    // debugPrint("tile_hires_stencil_on_center_tile_or_elevation_change visited_tiles_count=%i\n", visited_tiles_count);
 }
 
 void tile_hires_stencil_draw(Rect* rect, unsigned char* buffer, int windowWidth, int windowHeight)
@@ -397,7 +388,7 @@ void tile_hires_stencil_draw(Rect* rect, unsigned char* buffer, int windowWidth,
                     intersection.right - intersection.left + 1,
                     intersection.bottom - intersection.top + 1,
                     windowWidth,
-                    0x0);
+                    COLOR_FIRST);
             }
         }
     }
@@ -405,15 +396,33 @@ void tile_hires_stencil_draw(Rect* rect, unsigned char* buffer, int windowWidth,
 
 void tile_hires_stencil_init()
 {
-    configGetBool(&gSfallConfig, SFALL_CONFIG_MAIN_KEY, SFALL_CONFIG_ENABLE_HIRES_STENCIL, &gIsTileHiresStencilEnabled);
+    gIsTileHiresStencilEnabled = !settings.system.executableIsMapper() && settings.ui.enable_high_resolution_stencil;
     if (!gIsTileHiresStencilEnabled) {
         return;
     }
 
+    if (settings.ui.ignore_map_edges) {
+        static bool isMessageShown = false;
+        if (!isMessageShown) {
+            debugPrint("Tile hires stencil is disabled because map edges are ignored.");
+            isMessageShown = true;
+        }
+        gIsTileHiresStencilEnabled = false;
+        return;
+    }
+
     debugPrint("tile_hires_stencil_init\n");
+}
+
+void tile_hires_stencil_on_map_load()
+{
+    if (!gIsTileHiresStencilEnabled) {
+        return;
+    }
     clean_cache();
     tile_hires_stencil_on_center_tile_or_elevation_change();
     tileWindowRefresh();
+    debugPrint("tile_hires_stencil_on_map_load\n");
 }
 
 } // namespace fallout

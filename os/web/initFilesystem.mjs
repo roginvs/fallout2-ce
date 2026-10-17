@@ -2,6 +2,10 @@ import { ASYNCFETCHFS } from "./asyncfetchfs.mjs";
 import { configuration } from "./config.mjs";
 import { createFetcher } from "./fetcher.mjs";
 import { getCacheName } from "./gamecache.mjs";
+import {
+    installIdbfsSyncfsWrapper,
+    reportIdbfsWriteError,
+} from "./idbfsSync.mjs";
 import { setStatusText } from "./setStatusText.mjs";
 
 const GAME_PATH = "./game/";
@@ -162,6 +166,18 @@ export async function initFilesystem(
         "/" + folderName,
     );
 
+    // Engine looks for "ce.dat" in the current (game) directory. CE resources
+    // are embedded into the wasm at /ce.dat, so expose them via a symlink
+    // unless the game ships its own ce.dat.
+    const gameRootNode = FS.lookupPath("/" + folderName).node;
+    if (
+        !Object.keys(gameRootNode.childNodes).some(
+            (name) => name.toLowerCase() === "ce.dat",
+        )
+    ) {
+        FS.symlink("/ce.dat", "/" + folderName + "/ce.dat");
+    }
+
     FS.mount(IDBFS, {}, "/" + folderName + "/data/SAVEGAME");
 
     FS.mount(MEMFS, {}, "/" + folderName + "/data/MAPS");
@@ -173,9 +189,16 @@ export async function initFilesystem(
     const savegameNodeMount = FS.lookupPath("/" + folderName + "/data/SAVEGAME")
         .node.mount;
 
-    await new Promise((resolve) => {
+    await new Promise((resolve, reject) => {
         // The FS.syncfs do not understand nested mounts so we need to find mount node directly
-        IDBFS.syncfs(savegameNodeMount, true, () => {
+        IDBFS.syncfs(savegameNodeMount, true, (/** @type {any} */ err) => {
+            if (err) {
+                const message = `IDBFS startup load failed: ${err}`;
+                console.error(message);
+                setStatusText(message);
+                reject(err);
+                return;
+            }
             resolve(null);
         });
     });
@@ -186,34 +209,17 @@ export async function initFilesystem(
         await new Promise((resolve, reject) => {
             IDBFS.syncfs(savegameNodeMount, false, (/** @type {any} */ err) => {
                 if (err) {
-                    reject(err);
-                } else {
-                    resolve(null);
-                }
-            });
-        });
-        console.info("IDBFS saved");
-    };
-
-    {
-        const originalSyncfs = IDBFS.syncfs;
-        IDBFS.syncfs = (
-            /** @type {any} */ mount,
-            /** @type {any} */ populate,
-            /** @type {any} */ callback,
-        ) => {
-            originalSyncfs(mount, populate, () => {
-                if (!navigator.storage || !navigator.storage.persist) {
-                    callback();
+                    reportIdbfsWriteError(err);
+                    reject(err instanceof Error ? err : new Error(String(err)));
                     return;
                 }
-                navigator.storage
-                    .persist()
-                    .catch((e) => console.warn(e))
-                    .then(() => callback());
+                console.info("IDBFS saved");
+                resolve(null);
             });
-        };
-    }
+        });
+    };
+
+    installIdbfsSyncfsWrapper(IDBFS);
 
     // To save UDBFS into indexeddb do this:
     // IDBFS.syncfs(FS.lookupPath('/app/data/SAVEGAME').node.mount, false, () => console.info('saved'))
