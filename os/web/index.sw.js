@@ -56,8 +56,8 @@ const CACHE_FILES = [
     "/",
 ];
 
-// This will be replaced by CMake
-const VERSION = "@BUILD_DATE_TIME@";
+// CMake replaces this with a hash of the finished web assets.
+const VERSION = "@WEB_ASSET_VERSION@";
 
 const ENGINE_CACHE_NAME = "engine";
 

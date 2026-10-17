@@ -526,8 +526,10 @@ else()
        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/nevada-*.png"
        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/sonora-*.png"
     )
+    set(WEB_STATIC_TO_COPY "${WEB_STATIC}")
+    list(REMOVE_ITEM WEB_STATIC_TO_COPY "${CMAKE_CURRENT_SOURCE_DIR}/os/web/index.sw.js")
     # Copy each file individually, excluding symlinks
-    foreach(file IN LISTS WEB_STATIC)
+    foreach(file IN LISTS WEB_STATIC_TO_COPY)
         # Symlinks are skipped because I run devserver from os/web directory,
         # and I create symlinks to the build directory for emscipten output
         if(NOT IS_SYMLINK "${file}")
@@ -536,12 +538,15 @@ else()
         endif()
     endforeach()
 
-    # Update service worker with current date
-    set(SERVICE_WORKER_FILE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/index.sw.js")
-    file(READ ${SERVICE_WORKER_FILE_PATH} SERVICE_WORKER_FILE_CONTENT)
-    string(TIMESTAMP CURRENT_DATE_TIME "%Y-%m-%d %H:%M:%S")
-    string(REPLACE "@BUILD_DATE_TIME@" "${CURRENT_DATE_TIME}" SERVICE_WORKER_FILE_CONTENT "${SERVICE_WORKER_FILE_CONTENT}")
-    file(WRITE ${SERVICE_WORKER_FILE_PATH} "${SERVICE_WORKER_FILE_CONTENT}")
+    # Hash the finished assets, including JS/WASM, on every build.
+    add_custom_target(web-service-worker ALL
+        COMMAND ${CMAKE_COMMAND}
+            "-DWEB_OUTPUT_DIR=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+            "-DSERVICE_WORKER_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/os/web/index.sw.js"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/web-service-worker.cmake"
+        DEPENDS ${EXECUTABLE_NAME}
+        VERBATIM
+    )
 
 
     file(COPY os/windows/fallout2-ce.ico DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})

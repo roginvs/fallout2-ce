@@ -1,7 +1,7 @@
 // Fork P2: service worker version and autoreload guard
 // (index.sw.js versionrequest, service_worker_manager.mjs preventAutoreload).
 // The shell asks the active worker for VERSION (debug tag "version"), which
-// CMake fills from @BUILD_DATE_TIME@. A new worker taking control reloads a
+// CMake fills from @WEB_ASSET_VERSION@. A new worker taking control reloads a
 // controlled page, but not while a game is started (preventAutoreload).
 // A new worker is made by registering the same script under another URL.
 // Shell only: the game is started but not waited for.
@@ -39,9 +39,7 @@ test("fork P2: service worker reports build VERSION; no autoreload in game", asy
     test.setTimeout(5 * 60_000);
     const sw = await (await page.request.get("/index.sw.js")).text();
     const built = sw.match(/const VERSION = "([^"]*)"/)?.[1];
-    expect(built, "VERSION replaced by CMake").toMatch(
-        /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/,
-    );
+    expect(built, "VERSION replaced by CMake").toMatch(/^[a-f0-9]{64}$/);
 
     // First visit installs the worker; it claims the page and reports VERSION.
     await page.goto(`/#/${FOLDER}`);
