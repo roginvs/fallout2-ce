@@ -25,7 +25,7 @@ static void soundEffectsListClear();
 static void soundEffectsListReset();
 static int soundEffectsListPopulateFileNames();
 static int soundEffectsListCopyFileNames(char** fileNameList);
-static int soundEffectsListPopulateFileSizes();
+static int soundEffectsListPopulateFileSizes(int startIndex, int endIndex);
 static int soundEffectsListSort();
 static int soundEffectsListCompareByName(const void* a, const void* b);
 static int soundEffectsListSoundDecoderReadHandler(void* data, void* buf, unsigned int size);
@@ -81,12 +81,6 @@ int soundEffectsListInit(const char* soundEffectsPath, int compression, int debu
 
     gSoundEffectsListPathLength = strlen(gSoundEffectsListPath);
     int err = soundEffectsListPopulateFileNames();
-    if (err != SFXL_OK) {
-        soundEffectsListReset();
-        return err;
-    }
-
-    err = soundEffectsListPopulateFileSizes();
     if (err != SFXL_OK) {
         soundEffectsListReset();
         return err;
@@ -176,6 +170,12 @@ int soundEffectsListGetDataSize(int tag, int* sizePtr)
     }
 
     SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
+    if ((entry->fileSize == -1 || entry->dataSize == -1)
+        && soundEffectsListPopulateFileSizes(index, index + 1) != SFXL_OK) {
+        *sizePtr = 0;
+        return SFXL_ERR;
+    }
+
     *sizePtr = entry->dataSize;
 
     return SFXL_OK;
@@ -191,6 +191,12 @@ int soundEffectsListGetFileSize(int tag, int* sizePtr)
     }
 
     SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
+    if ((entry->fileSize == -1 || entry->dataSize == -1)
+        && soundEffectsListPopulateFileSizes(index, index + 1) != SFXL_OK) {
+        *sizePtr = 0;
+        return SFXL_ERR;
+    }
+
     *sizePtr = entry->fileSize;
 
     return SFXL_OK;
@@ -321,6 +327,8 @@ static int soundEffectsListCopyFileNames(char** fileNameList)
 {
     for (int index = 0; index < gSoundEffectsListEntriesLength; index++) {
         SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
+        entry->fileSize = -1;
+        entry->dataSize = -1;
         entry->name = internal_strdup(*fileNameList++);
         if (entry->name == nullptr) {
             soundEffectsListClear();
@@ -332,9 +340,8 @@ static int soundEffectsListCopyFileNames(char** fileNameList)
 }
 
 // 0x4AA050 sfxl_get_sizes
-static int soundEffectsListPopulateFileSizes()
+static int soundEffectsListPopulateFileSizes(int startIndex, int endIndex)
 {
-
     char* path = (char*)internal_malloc(gSoundEffectsListPathLength + COMPAT_MAX_PATH);
     if (path == nullptr) {
         return SFXL_ERR;
@@ -344,7 +351,7 @@ static int soundEffectsListPopulateFileSizes()
 
     char* fileName = path + gSoundEffectsListPathLength;
 
-    for (int index = 0; index < gSoundEffectsListEntriesLength; index++) {
+    for (int index = startIndex; index < endIndex; index++) {
         SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
         strcpy(fileName, entry->name);
 
