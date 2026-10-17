@@ -25,8 +25,7 @@ static void soundEffectsListClear();
 static void soundEffectsListReset();
 static int soundEffectsListPopulateFileNames();
 static int soundEffectsListCopyFileNames(char** fileNameList);
-static int soundEffectsListPopulateFileSizes();
-static int soundEffectsListLoadEntrySizes(SoundEffectsListEntry* entry);
+static int soundEffectsListPopulateFileSizes(int startIndex, int endIndex);
 static int soundEffectsListSort();
 static int soundEffectsListCompareByName(const void* a, const void* b);
 static int soundEffectsListSoundDecoderReadHandler(void* data, void* buf, unsigned int size);
@@ -82,12 +81,6 @@ int soundEffectsListInit(const char* soundEffectsPath, int compression, int debu
 
     gSoundEffectsListPathLength = strlen(gSoundEffectsListPath);
     int err = soundEffectsListPopulateFileNames();
-    if (err != SFXL_OK) {
-        soundEffectsListReset();
-        return err;
-    }
-
-    err = soundEffectsListPopulateFileSizes();
     if (err != SFXL_OK) {
         soundEffectsListReset();
         return err;
@@ -177,7 +170,8 @@ int soundEffectsListGetDataSize(int tag, int* sizePtr)
     }
 
     SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
-    if (soundEffectsListLoadEntrySizes(entry) != SFXL_OK) {
+    if ((entry->fileSize == -1 || entry->dataSize == -1)
+        && soundEffectsListPopulateFileSizes(index, index + 1) != SFXL_OK) {
         *sizePtr = 0;
         return SFXL_ERR;
     }
@@ -197,7 +191,8 @@ int soundEffectsListGetFileSize(int tag, int* sizePtr)
     }
 
     SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
-    if (soundEffectsListLoadEntrySizes(entry) != SFXL_OK) {
+    if ((entry->fileSize == -1 || entry->dataSize == -1)
+        && soundEffectsListPopulateFileSizes(index, index + 1) != SFXL_OK) {
         *sizePtr = 0;
         return SFXL_ERR;
     }
@@ -332,6 +327,8 @@ static int soundEffectsListCopyFileNames(char** fileNameList)
 {
     for (int index = 0; index < gSoundEffectsListEntriesLength; index++) {
         SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
+        entry->fileSize = -1;
+        entry->dataSize = -1;
         entry->name = internal_strdup(*fileNameList++);
         if (entry->name == nullptr) {
             soundEffectsListClear();
@@ -343,20 +340,69 @@ static int soundEffectsListCopyFileNames(char** fileNameList)
 }
 
 // 0x4AA050 sfxl_get_sizes
-static int soundEffectsListPopulateFileSizes()
+static int soundEffectsListPopulateFileSizes(int startIndex, int endIndex)
 {
-    // WEB: sizes are computed lazily in [soundEffectsListLoadEntrySizes].
-    // Reading every sound file here means one HTTP fetch per file on the
-    // web (the organization no longer reads them from SNDLIST.LST).
-    if (_sfxl_compression != 0 && _sfxl_compression != 1) {
+    char* path = (char*)internal_malloc(gSoundEffectsListPathLength + COMPAT_MAX_PATH);
+    if (path == nullptr) {
         return SFXL_ERR;
     }
 
-    for (int index = 0; index < gSoundEffectsListEntriesLength; index++) {
+    strcpy(path, gSoundEffectsListPath);
+
+    char* fileName = path + gSoundEffectsListPathLength;
+
+    for (int index = startIndex; index < endIndex; index++) {
         SoundEffectsListEntry* entry = &(gSoundEffectsListEntries[index]);
-        entry->fileSize = -1;
-        entry->dataSize = -1;
+        strcpy(fileName, entry->name);
+
+        int fileSize;
+        if (dbGetFileSize(path, &fileSize) != 0) {
+            internal_free(path);
+            return SFXL_ERR;
+        }
+
+        if (fileSize <= 0) {
+            internal_free(path);
+            return SFXL_ERR;
+        }
+
+        entry->fileSize = fileSize;
+
+        switch (_sfxl_compression) {
+        case 0:
+            entry->dataSize = fileSize;
+            break;
+        case 1:
+            if (1) {
+                File* stream = fileOpen(path, "rb");
+                if (stream == nullptr) {
+                    internal_free(path);
+                    return 1;
+                }
+
+                int channels;
+                int sampleRate;
+                int sampleCount;
+                SoundDecoder* soundDecoder = soundDecoderInit(soundEffectsListSoundDecoderReadHandler, stream, &channels, &sampleRate, &sampleCount);
+                if (soundDecoder == nullptr) {
+                    debugPrint("SFXLIST: Failed to decode ACM header for %s\n", path);
+                    fileClose(stream);
+                    internal_free(path);
+                    return SFXL_ERR;
+                }
+
+                entry->dataSize = 2 * sampleCount;
+                soundDecoderFree(soundDecoder);
+                fileClose(stream);
+            }
+            break;
+        default:
+            internal_free(path);
+            return SFXL_ERR;
+        }
     }
+
+    internal_free(path);
 
     return SFXL_OK;
 }
@@ -385,75 +431,6 @@ static int soundEffectsListCompareByName(const void* a, const void* b)
 static int soundEffectsListSoundDecoderReadHandler(void* data, void* buf, unsigned int size)
 {
     return fileRead(buf, 1, size, reinterpret_cast<File*>(data));
-}
-
-// WEB: lazy part of [soundEffectsListPopulateFileSizes] for one entry.
-static int soundEffectsListLoadEntrySizes(SoundEffectsListEntry* entry)
-{
-    if (entry->fileSize != -1 && entry->dataSize != -1) {
-        return SFXL_OK;
-    }
-
-    char* path = (char*)internal_malloc(gSoundEffectsListPathLength + COMPAT_MAX_PATH);
-    if (path == nullptr) {
-        return SFXL_ERR;
-    }
-
-    strcpy(path, gSoundEffectsListPath);
-
-    char* fileName = path + gSoundEffectsListPathLength;
-
-    strcpy(fileName, entry->name);
-
-    int fileSize;
-    if (dbGetFileSize(path, &fileSize) != 0) {
-        internal_free(path);
-        return SFXL_ERR;
-    }
-
-    if (fileSize <= 0) {
-        internal_free(path);
-        return SFXL_ERR;
-    }
-
-    entry->fileSize = fileSize;
-
-    switch (_sfxl_compression) {
-    case 0:
-        entry->dataSize = fileSize;
-        break;
-    case 1:
-        if (1) {
-            File* stream = fileOpen(path, "rb");
-            if (stream == nullptr) {
-                internal_free(path);
-                return 1;
-            }
-
-            int channels;
-            int sampleRate;
-            int sampleCount;
-            SoundDecoder* soundDecoder = soundDecoderInit(soundEffectsListSoundDecoderReadHandler, stream, &channels, &sampleRate, &sampleCount);
-            if (soundDecoder == nullptr) {
-                debugPrint("SFXLIST: Failed to decode ACM header for %s\n", path);
-                fileClose(stream);
-                internal_free(path);
-                return SFXL_ERR;
-            }
-
-            entry->dataSize = 2 * sampleCount;
-            soundDecoderFree(soundDecoder);
-            fileClose(stream);
-        }
-        break;
-    default:
-        internal_free(path);
-        return SFXL_ERR;
-    }
-
-    internal_free(path);
-
-    return SFXL_OK;
 }
 
 } // namespace fallout
