@@ -93,8 +93,8 @@ RESET=$'\e[0m'
 
 
 flush_stdin
-read -rp "${RED}Deploy RELEASE build to PRODUCTION fallout-nevada.ru (html)? [y/N]${RESET} " confirm
-if [[ $confirm =~ ^[Yy]$ ]]; then
+read -rp "${RED}Deploy RELEASE build to PRODUCTION fallout-nevada.ru (html)? [yes/N]${RESET} " confirm
+if [[ $confirm == "yes" ]]; then
   echo "Running real rsync..."
   echo "=== Release build: ==="
   (cd build/web       && rsync "${RSYNC_ARGS[@]}" root@fallout-nevada.ru:/var/www/html/)
