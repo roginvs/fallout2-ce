@@ -78,7 +78,21 @@ static void audioEngineMixin(void* userData, Uint8* stream, int length)
         std::lock_guard<std::recursive_mutex> lock(soundBuffer->mutex);
 
         if (soundBuffer->active && soundBuffer->playing) {
+            // CE: A corrupted buffer state (e.g. freed data or a nonexistent
+            // stream due to a runtime error elsewhere) must not trap the whole
+            // process inside the audio callback. Stop the buffer instead.
+            if (soundBuffer->data == nullptr
+                || soundBuffer->stream == nullptr
+                || soundBuffer->size == 0) {
+                soundBuffer->playing = false;
+                continue;
+            }
+
             int srcFrameSize = soundBuffer->bitsPerSample / 8 * soundBuffer->channels;
+            if (srcFrameSize <= 0) {
+                soundBuffer->playing = false;
+                continue;
+            }
 
             unsigned char buffer[1024];
             int pos = 0;
@@ -100,7 +114,7 @@ static void audioEngineMixin(void* userData, Uint8* stream, int length)
                 SDL_MixAudioFormat(stream + pos, buffer, gAudioEngineSpec.format, bytesRead, soundBuffer->volume);
 
                 if (soundBuffer->pos >= soundBuffer->size) {
-                    if (soundBuffer->looping) {
+                    if (soundBuffer->looping && soundBuffer->size > 0) {
                         soundBuffer->pos %= soundBuffer->size;
                     } else {
                         soundBuffer->playing = false;
@@ -190,6 +204,16 @@ int audioEngineCreateSoundBuffer(unsigned int size, int bitsPerSample, int chann
 
         if (!soundBuffer->active) {
             if (size == 0) {
+                return -1;
+            }
+
+            // CE: Reject implausible buffer formats up front. A stream created
+            // with garbage parameters can trap later during mixing (e.g. zero
+            // sample frame size inside SDL_AudioStreamPut).
+            if ((bitsPerSample != 8 && bitsPerSample != 16)
+                || channels <= 0
+                || channels > 2
+                || rate <= 0) {
                 return -1;
             }
 
@@ -378,7 +402,7 @@ bool audioEngineSoundBufferGetCurrentPosition(int soundBufferIndex, unsigned int
     AudioEngineSoundBuffer* soundBuffer = &(gAudioEngineSoundBuffers[soundBufferIndex]);
     std::lock_guard<std::recursive_mutex> lock(soundBuffer->mutex);
 
-    if (!soundBuffer->active) {
+    if (!soundBuffer->active || soundBuffer->size == 0) {
         return false;
     }
 
@@ -413,7 +437,7 @@ bool audioEngineSoundBufferSetCurrentPosition(int soundBufferIndex, unsigned int
     AudioEngineSoundBuffer* soundBuffer = &(gAudioEngineSoundBuffers[soundBufferIndex]);
     std::lock_guard<std::recursive_mutex> lock(soundBuffer->mutex);
 
-    if (!soundBuffer->active) {
+    if (!soundBuffer->active || soundBuffer->size == 0) {
         return false;
     }
 
