@@ -1013,16 +1013,25 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         sfallModsIniPathToPatch
                 ) {
                     // Game ships its own sfall-mods.ini at the path the
-                    // embedded script reads: only turn the hotkey on.
+                    // embedded script reads: turn the hotkey on and enable
+                    // critter outlines ("opponents" should be highlighted
+                    // too, matching the generated ini defaults).
                     const iniParser = new IniParser(data);
                     const key = iniParser
                         .getValue("Highlighting", "Key")
                         ?.trim();
                     if (!key || parseInt(key, 10) === 0) {
                         iniParser.setValue("Highlighting", "Key", "42");
-                        return iniParser.pack();
                     }
-                    return data;
+                    const critters = iniParser
+                        .getValue("Highlighting", "Critters")
+                        ?.trim();
+                    if (critters === undefined) {
+                        iniParser.setValue("Highlighting", "Critters", "1");
+                    } else if (parseInt(critters, 10) === 0) {
+                        iniParser.setValue("Highlighting", "Critters", "1");
+                    }
+                    return iniParser.pack();
                 } else if (
                     filePath.toLowerCase() ===
                         "data/art/intrface/hr_ifacelft2.frm" ||
@@ -1511,7 +1520,7 @@ function ensureHighlightingIni(gameFolder, iniConfigFolder, onExisting) {
                 "Key=42",
                 "Containers=1",
                 "Corpses=1",
-                "Critters=0",
+                "Critters=1",
                 "CheckLOS=1",
                 "OutlineColor=16",
                 "MotionScanner=0",
