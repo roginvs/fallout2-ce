@@ -25,7 +25,10 @@ console.info(
     "node scripts/prepare-novarain-sonora.mjs [release-tag] [step] [nodry]\n" +
         `Release tag defaults to ${RELEASE_TAG_DEFAULT}; downloads, staging and\n` +
         "folder names are all derived from it.\n" +
-        "Steps: preflight download unzip assemble ruspack clean pack hardlinks clone validate report all\n" +
+        "Steps: preflight download unzip assemble clean clone ruspack pack compress hardlinks validate report all\n" +
+        "Pipeline: build the (English) base, copy it to the second folder, add\n" +
+        "the russian language pack on top only there, then pack+gz both and run\n" +
+        "the global hardlink deduplication last." +
         "Default is dry-run; pass 'nodry' as third argument to actually do things.",
 );
 if (isDryRun) {
@@ -90,11 +93,12 @@ const STEPS = [
     "download",
     "unzip",
     "assemble",
-    "ruspack",
     "clean",
-    "pack",
-    "hardlinks",
     "clone",
+    "ruspack",
+    "pack",
+    "compress",
+    "hardlinks",
     "validate",
     "report",
 ];
@@ -319,7 +323,41 @@ const steps = {
         }
     },
 
+    clone() {
+        if (isDryRun && !fs.existsSync(EN_DIR)) {
+            console.info("(dry) EN_DIR does not exist yet, step is a no-op");
+            return;
+        }
+        if (fs.existsSync(RU_DIR) && fs.readdirSync(RU_DIR).length > 0) {
+            console.error("RU folder is not empty:", RU_DIR);
+            console.error("Remove it to re-clone.");
+            process.exit(1);
+        }
+        // Plain deep copy (no -l): the russian pack is added on top of this
+        // copy later, the hardlink deduplication runs at the very end and
+        // links what is identical then.
+        run("cp", ["-a", EN_DIR, RU_DIR]);
+        if (isDryRun) {
+            return;
+        }
+        const enCount = listFiles(EN_DIR).length;
+        const ruCount = listFiles(RU_DIR).length;
+        console.info(`Cloned: EN files ${enCount} -> RU files ${ruCount}`);
+        if (enCount !== ruCount) {
+            console.error("Clone file count mismatch!");
+            process.exit(1);
+        }
+    },
+
     ruspack() {
+        if (isDryRun && !fs.existsSync(RU_DIR)) {
+            console.info("(dry) RU_DIR does not exist yet (clone runs first)");
+            return;
+        }
+        if (!fs.existsSync(RU_DIR)) {
+            console.error("RU folder does not exist, run clone first");
+            process.exit(1);
+        }
         const ruZipPath = path.join(DOWNLOADS_DIR, RU_ASSET_NAME);
         const tempDir = path.join(DOWNLOADS_DIR, "fs_russian_temp");
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -333,27 +371,12 @@ const steps = {
             console.error("fs_russian.dat not found in the language pack");
             process.exit(1);
         }
-        unpackDat(datPath, path.join(EN_DIR, "mods", "fs_russian.dat"));
-        if (!isDryRun) {
-            fs.rmSync(tempDir, { recursive: true });
-        }
-
-        // Enable the language pack in mods_order.txt.
-        const orderPath = path.join(EN_DIR, "mods", "mods_order.txt");
-        let order = fs.readFileSync(orderPath, "utf8");
-        order = order.replace(/^;+fs_russian\.dat/m, "fs_russian.dat");
-        if (!order.includes("fs_russian.dat")) {
-            order += "\nfs_russian.dat\n";
-        }
-        fs.writeFileSync(orderPath, order);
-        console.info("mods_order.txt now has fs_russian.dat enabled");
-
-        const top = fs.readdirSync(path.join(EN_DIR, "mods", "fs_russian.dat"));
-        console.info(
-            "fs_russian.dat top level:",
-            top.join(", "),
-            "(expect text\\russian only)",
-        );
+        unpackDat(datPath, path.join(RU_DIR, "mods", "fs_russian.dat"));
+        fs.rmSync(tempDir, { recursive: true });
+        setRussianModState(RU_DIR, true);
+        createEmptyMarkers(RU_DIR);
+        const top = fs.readdirSync(path.join(RU_DIR, "mods", "fs_russian.dat"));
+        console.info("fs_russian.dat top level:", top.join(", "));
     },
 
     clean() {
@@ -393,51 +416,10 @@ const steps = {
         }
         fs.rmSync(path.join(EN_DIR, ".DS_Store"), { force: true });
 
-        // README "Add empty files to keep empty folders": asyncfetchfs
-        // builds the virtual tree only from files listed in index.txt, so
-        // an empty folder never appears in the web FS. The engine expects
-        // these dirs to exist (saves, maps, proto editing), keep them with
-        // zero-size .empty files.
-        const keepDirs = [
-            "data/SAVEGAME",
-            "data/MAPS",
-            "data/proto/items",
-            "data/proto/critters",
-        ];
-        for (const dir of keepDirs) {
-            const dirPath = path.join(EN_DIR, ...dir.split("/"));
-            fs.mkdirSync(dirPath, { recursive: true });
-            fs.writeFileSync(path.join(dirPath, ".empty"), "");
-        }
-        console.info("Created", keepDirs.length, "empty-folder markers");
-
-        // Any other empty folder would be invisible in the web FS as well;
-        // mark it too (bottom-up so nested chain empties are all marked).
-        let extraMarkers = 0;
-        const visit = (/** @type {string} */ dir) => {
-            for (const name of fs.readdirSync(dir)) {
-                const p = path.join(dir, name);
-                if (fs.statSync(p).isDirectory()) {
-                    visit(p);
-                }
-            }
-            if (fs.readdirSync(dir).length === 0) {
-                fs.writeFileSync(path.join(dir, ".empty"), "");
-                extraMarkers++;
-                console.info(
-                    "Extra empty dir marker:",
-                    path.relative(EN_DIR, dir),
-                );
-            }
-        };
-        for (const dir of keepDirs) {
-            visit(path.join(EN_DIR, ...dir.split("/")));
-        }
-        if (extraMarkers > 0) {
-            console.info("Extra empty dir markers created:", extraMarkers);
-        } else {
-            console.info("No extra empty dirs, nothing to mark");
-        }
+        // The base build is the English one: the russian language mod must
+        // not be active here, it is added to the RU folder only.
+        setRussianModState(EN_DIR, false);
+        createEmptyMarkers(EN_DIR);
     },
 
     pack() {
@@ -445,21 +427,49 @@ const steps = {
             console.info("(dry) EN_DIR does not exist yet, step is a no-op");
             return;
         }
-        // Same format as game/pack.sh: find -type f -printf '%s ' + sha256sum.
         // Same format as game/pack.sh and the web README: "size sha256  ./path".
-        // make-hardlinks-for-duplicated-files.mjs and asyncfetchfs expect the ./.
-        const lines = [];
-        for (const relPath of listFiles(EN_DIR)) {
-            const fullPath = path.join(EN_DIR, relPath);
-            const size = fs.statSync(fullPath).size;
-            const hash = sha256File(fullPath);
-            lines.push(`${size} ${hash}  ./${relPath}`);
+        // make-hardlinks-for-duplicated-files.mjs and asyncfetchfs expect the ./
+        // prefix, the hashes are of the still uncompressed contents.
+        for (const [dir, label] of [
+            [EN_DIR, "EN"],
+            [RU_DIR, "RU"],
+        ]) {
+            if (!fs.existsSync(dir)) {
+                console.error(`${label} folder is missing:`, dir);
+                process.exit(1);
+            }
+            const lines = [];
+            for (const relPath of listFiles(dir)) {
+                const fullPath = path.join(dir, relPath);
+                const size = fs.statSync(fullPath).size;
+                const hash = sha256File(fullPath);
+                lines.push(`${size} ${hash}  ./${relPath}`);
+            }
+            if (isDryRun) {
+                console.info(
+                    `(dry) would write index with ${lines.length} files for ${label}`,
+                );
+                continue;
+            }
+            fs.writeFileSync(
+                path.join(dir, "index.txt"),
+                lines.join("\n") + "\n",
+            );
+            console.info(`Index written for ${label}: ${lines.length} files`);
         }
-        const indexLine = lines.join("\n") + "\n";
-        if (!isDryRun) {
-            fs.writeFileSync(path.join(EN_DIR, "index.txt"), indexLine);
-            run("pigz", ["-r", "--best", "."], { cwd: EN_DIR });
-            console.info("Packed, files: ", lines.length);
+    },
+
+    compress() {
+        for (const [dir, label] of [
+            [EN_DIR, "EN"],
+            [RU_DIR, "RU"],
+        ]) {
+            if (isDryRun && !fs.existsSync(dir)) {
+                console.info(`(dry) ${label} missing, gzip skipped`);
+                continue;
+            }
+            run("pigz", ["-r", "--best", "."], { cwd: dir });
+            console.info(`${label} compressed`);
         }
     },
 
@@ -483,45 +493,6 @@ const steps = {
             // Show its progress lines live.
             { stdio: "inherit" },
         );
-    },
-
-    async clone() {
-        if (isDryRun && !fs.existsSync(EN_DIR)) {
-            console.info("(dry) EN_DIR does not exist yet, step is a no-op");
-            return;
-        }
-        run("cp", ["-al", EN_DIR, RU_DIR]);
-        // Every file must be shared between EN and RU. nlink==1 means
-        // something went wrong and it is not acceptable.
-        const unique = [];
-        let shared = 0;
-        let withOld = 0;
-        for (const relPath of listFiles(RU_DIR)) {
-            const nlink = fs.statSync(path.join(RU_DIR, relPath)).nlink;
-            if (nlink === 1) {
-                unique.push(relPath);
-            } else if (nlink === 2) {
-                shared++;
-            } else if (nlink >= 3) {
-                withOld++;
-            }
-        }
-        console.info(
-            `Files nlink==2 (this build): ${shared}, nlink>=3 (shared with old folders): ${withOld}`,
-        );
-        if (unique.length > 0) {
-            console.error(
-                "Unique files (nlink==1), what the hell are they doing here:",
-            );
-            console.error(unique.join("\n"));
-            const ok = await confirm(
-                `Continue anyway? (${unique.length} unique files) [y/N] `,
-            );
-            if (!ok) {
-                console.error("Stopped by user");
-                process.exit(1);
-            }
-        }
     },
 
     async validate() {
@@ -548,21 +519,39 @@ const steps = {
             "fallout2.cfg from pack:\n",
             cfg.split("\n").slice(0, 10).join("\n"),
         );
-        const order = gzRead(path.join(EN_DIR, "mods", "mods_order.txt.gz"));
+
+        // In the base (English) build the russian mod must be disabled,
+        // in the russian one it must be enabled.
+        const enOrder = gzRead(path.join(EN_DIR, "mods", "mods_order.txt.gz"));
         console.info(
-            "mods_order.txt from pack:\n",
-            order.split("\n").filter(Boolean).join("\n"),
+            "EN mods_order.txt:",
+            enOrder.split("\n").filter(Boolean).join(" | "),
+        );
+        const enHasPack = fs.existsSync(
+            path.join(EN_DIR, "mods", "fs_russian.dat"),
+        );
+        console.info("EN has fs_russian.dat (must be false):", enHasPack);
+
+        const ruOrder = gzRead(path.join(RU_DIR, "mods", "mods_order.txt.gz"));
+        console.info(
+            "RU mods_order.txt:",
+            ruOrder.split("\n").filter(Boolean).join(" | "),
         );
         const ruText = path.join(
-            EN_DIR,
+            RU_DIR,
             "mods",
             "fs_russian.dat",
             "text",
             "russian",
         );
-        console.info("text/russian exists:", fs.existsSync(ruText));
-        const noDats = listFiles(EN_DIR).every((p) => !/\.dat$/i.test(p));
-        console.info("No raw .dat files left:", noDats);
+        console.info("RU text/russian exists:", fs.existsSync(ruText));
+        for (const [dir, label] of [
+            [EN_DIR, "EN"],
+            [RU_DIR, "RU"],
+        ]) {
+            const noDats = listFiles(dir).every((p) => !/\.dat$/i.test(p));
+            console.info(`${label} no raw .dat files left:`, noDats);
+        }
     },
 
     report() {
@@ -638,6 +627,84 @@ function moveEntry(src, dst) {
     }
     fs.cpSync(src, dst, { recursive: true });
     fs.rmSync(src, { recursive: true, force: true });
+}
+
+/**
+ * Enable or disable the russian language mod in a folder's mods_order.txt.
+ * The base build ships English only (disabled), the russian folder gets it
+ * enabled. The mod itself may be absent; only the order line is touched.
+ *
+ * @param {string} dir Game folder root.
+ * @param {boolean} enabled
+ */
+function setRussianModState(dir, enabled) {
+    const orderPath = path.join(dir, "mods", "mods_order.txt");
+    if (!fs.existsSync(orderPath)) {
+        console.error("mods_order.txt is missing:", orderPath);
+        process.exit(1);
+    }
+    let order = fs.readFileSync(orderPath, "utf8");
+    if (enabled) {
+        order = order.replace(/^;+fs_russian\.dat/m, "fs_russian.dat");
+        if (!/^fs_russian\.dat/m.test(order)) {
+            order += "\nfs_russian.dat\n";
+        }
+    } else {
+        order = order.replace(/^fs_russian\.dat/m, ";fs_russian.dat");
+    }
+    fs.writeFileSync(orderPath, order);
+    const state = enabled ? "enabled" : "disabled";
+    console.info(
+        `mods_order.txt (${path.basename(dir)}): fs_russian.dat ${state}`,
+    );
+}
+
+/**
+ * README "Add empty files to keep empty folders": asyncfetchfs builds the
+ * virtual tree only from files listed in index.txt, so an empty folder
+ * never appears in the web FS. Create the conventional markers for the
+ * engine paths plus every other empty folder found in the tree.
+ *
+ * @param {string} dir Game folder root.
+ */
+function createEmptyMarkers(dir) {
+    const keepDirs = [
+        "data/SAVEGAME",
+        "data/MAPS",
+        "data/proto/items",
+        "data/proto/critters",
+    ];
+    for (const keep of keepDirs) {
+        const dirPath = path.join(dir, ...keep.split("/"));
+        fs.mkdirSync(dirPath, { recursive: true });
+        fs.writeFileSync(path.join(dirPath, ".empty"), "");
+    }
+    console.info("Created", keepDirs.length, "empty-folder markers:", dir);
+
+    // Any other empty folder would be invisible in the web FS as well; mark
+    // it too (bottom-up so nested chain empties are all marked).
+    let extraMarkers = 0;
+    const visit = (/** @type {string} */ sub) => {
+        for (const name of fs.readdirSync(sub)) {
+            const p = path.join(sub, name);
+            if (fs.statSync(p).isDirectory()) {
+                visit(p);
+            }
+        }
+        if (fs.readdirSync(sub).length === 0) {
+            fs.writeFileSync(path.join(sub, ".empty"), "");
+            extraMarkers++;
+            console.info("Extra empty dir marker:", path.relative(dir, sub));
+        }
+    };
+    for (const keep of keepDirs) {
+        visit(path.join(dir, ...keep.split("/")));
+    }
+    console.info(
+        extraMarkers > 0
+            ? `Extra empty dir markers created: ${extraMarkers}`
+            : "No extra empty dirs, nothing to mark",
+    );
 }
 
 async function fetchAssets() {
