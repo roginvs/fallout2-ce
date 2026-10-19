@@ -1,3 +1,21 @@
+/**
+ * @typedef {object} GameEntry
+ * @property {string} name Game title shown in the main menu.
+ * @property {string} folder Folder with game files, served from ./game/.
+ * @property {string} lang Game language ("ru" or "en"), drives the `language=`
+ *   value written to the active fallout2.cfg on launch (unless
+ *   keepGameLanguage is set).
+ * @property {string} gameType Game engine type, e.g. "nevada" or "sonora".
+ * @property {string[]} links Author/community links to display.
+ * @property {string} filesVersion Version of the served file set, bump to
+ *   invalidate the game cache of all clients.
+ * @property {boolean} [keepGameLanguage] When set, the `language=` value
+ *   shipped in the game files is not overridden on launch. Used for builds
+ *   that keep their own language mapping inside the files (e.g. Foxx Nevada
+ *   rebuilds place russian text under text\english with language=english).
+ */
+
+/** @type {{ games: GameEntry[], useGzip: boolean }} */
 export const configuration = {
     games: [
         {
@@ -10,6 +28,7 @@ export const configuration = {
                 "https://vk.com/rebuild_by_foxx",
             ],
             filesVersion: "1",
+            keepGameLanguage: true,
         },
         {
             name: "Fallout: Nevada 2.4.1 Foxx",
@@ -21,6 +40,7 @@ export const configuration = {
                 "https://vk.com/rebuild_by_foxx",
             ],
             filesVersion: "1",
+            keepGameLanguage: true,
         },
         {
             name: "Fallout: Nevada 1.00 + патч 02",

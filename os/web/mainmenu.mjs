@@ -15,6 +15,13 @@ import { packTarFile, tarEnding, tarReadFile } from "./tar.mjs";
 
 const IDBFS_STORE_NAME = "FILE_DATA";
 
+// Map of config.mjs `lang` values to the `language=` value in fallout2.cfg.
+/** @type {Record<string, string>} */
+const GAME_CFG_LANGUAGES = {
+    ru: "russian",
+    en: "english",
+};
+
 /**
  * @param {string} folderName
  * @returns {Promise<IDBDatabase>}
@@ -978,6 +985,25 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         ["system", "art_cache_size", "256"],
                     ]) {
                         iniParser.setValue(section, key, value);
+                    }
+                    // Language is always derived from the game entry in
+                    // config.mjs, so one folder of game data can serve both a
+                    // russian and an english menu entry (the value is written
+                    // on every launch, not persisted). Games with
+                    // keepGameLanguage set keep the language shipped in their
+                    // files (e.g. Foxx Nevada rebuilds distribute russian
+                    // text under text\english while their cfg says english).
+                    if (!game.keepGameLanguage) {
+                        const language = GAME_CFG_LANGUAGES[game.lang];
+                        if (language === undefined) {
+                            alert(
+                                `Unknown game language "${game.lang}" for game "${
+                                    game.name
+                                }" in config.mjs`,
+                            );
+                        } else {
+                            iniParser.setValue("system", "language", language);
+                        }
                     }
                     return iniParser.pack();
                 } else if (filePath.toLowerCase() === "ddraw.ini") {
