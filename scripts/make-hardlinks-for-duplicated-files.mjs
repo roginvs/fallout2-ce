@@ -30,7 +30,7 @@ const allFiles = scanFiles(DIR);
 console.info(
     "Total files scanned: " +
         allFiles.length +
-        ", finding duplicates by hash..."
+        ", finding duplicates by hash...",
 );
 const duplicates = getGzDuplicates(DIR, allFiles);
 // console.info(duplicates);
@@ -72,6 +72,52 @@ function makeDuplicatesSymlinks(startingDir, hash, files) {
     }
 }
 
+// Parsed index.txt.gz contents per game folder, cached from the first use.
+// Before this every duplicate file check re-read and re-parsed the ~15 MB
+// of index text, which dominated the whole linking phase.
+/** @type {Map<string, Map<string, string[]>>} */
+const indexCache = new Map();
+
+/**
+ * Read and parse one game's index.txt.gz exactly once, keyed by its path.
+ * Returns the hash -> indexed file names map.
+ *
+ * @param {string} indexGzPath
+ */
+function getIndexCache(indexGzPath) {
+    let cached = indexCache.get(indexGzPath);
+    if (cached) {
+        return cached;
+    }
+    const dataCompressed = fs.readFileSync(indexGzPath);
+    const data = zlib.unzipSync(dataCompressed);
+    const indexContent = data.toString("utf-8");
+    const lines = indexContent
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+    /** @type {Map<string, string[]>} */
+    cached = new Map();
+    for (const line of lines) {
+        const m = line.match(/^(\d+)\s+(.{64})\s+(.+)$/);
+        if (!m) {
+            throw new Error(`Wrong line ${line}`);
+        }
+        const sha256hash = m[2];
+        const fName = m[3];
+        const sameHashNames = cached.get(sha256hash);
+        if (sameHashNames) {
+            sameHashNames.push(fName);
+        } else {
+            cached.set(sha256hash, [fName]);
+        }
+    }
+    indexCache.set(indexGzPath, cached);
+    console.info(`Indexed: ${indexGzPath} (${lines.length} lines, cached)`);
+    return cached;
+}
+
 /**
  *
  * @param {string} baseDir
@@ -85,33 +131,12 @@ function checkIndexGzContainsFile(baseDir, relPath, hash) {
         throw new Error(`index.txt.gz not found at path: ${indexGzPath}`);
     }
 
-    const dataCompressed = fs.readFileSync(indexGzPath);
-    const data = zlib.unzipSync(dataCompressed);
-    const indexContent = data.toString("utf-8");
-    const lines = indexContent
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-
+    const hashedFiles = getIndexCache(indexGzPath).get(hash);
     /** @type {string[]} */
-    const sameHashNames = [];
-    for (const line of lines) {
-        const m = line.match(/^(\d+)\s+(.{64})\s+(.+)$/);
-        if (!m) {
-            throw new Error(`Wrong line ${line}`);
-        }
-        const sizeStr = m[1];
-        const sha256hash = m[2];
-        const fName = m[3];
-
-        if (sha256hash !== hash) {
-            continue;
-        }
-        sameHashNames.push(fName);
-    }
+    const sameHashNames = hashedFiles ?? [];
     if (sameHashNames.length === 0) {
         throw new Error(
-            `File ${relPath} with hash ${hash} not found in index.txt.gz`
+            `File ${relPath} with hash ${hash} not found in index.txt.gz`,
         );
     }
     const expectedFilePathInIndex =
@@ -126,8 +151,8 @@ function checkIndexGzContainsFile(baseDir, relPath, hash) {
         // });
         throw new Error(
             `File ${relPath} with hash ${hash} not found in index.txt.gz, looked for ${expectedFilePathInIndex}, found: ${sameHashNames.join(
-                ", "
-            )}`
+                ", ",
+            )}`,
         );
     }
 
@@ -188,13 +213,13 @@ function printStats(allFiles, duplicates) {
     console.info("Total unique inode size: ", printSize(totalUniqInodeSize));
     console.info(
         "Total .gz compressed size: ",
-        printSize(totalGzCompressedSize)
+        printSize(totalGzCompressedSize),
     );
     console.info("Total .gz unpacked size: ", printSize(totalGzUnpackedSize));
     console.info("Total duplicated groups found: ", totalUniqGroups);
     console.info(
         "Possible size savings by removing duplicates: ",
-        printSize(possibleSizeSavings)
+        printSize(possibleSizeSavings),
     );
 }
 
@@ -259,7 +284,7 @@ function scanFiles(startingDir) {
                         buffer,
                         0,
                         chunkSize,
-                        stat.size - chunkSize
+                        stat.size - chunkSize,
                     );
                     gzCrc32 = buffer.readUInt32LE(0);
                     gzSize32 = buffer.readUInt32LE(4);
@@ -293,7 +318,7 @@ function getGzDuplicates(startingDir, fileList) {
     const crcSizeMap = new Map();
 
     const keyFn = (
-        /** @type { ReturnType<typeof scanFiles>[number] } */ file
+        /** @type { ReturnType<typeof scanFiles>[number] } */ file,
     ) => `${file.gzCrc32} - ${file.gzSize32}`;
 
     for (const file of fileList) {
@@ -314,7 +339,7 @@ function getGzDuplicates(startingDir, fileList) {
         }
         for (const file of files) {
             const dataCompressed = fs.readFileSync(
-                path.join(startingDir, file.relPath)
+                path.join(startingDir, file.relPath),
             );
             const data = zlib.unzipSync(dataCompressed);
             const hash = crypto.createHash("sha256").update(data).digest("hex");
@@ -339,7 +364,7 @@ function getGzDuplicates(startingDir, fileList) {
                 file.gzCrc32 !== refCrc32
             ) {
                 throw new Error(
-                    `Health-check failed for hash ${hash}: file ${file.relPath} has different size/crc32`
+                    `Health-check failed for hash ${hash}: file ${file.relPath} has different size/crc32`,
                 );
             }
         }
