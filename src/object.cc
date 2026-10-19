@@ -2060,6 +2060,15 @@ int objectDestroy(Object* object, Rect* rect)
         return -1;
     }
 
+    // CE: Fill the rect even when the object is not on the map (e.g. an item
+    // removed from an inventory right before being destroyed). Callers expect
+    // |rect| to always be filled and run tile window refresh with it, leaving
+    // it uninitialized here was the root cause of the wild bufferFill calls
+    // observed in production as "memory access out of bounds" cascades.
+    if (rect != nullptr) {
+        objectGetRect(object, rect);
+    }
+
     return 0;
 }
 
