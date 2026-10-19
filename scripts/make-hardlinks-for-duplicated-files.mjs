@@ -37,9 +37,41 @@ const duplicates = getGzDuplicates(DIR, allFiles);
 
 printStats(allFiles, duplicates);
 
+let groupsProcessed = 0;
+let dupFilesProcessed = 0;
+let dupBytesProcessed = 0;
+const linkPhaseStart = Date.now();
+
 for (const [hash, files] of duplicates.entries()) {
     makeDuplicatesSymlinks(DIR, hash, files);
+    groupsProcessed++;
+    dupFilesProcessed += files.length - 1;
+    dupBytesProcessed += files.slice(1).reduce((acc, f) => acc + f.size, 0);
+    if (groupsProcessed % 500 === 0 || groupsProcessed === duplicates.size) {
+        const elapsedSec = Math.max(
+            1,
+            Math.round((Date.now() - linkPhaseStart) / 1000),
+        );
+        const remainingGroups = duplicates.size - groupsProcessed;
+        const etaMin = Math.round(
+            (remainingGroups / groupsProcessed) * (elapsedSec / 60),
+        );
+        console.info(
+            `Progress: ${groupsProcessed}/${duplicates.size} groups ` +
+                `(${Math.round((groupsProcessed / duplicates.size) * 100)}%), ` +
+                `${dupFilesProcessed} duplicate files linked, ` +
+                `rate ${Math.round((groupsProcessed / elapsedSec) * 60)} groups/min, ` +
+                `ETA ~${etaMin} min`,
+        );
+    }
 }
+
+console.info(
+    "Linked summary:",
+    `${groupsProcessed} groups, ${dupFilesProcessed} duplicate files linked, ` +
+        `${(dupBytesProcessed / 1024 / 1024).toFixed(1)} MB deduplicated on disk, ` +
+        `elapsed ${Math.round((Date.now() - linkPhaseStart) / 1000)} sec`,
+);
 
 console.info("Done.");
 
@@ -333,6 +365,15 @@ function getGzDuplicates(startingDir, fileList) {
 
     /** @type {Map<string, ReturnType<typeof scanFiles>>} */
     const sha256filesMap = new Map();
+    let candidates = 0;
+    for (const [_, files] of crcSizeMap.entries()) {
+        if (files.length < 2) {
+            continue;
+        }
+        candidates += files.length;
+    }
+    let hashed = 0;
+    const hashPhaseStart = Date.now();
     for (const [_, files] of crcSizeMap.entries()) {
         if (files.length < 2) {
             continue;
@@ -343,12 +384,24 @@ function getGzDuplicates(startingDir, fileList) {
             );
             const data = zlib.unzipSync(dataCompressed);
             const hash = crypto.createHash("sha256").update(data).digest("hex");
+            hashed++;
+            if (hashed % 2000 === 0) {
+                console.info(
+                    `Hashing: ${hashed}/${candidates} candidate files ` +
+                        `(${Math.round((hashed / candidates) * 100)}%), ` +
+                        `${Math.round((Date.now() - hashPhaseStart) / 1000)} sec elapsed`,
+                );
+            }
 
             const arr = sha256filesMap.get(hash) || [];
             arr.push(file);
             sha256filesMap.set(hash, arr);
         }
     }
+    console.info(
+        `Hashing done: ${hashed} candidates in ` +
+            `${Math.round((Date.now() - hashPhaseStart) / 1000)} sec`,
+    );
 
     // Health-check, all groups must have at least 2 files and the same size&crc32
     for (const [hash, files] of sha256filesMap.entries()) {
