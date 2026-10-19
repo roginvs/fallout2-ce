@@ -62,6 +62,17 @@ export const configuration = {
             filesVersion: "1",
         },
         {
+            name: "Fallout: Sonora 1.16.4 NovaRain (+ DLC)",
+            folder: "Fallout_Sonora_1_16_4_novarain_ru",
+            lang: "ru",
+            gameType: "sonora",
+            links: [
+                "https://github.com/NovaRain/Fallout-Sonora-English",
+                "https://fallout-nevada.ucoz.ru/index/opisanie_fallout_sonora/0-59",
+            ],
+            filesVersion: "2",
+        },
+        {
             name: "Fallout: Sonora 1.15 (+ DLC)",
             folder: "Fallout_Sonora_1_15_dlc",
             lang: "ru",
@@ -90,6 +101,18 @@ export const configuration = {
                 "https://fallout-nevada.ucoz.ru/index/opisanie_fallout_sonora/0-59",
             ],
             filesVersion: "1",
+        },
+        {
+            name: "Fallout: Sonora English 1.16.4E (+ DLC) by NovaRain",
+            folder: "Fallout_Sonora_1_16_4_novarain_eng",
+            lang: "en",
+            gameType: "sonora",
+            links: [
+                "https://cambragol.github.io/Fallout-Sonora/",
+                "https://github.com/NovaRain/Fallout-Sonora-English",
+                "https://fallout-nevada.ucoz.ru/index/opisanie_fallout_sonora/0-59",
+            ],
+            filesVersion: "2",
         },
         {
             name: "Fallout: Sonora English 1.16.4E (+ DLC) by Cambragol",
