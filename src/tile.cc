@@ -666,32 +666,12 @@ bool checkRectNeedsClear(const Rect* rect, bool hasVisArea, const Rect* visArea)
 }
 
 // TODO: these two functions are exact copies of isoWindowRefreshRect*. gTileWindowBuffer == gIsoWindowBuffer, these are the same window!
-
-// CE: Sanity-check a refresh rect after intersection. If globals got corrupted
-// (stale window rect/buffer after a reset, heap corruption anywhere in the
-// engine), bufferFill would memset RAM wildly and kill the whole session (seen
-// in Rollbar as a cascade of "memory access out of bounds"). Better to skip the
-// refresh than wipe memory.
-static bool tileRectFitsWindow(const Rect* rect)
-{
-    return rect->left >= 0
-        && rect->top >= 0
-        && rect->left <= rect->right
-        && rect->top <= rect->bottom
-        && rect->right < gTileWindowWidth
-        && rect->bottom < gTileWindowHeight;
-}
-
 // 0x4B1554 refresh_mapper
 static void tileRefreshMapper(Rect* rect, MapElevation elevation)
 {
     Rect rectToUpdate;
 
     if (rectIntersection(rect, &gTileWindowRect, &rectToUpdate) == -1) {
-        return;
-    }
-
-    if (!tileRectFitsWindow(&rectToUpdate)) {
         return;
     }
 
@@ -738,10 +718,6 @@ static void tileRefreshGame(Rect* rect, MapElevation elevation)
     Rect rectToUpdate;
 
     if (rectIntersection(rect, &gTileWindowRect, &rectToUpdate) == -1) {
-        return;
-    }
-
-    if (!tileRectFitsWindow(&rectToUpdate)) {
         return;
     }
 
