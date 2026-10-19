@@ -37,6 +37,14 @@ const duplicates = getGzDuplicates(DIR, allFiles);
 
 printStats(allFiles, duplicates);
 
+// Parsed index.txt.gz contents per game folder, cached from the first use.
+// Before this every duplicate file check re-read and re-parsed the ~15 MB
+// of index text, which dominated the whole linking phase.
+// NOTE: must be declared above the linking loop further down this module
+// (TDZ: the loop runs during module evaluation).
+/** @type {Map<string, Map<string, string[]>>} */
+const indexCache = new Map();
+
 let groupsProcessed = 0;
 let dupFilesProcessed = 0;
 let dupBytesProcessed = 0;
@@ -103,12 +111,6 @@ function makeDuplicatesSymlinks(startingDir, hash, files) {
         }
     }
 }
-
-// Parsed index.txt.gz contents per game folder, cached from the first use.
-// Before this every duplicate file check re-read and re-parsed the ~15 MB
-// of index text, which dominated the whole linking phase.
-/** @type {Map<string, Map<string, string[]>>} */
-const indexCache = new Map();
 
 /**
  * Read and parse one game's index.txt.gz exactly once, keyed by its path.
