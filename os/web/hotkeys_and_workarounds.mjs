@@ -27,6 +27,7 @@ export function addPointerLockWorkaround() {
 
     const origRequestPointerLock = canvas.requestPointerLock.bind(canvas);
 
+    /** @param {unknown} e */
     function isPointerLockDenial(e) {
         return (
             e instanceof DOMException &&
@@ -36,9 +37,15 @@ export function addPointerLockWorkaround() {
         );
     }
 
+    /**
+     * @param {PointerLockOptions[]} args
+     * @param {unknown} e
+     */
     function deferToNextGesture(args, e) {
         console.info(
-            `Pointer lock denied (${e?.name ?? "?"}), retrying on the next click/touch`,
+            `Pointer lock denied (${
+                e instanceof DOMException ? e.name : "?"
+            }), retrying on the next click/touch`,
         );
 
         const retry = () => {
@@ -67,6 +74,10 @@ export function addPointerLockWorkaround() {
         document.addEventListener("touchend", retry, { once: true });
     }
 
+    /**
+     * @param {PointerLockOptions[]} args
+     * @returns {Promise<void> | undefined}
+     */
     function requestPointerLock(...args) {
         if (document.pointerLockElement) {
             // Already locked, the engine just lost a race with a previous
@@ -95,6 +106,10 @@ export function addPointerLockWorkaround() {
         }
     }
 
+    // The old API contract is looser than the DOM typings say: on WebKit this
+    // method returns void and failures surface via the pointerlockerror event,
+    // so the wrapper legitimately matches requestPointerLock only structurally.
+    // @ts-ignore
     canvas.requestPointerLock = requestPointerLock;
 }
 
