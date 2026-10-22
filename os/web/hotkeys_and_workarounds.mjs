@@ -44,11 +44,17 @@ export function addPointerLockWorkaround() {
         const retry = () => {
             cleanup();
             try {
-                origRequestPointerLock(...args);
+                const promise = origRequestPointerLock(...args);
+                if (promise instanceof Promise) {
+                    promise.catch((e) => {
+                        // Still not in a gesture, or the browser still refuses
+                        // (for example, the page runs in an iframe that
+                        // disallows pointer lock): the player keeps playing in
+                        // absolute mouse mode, no need to surface anything.
+                        console.info(`Deferred pointer lock request failed`, e);
+                    });
+                }
             } catch (e) {
-                // Still not in a gesture, or the browser still refuses: the
-                // player keeps playing in absolute mouse mode, no need to
-                // surface anything.
                 console.info(`Deferred pointer lock request failed`, e);
             }
         };
