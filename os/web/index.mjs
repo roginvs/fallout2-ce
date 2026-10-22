@@ -1,5 +1,6 @@
 import {
     addBackquoteAsEscape,
+    addPointerLockWorkaround,
     addRightMouseButtonWorkaround,
 } from "./hotkeys_and_workarounds.mjs";
 import "./pako.mjs";
@@ -28,6 +29,7 @@ await loadEmscripten();
 
 addRightMouseButtonWorkaround();
 addBackquoteAsEscape();
+addPointerLockWorkaround();
 
 renderMenu();
 
