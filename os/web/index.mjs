@@ -29,7 +29,7 @@ await loadEmscripten();
 
 addRightMouseButtonWorkaround();
 addBackquoteAsEscape();
-addPointerLockWorkaround();
+// addPointerLockWorkaround();
 
 renderMenu();
 
