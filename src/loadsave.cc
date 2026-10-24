@@ -461,6 +461,10 @@ static bool loadSaveChangePage(int delta, LoadSaveWindowType windowType)
     return true;
 }
 
+#if defined(__EMSCRIPTEN__)
+extern "C" int do_save_idbfs_loadsave();
+#endif
+
 static void loadSavePersistSelectedSlot()
 {
     assert(_patches != nullptr);
@@ -479,6 +483,10 @@ static void loadSavePersistSelectedSlot()
 
     configSetInt(config.get(), kLoadSaveSlotDataSection, kLoadSaveSlotDataKey, _slot_cursor);
     configWrite(config.get(), path, false);
+
+#if defined(__EMSCRIPTEN__)
+    do_save_idbfs_loadsave();
+#endif
 }
 
 // 0x47B7E4
