@@ -253,9 +253,11 @@ function toggle_shift(isExiting) {
     if (!shiftUpEvent || !shiftDownEvent) {
         throw new Error("Shift key events not found");
     }
-    if (isExiting && _keyboardShiftPressed) {
-        _keyboardShiftPressed = false;
-        _sendKeyEvent(shiftUpEvent);
+    if (isExiting) {
+        if (_keyboardShiftPressed) {
+            _keyboardShiftPressed = false;
+            _sendKeyEvent(shiftUpEvent);
+        }
         return;
     }
     if (_keyboardShiftPressed) {
