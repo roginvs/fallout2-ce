@@ -12,6 +12,7 @@ import { preventAutoreload } from "./service_worker_manager.mjs";
 import { setErrorState } from "./setErrorState.mjs";
 import { setStatusText } from "./setStatusText.mjs";
 import { packTarFile, tarEnding, tarReadFile } from "./tar.mjs";
+import { waitForWasm } from "./wasm.mjs";
 
 const IDBFS_STORE_NAME = "FILE_DATA";
 
@@ -1090,6 +1091,10 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                 }
                 return data;
             };
+            // Restoring saves through Emscripten needs the WASM memory views.
+            setStatusText("Waiting for game engine");
+            await waitForWasm();
+
             await initFilesystem(
                 game.folder,
                 game.filesVersion,
