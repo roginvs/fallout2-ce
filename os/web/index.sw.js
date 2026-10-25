@@ -42,7 +42,9 @@ const CACHE_FILES = [
     "fallout2-ce.wasm",
     "fallout2-ce.js",
     "fallout2-ce.ico",
-    "fallout2-ce.wasm.map",
+    // Debug builds do not emit this optional debugging file. Requiring it here
+    // would fail service worker installation and prevent updates.
+    // "fallout2-ce.wasm.map",
 
     "manifest.json",
 
