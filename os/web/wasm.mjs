@@ -3,6 +3,25 @@ import { loadJs } from "./loadJs.mjs";
 import { setErrorState } from "./setErrorState.mjs";
 import { setStatusText } from "./setStatusText.mjs";
 
+/** @type {() => void} */
+let resolveWasm;
+/** @type {(reason: any) => void} */
+let rejectWasm;
+/** @type {Promise<void>} */
+const wasmReady = new Promise((resolve, reject) => {
+    resolveWasm = resolve;
+    rejectWasm = reject;
+});
+// Report failures before Start is clicked without consuming the rejection.
+wasmReady.catch((e) => {
+    console.warn(e);
+    setErrorState(e);
+});
+
+export function waitForWasm() {
+    return wasmReady;
+}
+
 function initializeGlobalModuleObject() {
     if (/** @type {any} */ (window).Module) {
         throw new Error(`This file must be the first to load`);
@@ -13,8 +32,9 @@ function initializeGlobalModuleObject() {
     );
     const scanUnimplemented =
         isLocalhost &&
-        new URLSearchParams(window.location.search).get("scan-unimplemented") ===
-            "1";
+        new URLSearchParams(window.location.search).get(
+            "scan-unimplemented",
+        ) === "1";
 
     /** @type {any} */ (window).Module = {
         arguments: scanUnimplemented ? ["--scan-unimplemented"] : [],
@@ -75,17 +95,19 @@ function initializeGlobalModuleObject() {
                 );
                 setStatusText("");
                 receiveInstance(inst.instance, inst.module);
-            })().catch((e) => {
-                console.warn(e);
-                setErrorState(e);
-            });
+            })().then(resolveWasm, rejectWasm);
         },
     };
 }
 
 export async function loadEmscripten() {
-    initializeGlobalModuleObject();
+    try {
+        initializeGlobalModuleObject();
 
-    setStatusText("Loading emscripten");
-    await loadJs("./fallout2-ce.js");
+        setStatusText("Loading emscripten");
+        await loadJs("./fallout2-ce.js");
+    } catch (e) {
+        rejectWasm(e);
+        throw e;
+    }
 }
