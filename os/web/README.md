@@ -126,12 +126,12 @@ npx http-server .
 
 The hash selects the menu language or game:
 
-| Hash | Behavior |
-| --- | --- |
-| Empty or unknown | Select Russian or English from the browser language. |
-| `#/ru`, `#/en` | Show the selected language's games, with the first version of each game type. |
-| `#/ru/all`, `#/en/all` | Show all configured versions in that language. |
-| `#/<folder>` | Show one game, using its configured language (`folder` from `config.mjs`). |
+| Hash                   | Behavior                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| Empty or unknown       | Select Russian or English from the browser language.                          |
+| `#/ru`, `#/en`         | Show the selected language's games, with the first version of each game type. |
+| `#/ru/all`, `#/en/all` | Show all configured versions in that language.                                |
+| `#/<folder>`           | Show one game, using its configured language (`folder` from `config.mjs`).    |
 
 The only query option is `?scan-unimplemented=1`. It passes the native
 `--scan-unimplemented` argument to the engine when it starts. It is enabled only

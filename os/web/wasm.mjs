@@ -13,8 +13,9 @@ function initializeGlobalModuleObject() {
     );
     const scanUnimplemented =
         isLocalhost &&
-        new URLSearchParams(window.location.search).get("scan-unimplemented") ===
-            "1";
+        new URLSearchParams(window.location.search).get(
+            "scan-unimplemented",
+        ) === "1";
 
     /** @type {any} */ (window).Module = {
         arguments: scanUnimplemented ? ["--scan-unimplemented"] : [],
