@@ -6,6 +6,7 @@
 #include "interpreter.h"
 #include "region.h"
 #include "window_defs.h"
+#include "window_manager.h"
 
 namespace fallout {
 
@@ -69,7 +70,7 @@ bool scriptWindowDraw();
 bool scriptWindowDelete(const char* windowName);
 int scriptWindowResize(const char* windowName, int x, int y, int width, int height);
 int scriptWindowScale(const char* windowName, int x, int y, int width, int height);
-int scriptWindowCreate(const char* windowName, int x, int y, int width, int height, ColorWithFlags color, int flags);
+int scriptWindowCreate(const char* windowName, int x, int y, int width, int height, ColorWithFlags color, WindowFlags flags);
 int scriptWindowOutput(const char* string);
 bool scriptWindowGotoXY(int x, int y);
 bool scriptWindowSelectId(int index);
@@ -96,11 +97,11 @@ bool scriptWindowDisplayBuf(unsigned char* src, int srcWidth, int srcHeight, int
 int windowGetXres();
 int windowGetYres();
 void _removeProgramReferences_3(Program* program);
-void windowInit(int resolution, int flags);
+void windowInit(int resolution, WindowManagerInitFlags flags);
 void windowClose();
 bool scriptWindowDeleteButton(const char* buttonName);
 bool scriptWindowSetButtonFlag(const char* buttonName, int value);
-bool scriptWindowAddButton(const char* buttonName, int x, int y, int width, int height, int flags);
+bool scriptWindowAddButton(const char* buttonName, int x, int y, int width, int height, ButtonFlags flags);
 bool scriptWindowAddButtonGfx(const char* buttonName, char* pressedFileName, char* normalFileName, char* hoverFileName);
 bool scriptWindowAddButtonProc(const char* buttonName, Program* program, int mouseEnterProc, int mouseExitProc, int mouseDownProc, int mouseUpProc);
 bool scriptWindowAddButtonRightProc(const char* buttonName, Program* program, int rightMouseDownProc, int rightMouseUpProc);
@@ -130,8 +131,8 @@ void _drawScaledBuf(unsigned char* dest, int destWidth, int destHeight, unsigned
 void _fillBuf3x3(unsigned char* src, int srcWidth, int srcHeight, unsigned char* dest, int destWidth, int destHeight);
 
 bool scriptWindowShowNamed(const char* name);
-bool scriptWindowSetFlag(int windowId, int bitFlag, bool enabled);
-bool scriptWindowSetNamedFlag(const char* name, int bitFlag, bool enabled);
+bool scriptWindowSetFlag(int windowId, WindowFlags bitFlag, bool enabled);
+bool scriptWindowSetNamedFlag(const char* name, WindowFlags bitFlag, bool enabled);
 
 } // namespace fallout
 
