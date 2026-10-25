@@ -7,7 +7,6 @@ import {
     reportIdbfsWriteError,
 } from "./idbfsSync.mjs";
 import { setStatusText } from "./setStatusText.mjs";
-import { waitForWasm } from "./wasm.mjs";
 
 const GAME_PATH = "./game/";
 
@@ -146,11 +145,6 @@ export async function initFilesystem(
     );
 
     const indexUnpackedRaw = await fetcher("index.txt");
-
-    // The menu and index download can run before WASM is instantiated, but
-    // restoring IDBFS files needs the memory views set up by receiveInstance.
-    setStatusText("Waiting for game engine");
-    await waitForWasm();
 
     const parsedUntransformedIndex = parseIndex(indexUnpackedRaw);
     const filesIndex = await fileIndexTransformer(parsedUntransformedIndex);
