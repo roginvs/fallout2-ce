@@ -476,6 +476,39 @@ inline TextAlignment programStackPopEnum(Program* program)
 }
 
 template <>
+inline WeaponSoundEffect programStackPopEnum(Program* program)
+{
+    int weaponSoundEffect = programStackPopInteger(program);
+    if (!weaponSoundEffectIsValid(weaponSoundEffect)) {
+        programPrintError("invalid weapon sound effect %d", weaponSoundEffect);
+    }
+
+    return static_cast<WeaponSoundEffect>(weaponSoundEffect);
+}
+
+template <>
+inline ScenerySoundEffect programStackPopEnum(Program* program)
+{
+    int scenerySoundEffect = programStackPopInteger(program);
+    if (!scenerySoundEffectIsValid(scenerySoundEffect)) {
+        programPrintError("invalid scenery sound effect %d", scenerySoundEffect);
+    }
+
+    return static_cast<ScenerySoundEffect>(scenerySoundEffect);
+}
+
+template <>
+inline SoundEffectActionType programStackPopEnum(Program* program)
+{
+    int actionType = programStackPopInteger(program);
+    if (!soundEffectActionTypeIsValid(actionType)) {
+        programPrintError("invalid sound effect action type %d", actionType);
+    }
+
+    return static_cast<SoundEffectActionType>(actionType);
+}
+
+template <>
 inline GameMovie programStackPopEnum(Program* program)
 {
     int movie = programStackPopInteger(program);
