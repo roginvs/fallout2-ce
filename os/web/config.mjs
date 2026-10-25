@@ -103,7 +103,7 @@ export const configuration = {
             filesVersion: "1",
         },
         {
-            name: "Fallout: Sonora English 1.16.4E (+ DLC) by Cambragol&NovaRain",
+            name: "Fallout: Sonora English 1.16.4E (+ DLC) by Cambragol + NovaRain",
             folder: "Fallout_Sonora_1_16_4_novarain_eng",
             lang: "en",
             gameType: "sonora",
