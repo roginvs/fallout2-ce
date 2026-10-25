@@ -3,6 +3,16 @@ import { loadJs } from "./loadJs.mjs";
 import { setErrorState } from "./setErrorState.mjs";
 import { setStatusText } from "./setStatusText.mjs";
 
+/** @type {Promise<void> | undefined} */
+let wasmReady;
+
+export function waitForWasm() {
+    if (!wasmReady) {
+        throw new Error("WASM initialization has not started");
+    }
+    return wasmReady;
+}
+
 function initializeGlobalModuleObject() {
     if (/** @type {any} */ (window).Module) {
         throw new Error(`This file must be the first to load`);
@@ -13,8 +23,9 @@ function initializeGlobalModuleObject() {
     );
     const scanUnimplemented =
         isLocalhost &&
-        new URLSearchParams(window.location.search).get("scan-unimplemented") ===
-            "1";
+        new URLSearchParams(window.location.search).get(
+            "scan-unimplemented",
+        ) === "1";
 
     /** @type {any} */ (window).Module = {
         arguments: scanUnimplemented ? ["--scan-unimplemented"] : [],
@@ -47,7 +58,7 @@ function initializeGlobalModuleObject() {
             /** @type {WebAssembly.Imports} */ info,
             /** @type {(instance: WebAssembly.Instance, module: WebAssembly.Module) => void} */ receiveInstance,
         ) => {
-            (async () => {
+            wasmReady = (async () => {
                 setStatusText(`Loading WASM binary`);
 
                 const arrayBuffer = await fetchArrayBufProgress(
@@ -75,7 +86,10 @@ function initializeGlobalModuleObject() {
                 );
                 setStatusText("");
                 receiveInstance(inst.instance, inst.module);
-            })().catch((e) => {
+            })();
+            // Report failures even before Start is clicked, while keeping the
+            // original rejection available to callers waiting for the engine.
+            wasmReady.catch((e) => {
                 console.warn(e);
                 setErrorState(e);
             });
