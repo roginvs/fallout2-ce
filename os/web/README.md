@@ -122,6 +122,30 @@ Check that everything works by starting web server and opening webpage:
 npx http-server .
 ```
 
+## URL options
+
+The hash selects the menu language or game:
+
+| Hash | Behavior |
+| --- | --- |
+| Empty or unknown | Select Russian or English from the browser language. |
+| `#/ru`, `#/en` | Show the selected language's games, with the first version of each game type. |
+| `#/ru/all`, `#/en/all` | Show all configured versions in that language. |
+| `#/<folder>` | Show one game, using its configured language (`folder` from `config.mjs`). |
+
+The only query option is `?scan-unimplemented=1`. It passes the native
+`--scan-unimplemented` argument to the engine when it starts. It is enabled only
+on `localhost`, `127.0.0.1`, or `[::1]`; other hosts and other values ignore it.
+Place it before the hash, for example:
+
+```text
+http://localhost:8080/?scan-unimplemented=1#/FalloutOfNevada
+```
+
+Open the browser console for scan output, then start the game from the menu as
+usual. Remove the query option and reload to return to normal startup. The query
+is preserved when navigating between menu hashes.
+
 ## Notes
 
 I had an issue with some hosting due to incorrect permissions on game data. Solved via:
