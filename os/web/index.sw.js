@@ -8,9 +8,6 @@ const me = self;
 /** @type Clients */
 var clients;
 
-// CMake passes the build configuration; Debug keeps DWARF in the main WASM.
-const DEBUG_BUILD = Number("@WEB_DEBUG_BUILD@") === 1;
-
 const CACHE_FILES = [
     // No need to add "custom.js"
 
@@ -45,8 +42,7 @@ const CACHE_FILES = [
     "fallout2-ce.wasm",
     "fallout2-ce.js",
     "fallout2-ce.ico",
-    // Only Release emits a separate source map. Cache it with its matching WASM.
-    ...(DEBUG_BUILD ? [] : ["fallout2-ce.wasm.map"]),
+    "fallout2-ce.wasm.map",
 
     "manifest.json",
 
@@ -89,15 +85,6 @@ me.addEventListener("install", (event) => {
 me.addEventListener("activate", (event) => {
     event.waitUntil(
         (async () => {
-            if (DEBUG_BUILD) {
-                // The engine cache is reused across updates. Drop a map left by
-                // an earlier Release build instead of keeping unused debug data.
-                const cache = await caches.open(ENGINE_CACHE_NAME);
-                await cache.delete("fallout2-ce.wasm.map", {
-                    ignoreSearch: true,
-                });
-            }
-
             for (const cacheKey of await caches.keys()) {
                 // Drop old cache schema because newer asyncfetchfs saved files into cache on its own
                 const GAMES_OLD_CACHE_PREFIX = "gamedata_";

@@ -560,7 +560,6 @@ else()
         COMMAND ${CMAKE_COMMAND}
             "-DWEB_OUTPUT_DIR=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
             "-DSERVICE_WORKER_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/os/web/index.sw.js"
-            "-DWEB_DEBUG_BUILD=$<NOT:$<CONFIG:Release>>"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/web-service-worker.cmake"
         DEPENDS ${EXECUTABLE_NAME}
         VERBATIM

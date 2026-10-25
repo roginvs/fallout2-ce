@@ -11,7 +11,6 @@ list(SORT WEB_ASSETS)
 
 # Include the worker itself so changes to its behavior also change VERSION.
 file(SHA256 "${SERVICE_WORKER_TEMPLATE}" WEB_CONTENT_HASHES)
-string(APPEND WEB_CONTENT_HASHES "\nWEB_DEBUG_BUILD:${WEB_DEBUG_BUILD}")
 foreach(asset IN LISTS WEB_ASSETS)
     file(SHA256 "${WEB_OUTPUT_DIR}/${asset}" ASSET_HASH)
     string(APPEND WEB_CONTENT_HASHES "\n${asset}:${ASSET_HASH}")
