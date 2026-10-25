@@ -875,16 +875,6 @@ void checkScriptsOpcodes()
                 printf("  - %s\n", s.c_str());
             }
         }
-
-        if (!scan_errors.empty()) {
-            printf("Incomplete scans: %zu files\n", scan_errors.size());
-            for (const auto& [fName, errors] : scan_errors) {
-                printf("%s:\n", fName.c_str());
-                for (const auto& error : errors) {
-                    printf("  - %s\n", error.c_str());
-                }
-            }
-        }
         // asdasd
     }
     printf("Done\n");
