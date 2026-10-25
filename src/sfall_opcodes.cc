@@ -173,6 +173,13 @@ static void op_set_skill_max(Program* program)
     skillSetMaximum(programStackPopInteger(program));
 }
 
+// eax_available
+// NOTE: Deprecated in sfall (EAX is not supported); always returns 0.
+static void op_eax_available(Program* program)
+{
+    programStackPushInteger(program, 0);
+}
+
 static void op_set_stat_max(Program* program)
 {
     int maximum = programStackPopInteger(program);
@@ -2501,8 +2508,11 @@ void sfallOpcodesInit()
     // 0x81c9 - void set_critter_pickpocket_mod(object, int max, int mod)
     // 0x81ca - void set_base_pickpocket_mod(int max, int mod)
 
-    // note: these are deprecated; do not implement
-    // 0x81a3 - int  eax_available()
+    // 0x81a3 - int eax_available()
+    // NOTE: Deprecated in sfall (EAX is not supported); always returns 0.
+    interpreterRegisterOpcode(0x81A3, op_eax_available);
+
+    // note: this is deprecated; do not implement
     // 0x81a4 - void set_eax_environment(int environment)
 
     // 0x81a5 - void inc_npc_level(int pid/string name)
