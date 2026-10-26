@@ -133,18 +133,19 @@ The hash selects the menu language or game:
 | `#/ru/all`, `#/en/all` | Show all configured versions in that language.                                |
 | `#/<folder>`           | Show one game, using its configured language (`folder` from `config.mjs`).    |
 
-The only query option is `?scan-unimplemented=1`. It passes the native
-`--scan-unimplemented` argument to the engine when it starts. It is enabled only
-on `localhost`, `127.0.0.1`, or `[::1]`; other hosts and other values ignore it.
-Place it before the hash, for example:
+The query options, placed before the hash, for example:
 
 ```text
-http://localhost:8080/?scan-unimplemented=1#/FalloutOfNevada
+http://localhost:8080/?scan-unimplemented=1&window=1&mouse_lock=0#/FalloutOfNevada
 ```
 
-Open the browser console for scan output, then start the game from the menu as
-usual. Remove the query option and reload to return to normal startup. The query
-is preserved when navigating between menu hashes.
+- `?scan-unimplemented=1` — pass `--scan-unimplemented` to the engine instead
+  of starting the game; the scan output goes to the browser console.
+- `?window=1` — do not go fullscreen, stay in a regular browser window
+  (`window=0` forces the usual fullscreen launch).
+- `?mouse_lock=0` — do not capture the mouse: no browser pointer lock and
+  `mouse_lock=0` in the generated `fallout2.cfg` (`mouse_lock=1` captures as
+  usual).
 
 ## Notes
 

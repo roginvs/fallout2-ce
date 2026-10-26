@@ -12,9 +12,24 @@ import { preventAutoreload } from "./service_worker_manager.mjs";
 import { setErrorState } from "./setErrorState.mjs";
 import { setStatusText } from "./setStatusText.mjs";
 import { packTarFile, tarEnding, tarReadFile } from "./tar.mjs";
+import {
+    DEBUG_BUILD,
+    WEB_COMMIT_DATE,
+    WEB_COMMIT_HASH,
+    WEB_COMMIT_SHORT_HASH,
+} from "./buildinfo.mjs";
 import { waitForWasm } from "./wasm.mjs";
 
 const IDBFS_STORE_NAME = "FILE_DATA";
+
+// Launch overrides via URL parameters, e.g. "./?window=1&mouse_lock=0#/en".
+// In debug builds the defaults are windowed without mouse capture; in release
+// builds the defaults are fullscreen with captured mouse.
+const launchParams = new URLSearchParams(window.location.search);
+const isWindowedLaunch =
+    (launchParams.get("window") ?? (DEBUG_BUILD ? "1" : "0")) === "1";
+const isMouseLock =
+    (launchParams.get("mouse_lock") ?? (DEBUG_BUILD ? "0" : "1")) === "1";
 
 // Map of config.mjs `lang` values to the `language=` value in fallout2.cfg.
 /** @type {Record<string, string>} */
@@ -713,6 +728,9 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
         // To request pointer lock on user gesture
         const requestPointerLockPromise = (() => {
+            if (!isMouseLock) {
+                return Promise.resolve();
+            }
             if (
                 !canvas.requestPointerLock ||
                 typeof canvas.requestPointerLock !== "function"
@@ -742,6 +760,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
         (async () => {
             let isGoingFullscreen;
             if (
+                !isWindowedLaunch &&
                 window.location.hostname !== "localhost" &&
                 window.location.hostname !== "127.0.0.1"
             ) {
@@ -930,7 +949,11 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         : 1;
                     iniParser.setValue("screen", "windowed", "1");
                     // Preserve pointer lock and relative mouse input in the web player.
-                    iniParser.setValue("screen", "mouse_lock", "1");
+                    iniParser.setValue(
+                        "screen",
+                        "mouse_lock",
+                        isMouseLock ? "1" : "0",
+                    );
                     iniParser.setValue(
                         "screen",
                         "resolution_x",
@@ -1338,6 +1361,18 @@ export function renderMenu() {
     const menuDiv = document.getElementById("menu_content");
     if (!menuDiv) {
         throw new Error(`No menu div!`);
+    }
+
+    const buildCommit = /** @type {HTMLAnchorElement | null} */ (
+        document.getElementById("build_commit")
+    );
+    if (buildCommit) {
+        buildCommit.href = `https://github.com/roginvs/fallout2-ce/commit/${WEB_COMMIT_HASH}`;
+        buildCommit.textContent = WEB_COMMIT_SHORT_HASH;
+    }
+    const buildCommitDate = document.getElementById("build_commit_date");
+    if (buildCommitDate) {
+        buildCommitDate.textContent = WEB_COMMIT_DATE;
     }
 
     // <no hash> - redirect to automatic language
