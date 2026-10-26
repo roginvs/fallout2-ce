@@ -12,6 +12,12 @@ import { preventAutoreload } from "./service_worker_manager.mjs";
 import { setErrorState } from "./setErrorState.mjs";
 import { setStatusText } from "./setStatusText.mjs";
 import { packTarFile, tarEnding, tarReadFile } from "./tar.mjs";
+import {
+    DEBUG_BUILD,
+    WEB_COMMIT_DATE,
+    WEB_COMMIT_HASH,
+    WEB_COMMIT_SHORT_HASH,
+} from "./buildinfo.mjs";
 import { waitForWasm } from "./wasm.mjs";
 
 const IDBFS_STORE_NAME = "FILE_DATA";
@@ -1338,6 +1344,16 @@ export function renderMenu() {
     const menuDiv = document.getElementById("menu_content");
     if (!menuDiv) {
         throw new Error(`No menu div!`);
+    }
+
+    const buildCommit = document.getElementById("build_commit");
+    if (buildCommit) {
+        buildCommit.href = `https://github.com/roginvs/fallout2-ce/commit/${WEB_COMMIT_HASH}`;
+        buildCommit.textContent = WEB_COMMIT_SHORT_HASH;
+    }
+    const buildCommitDate = document.getElementById("build_commit_date");
+    if (buildCommitDate) {
+        buildCommitDate.textContent = WEB_COMMIT_DATE;
     }
 
     // <no hash> - redirect to automatic language

@@ -17,6 +17,7 @@ const CACHE_FILES = [
     "index.html",
     "index.css",
     "mainmenu.css",
+    "buildinfo.mjs",
     "asyncfetchfs.mjs",
     "config.mjs",
     "fetchArrayBufProgress.mjs",

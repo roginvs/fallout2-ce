@@ -529,7 +529,7 @@ else()
     set(WEB_STATIC_TO_COPY "${WEB_STATIC}")
     list(REMOVE_ITEM WEB_STATIC_TO_COPY
         "${CMAKE_CURRENT_SOURCE_DIR}/os/web/index.sw.js"
-        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/index.html"
+        "${CMAKE_CURRENT_SOURCE_DIR}/os/web/buildinfo.mjs"
     )
     # Copy each file individually, excluding symlinks
     foreach(file IN LISTS WEB_STATIC_TO_COPY)
@@ -553,7 +553,12 @@ else()
         OUTPUT_VARIABLE WEB_COMMIT_DATE
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-    configure_file("os/web/index.html" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/index.html" @ONLY)
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        set(WEB_DEBUG_BUILD 0)
+    else()
+        set(WEB_DEBUG_BUILD 1)
+    endif()
+    configure_file("os/web/buildinfo.mjs" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/buildinfo.mjs" @ONLY)
 
     # Hash the finished assets, including JS/WASM, on every build.
     add_custom_target(web-service-worker ALL
