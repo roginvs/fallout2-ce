@@ -22,6 +22,15 @@ import { waitForWasm } from "./wasm.mjs";
 
 const IDBFS_STORE_NAME = "FILE_DATA";
 
+// Launch overrides via URL parameters, e.g. "./?window=1&mouse_lock=0#/en".
+// In debug builds the defaults are windowed without mouse capture; in release
+// builds the defaults are fullscreen with captured mouse.
+const launchParams = new URLSearchParams(window.location.search);
+const isWindowedLaunch =
+    (launchParams.get("window") ?? (DEBUG_BUILD ? "1" : "0")) === "1";
+const isMouseLock =
+    (launchParams.get("mouse_lock") ?? (DEBUG_BUILD ? "0" : "1")) === "1";
+
 // Map of config.mjs `lang` values to the `language=` value in fallout2.cfg.
 /** @type {Record<string, string>} */
 const GAME_CFG_LANGUAGES = {
@@ -719,6 +728,9 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
 
         // To request pointer lock on user gesture
         const requestPointerLockPromise = (() => {
+            if (!isMouseLock) {
+                return Promise.resolve();
+            }
             if (
                 !canvas.requestPointerLock ||
                 typeof canvas.requestPointerLock !== "function"
@@ -748,6 +760,7 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
         (async () => {
             let isGoingFullscreen;
             if (
+                !isWindowedLaunch &&
                 window.location.hostname !== "localhost" &&
                 window.location.hostname !== "127.0.0.1"
             ) {
@@ -936,7 +949,11 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         : 1;
                     iniParser.setValue("screen", "windowed", "1");
                     // Preserve pointer lock and relative mouse input in the web player.
-                    iniParser.setValue("screen", "mouse_lock", "1");
+                    iniParser.setValue(
+                        "screen",
+                        "mouse_lock",
+                        isMouseLock ? "1" : "0",
+                    );
                     iniParser.setValue(
                         "screen",
                         "resolution_x",
