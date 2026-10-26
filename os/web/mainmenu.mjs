@@ -1363,7 +1363,9 @@ export function renderMenu() {
         throw new Error(`No menu div!`);
     }
 
-    const buildCommit = document.getElementById("build_commit");
+    const buildCommit = /** @type {HTMLAnchorElement | null} */ (
+        document.getElementById("build_commit")
+    );
     if (buildCommit) {
         buildCommit.href = `https://github.com/roginvs/fallout2-ce/commit/${WEB_COMMIT_HASH}`;
         buildCommit.textContent = WEB_COMMIT_SHORT_HASH;
