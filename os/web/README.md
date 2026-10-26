@@ -133,43 +133,19 @@ The hash selects the menu language or game:
 | `#/ru/all`, `#/en/all` | Show all configured versions in that language.                                |
 | `#/<folder>`           | Show one game, using its configured language (`folder` from `config.mjs`).    |
 
-The query options, place them before the hash, for example:
+The query options, placed before the hash, for example:
 
 ```text
 http://localhost:8080/?scan-unimplemented=1&window=1&mouse_lock=0#/FalloutOfNevada
 ```
 
-### `?scan-unimplemented=1`
-
-Passes the native `--scan-unimplemented` argument to the engine when it starts.
-Works on any host. Open the browser console for scan output, then start the
-game from the menu as usual. Remove the query option and reload to return to
-normal startup. The query is preserved when navigating between menu hashes.
-
-### `?window=1` / `?window=0`
-
-`window=1` skips the browser fullscreen transition: the game stays in a regular
-browser window, and the start flow does not install the click-to-fullscreen
-fallback either (`F11` still works, it is the browser's own shortcut).
-`window=0` forces the usual fullscreen launch.
-
-Defaults differ per build type:
-
-| Build   | Default                                 |
-| ------- | --------------------------------------- |
-| Release | fullscreen (`window=0`)                 |
-| Debug   | windowed, no mouse capture (`window=1`) |
-
-### `?mouse_lock=1` / `?mouse_lock=0`
-
-`mouse_lock=0` never captures the mouse: the web player does not request the
-browser pointer lock on start, and the generated `fallout2.cfg` gets
-`mouse_lock=0`, so the engine does not grab the mouse either. `mouse_lock=1`
-captures the mouse as usual.
-
-Defaults differ per build type (see the table above): release captures the
-mouse, debug does not. The query option overrides the default in both
-directions.
+- `?scan-unimplemented=1` — pass `--scan-unimplemented` to the engine instead
+  of starting the game; the scan output goes to the browser console.
+- `?window=1` — do not go fullscreen, stay in a regular browser window
+  (`window=0` forces the usual fullscreen launch).
+- `?mouse_lock=0` — do not capture the mouse: no browser pointer lock and
+  `mouse_lock=0` in the generated `fallout2.cfg` (`mouse_lock=1` captures as
+  usual).
 
 ## Notes
 
