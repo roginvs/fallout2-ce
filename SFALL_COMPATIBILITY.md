@@ -92,6 +92,7 @@ See [`https://sfall-team.github.io/sfall/`](https://sfall-team.github.io/sfall/)
 | Maps and encounters | in_world_map<br>force_encounter{_with_flags}<br>set_map_time_multi<br>get/set_map_enter_position<br>exec_map_update_scripts<br>get/set_terrain_name<br>set_town_title<br>remove_wm_town_names<br>encounter_detection<br>get/set_can_rest_on_map<br>set_rest_heal_time<br>set_rest_mode<br>set_worldmap_heal_time | implemented: in_world_map, force_encounter, force_encounter_with_flags, set_map_time_multi, get_terrain_name, set_terrain_name, set_town_title, remove_wm_town_names, encounter_detection, set_rest_heal_time, set_rest_mode | - |
 | Maps and encounters / Worldmap | get_world_map_x/y_pos<br>set_world_map_pos | ✅ | - |
 | Audio | play_sfall_sound<br>stop_sfall_sound | ✅ | `play_sfall_sound` currently supports `.acm`, `.wav`, `.ogg` formats, and can load from `.dat` archives. `.mp3` is not yet supported. |
+| Audio / Deprecated EAX | eax_available<br>set_eax_environment | stub: `eax_available` | Both are deprecated in sfall (EAX is long gone). `eax_available` is stubbed and always returns 0; `set_eax_environment` will not be implemented. |
 | Combat / Weapons and ammo | get/set_weapon_ammo_pid<br>get/set_weapon_ammo_count | ✅ | - |
 | Sfall / Version | sfall_ver_major<br>sfall_ver_minor<br>sfall_ver_build | ✅ | CE currently reports `4.3.4` |
 | Utility / Math | log, exponent, round, sqrt, abs, sin, cos, tan, arctan, ceil, ^, floor2, div | ✅ | - |

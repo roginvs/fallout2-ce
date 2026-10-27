@@ -1452,7 +1452,7 @@ int wmWorldMap_init()
         return -1;
     }
 
-    snprintf(path, sizeof(path), "%s%s", asc_5186C8, "worldmap.msg");
+    snprintf(path, sizeof(path), "%s%s", gGameMsgPath, "worldmap.msg");
 
     if (!messageListLoad(&wmMsgFile, path)) {
         return -1;
@@ -5025,7 +5025,7 @@ static int wmInterfaceInit()
     const char* backgroundSoundFileName = gameSoundGetMusicOverride(
         wmGenData.isInCar ? "worldmap_car_music" : "worldmap_music",
         wmGenData.isInCar ? "20car" : "23world");
-    _gsound_background_play_level_music(backgroundSoundFileName, GSOUND_LIMIT_AFTER);
+    _gsound_background_play_level_music(backgroundSoundFileName, GameSoundReadLimitMode::LimitAfter);
 
     // CE: Hide entire interface, not just indicator bar, and disable tile
     // engine.
@@ -7444,7 +7444,7 @@ int wmMapMusicStart()
             break;
         }
 
-        if (_gsound_background_play_level_music(map->music, GSOUND_LIMIT_AFTER) == -1) {
+        if (_gsound_background_play_level_music(map->music, GameSoundReadLimitMode::LimitAfter) == -1) {
             break;
         }
 

@@ -246,7 +246,7 @@ void endgamePlayMovie()
     _endgame_maybe_done = 0;
     tickersAdd(_endgame_movie_bk_process);
     backgroundSoundSetEndCallback(_endgame_movie_callback);
-    backgroundSoundLoad(gameSoundGetMusicOverride("endgame_movie_music0", "akiss"), GSOUND_LIMIT_AFTER, GSOUND_STREAM, GSOUND_NO_LOOP);
+    backgroundSoundLoad(gameSoundGetMusicOverride("endgame_movie_music0", "akiss"), GameSoundReadLimitMode::LimitAfter, GameSoundStorageType::Stream, GameSoundLoopingMode::NoLoop);
     inputPauseForTocks(3000);
 
     endgamePlayConfiguredMovie();
@@ -279,20 +279,20 @@ bool endgameShouldPlayMovieAfterSlideshow()
 
 static void endgamePlayConfiguredMovie()
 {
-    int movie = -1;
+    GameMovie movie = MOVIE_INVALID;
 
     int gender = critterGetStat(gDude, STAT_GENDER);
     if (gender == GENDER_FEMALE) {
-        configGetInt(&gContentConfig, CONTENT_CONFIG_MOVIES_SECTION, "endgame_movie_female", &movie, -1);
+        configGetEnum<GameMovie>(&gContentConfig, CONTENT_CONFIG_MOVIES_SECTION, "endgame_movie_female", &movie, MOVIE_INVALID);
     } else {
-        configGetInt(&gContentConfig, CONTENT_CONFIG_MOVIES_SECTION, "endgame_movie_male", &movie, -1);
+        configGetEnum<GameMovie>(&gContentConfig, CONTENT_CONFIG_MOVIES_SECTION, "endgame_movie_male", &movie, MOVIE_INVALID);
     }
 
-    if (movie >= 0 && movie < GAME_MOVIE_MAX_COUNT) {
+    if (gameMovieExtendedIsValid(movie)) {
         // Match sfall's Fallout 1 endgame hook: let the endgame track play
         // through the movie and do not add another movie fade.
         inputPauseForTocks(1500);
-        gameMoviePlay(movie, 0);
+        gameMoviePlay(movie, GameMovieFlags::None);
     }
 }
 
@@ -742,7 +742,7 @@ static void endgameEndingVoiceOverInit(const char* fileBaseName)
     // Build speech file path.
     snprintf(path, sizeof(path), "%s%s", "narrator\\", fileBaseName);
 
-    if (speechLoad(path, GSOUND_LOAD_NO_PLAY, GSOUND_STREAM, GSOUND_NO_LOOP) != -1) {
+    if (speechLoad(path, GameSoundReadLimitMode::LoadNoPlay, GameSoundStorageType::Stream, GameSoundLoopingMode::NoLoop) != -1) {
         gEndgameEndingVoiceOverSpeechLoaded = true;
     }
 
@@ -954,7 +954,7 @@ static void _endgame_movie_callback()
 static void _endgame_movie_bk_process()
 {
     if (_endgame_maybe_done) {
-        backgroundSoundLoad(gameSoundGetMusicOverride("endgame_movie_music1", "10labone"), GSOUND_LIMIT_BEFORE, GSOUND_STREAM, GSOUND_LOOP);
+        backgroundSoundLoad(gameSoundGetMusicOverride("endgame_movie_music1", "10labone"), GameSoundReadLimitMode::LimitBefore, GameSoundStorageType::Stream, GameSoundLoopingMode::Loop);
         backgroundSoundSetEndCallback(nullptr);
         tickersRemove(_endgame_movie_bk_process);
     }
@@ -1224,7 +1224,7 @@ void endgameSetupDeathEnding(int reason)
         }
         break;
     case ENDGAME_DEATH_ENDING_REASON_TIMEOUT:
-        gameMoviePlay(MOVIE_TIMEOUT, GAME_MOVIE_FADE_IN | GAME_MOVIE_FADE_OUT | GAME_MOVIE_PAUSE_MUSIC);
+        gameMoviePlay(MOVIE_TIMEOUT, GameMovieFlags::FadeIn | GameMovieFlags::FadeOut | GameMovieFlags::PauseMusic);
         break;
     }
 

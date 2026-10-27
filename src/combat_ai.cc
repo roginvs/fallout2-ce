@@ -2512,6 +2512,15 @@ static HitMode _ai_pick_hit_mode(Object* attacker, Object* weapon, Object* defen
         if (intelligence < 6 || objectGetDistanceBetween(attacker, defender) < 10) {
             if (randomBetween(1, ai->secondary_freq) == 1) {
                 useSecondaryMode = true;
+
+                // SFALL: Fix to reduce friendly fire in burst attacks (for
+                // an unset `area_attack_mode`): unless the attacker is
+                // dumb, a burst that isn't safe isn't chosen.
+                if (intelligence >= 3
+                    && weaponGetAnimationForHitMode(weapon, HIT_MODE_RIGHT_WEAPON_SECONDARY) == ANIM_FIRE_BURST
+                    && _combat_safety_invalidate_weapon(attacker, weapon, HIT_MODE_RIGHT_WEAPON_SECONDARY, defender, nullptr)) {
+                    useSecondaryMode = false;
+                }
             }
         }
     }
@@ -2539,7 +2548,7 @@ static HitMode _ai_pick_hit_mode(Object* attacker, Object* weapon, Object* defen
     if (useSecondaryMode) {
         if (attackType != ATTACK_TYPE_THROW
             || _ai_search_inven_weap(attacker, false, defender) != nullptr
-            || statRoll(attacker, STAT_INTELLIGENCE, 0, nullptr) <= 1) {
+            || rollIsFailure(statRoll(attacker, STAT_INTELLIGENCE, 0, nullptr))) {
             return HIT_MODE_RIGHT_WEAPON_SECONDARY;
         }
     }
@@ -2618,14 +2627,22 @@ static int _ai_move_steps_closer(Object* critter, Object* target, int actionPoin
         _cai_retargetTileFromFriendlyFire(critter, target, &tile);
     }
 
+    // SFALL: Fix for multihex critters moving too close and overlapping their
+    // targets in combat: when the target or the critter is multihex, to the
+    // object only when the tile isn't retargeted, else to the tile.
+    bool toObject = false;
+    if ((target->flags & OBJECT_MULTIHEX) != OBJECT_NONE || (critter->flags & OBJECT_MULTIHEX) != OBJECT_NONE) {
+        toObject = target->tile == tile;
+    }
+
     if (actionPoints >= critterGetStat(critter, STAT_MAXIMUM_ACTION_POINTS) / 2 && artCritterFrmIdShouldRun(FrmId(critter))) {
-        if ((target->flags & OBJECT_MULTIHEX) != OBJECT_NONE) {
+        if (toObject) {
             animationRegisterRunToObject(critter, target, actionPoints, 0);
         } else {
             animationRegisterRunToTile(critter, tile, critter->elevation, actionPoints, 0);
         }
     } else {
-        if ((target->flags & OBJECT_MULTIHEX) != OBJECT_NONE) {
+        if (toObject) {
             animationRegisterMoveToObject(critter, target, actionPoints, 0);
         } else {
             animationRegisterMoveToTile(critter, tile, critter->elevation, actionPoints, 0);
@@ -2647,6 +2664,32 @@ static int _ai_move_steps_closer(Object* critter, Object* target, int actionPoin
 static int _ai_move_closer(Object* a1, Object* a2, bool taunt)
 {
     return _ai_move_steps_closer(a1, a2, a1->data.critter.combat.ap, taunt);
+}
+
+// SFALL: The first object blocking a multihex [critter] moving to [tile]:
+// the tiles around it, or, next to it, the three ahead of it.
+static Object* aiMultihexMoveIsBlocking(Object* critter, int tile)
+{
+    if (tileDistanceBetween(critter->tile, tile) > 1) {
+        for (int rotation = ROTATION_COUNT - 1; rotation >= 0; rotation--) {
+            int aroundTile = tileGetTileInDirection(tile, static_cast<Rotation>(rotation), 1);
+            Object* obstacle = _obj_blocking_at(critter, aroundTile, critter->elevation);
+            if (obstacle != nullptr) {
+                return obstacle;
+            }
+        }
+        return nullptr;
+    }
+
+    int rotation = tileGetRotationTo(critter->tile, tile);
+    for (int turn : { 0, 1, 5 }) {
+        int aheadTile = tileGetTileInDirection(tile, static_cast<Rotation>((rotation + turn) % ROTATION_COUNT), 1);
+        Object* obstacle = _obj_blocking_at(critter, aheadTile, critter->elevation);
+        if (obstacle != nullptr) {
+            return obstacle;
+        }
+    }
+    return nullptr;
 }
 
 // 0x42A1D4
@@ -2717,7 +2760,11 @@ static int _cai_retargetTileFromFriendlyFire(Object* source, Object* target, int
                 break;
             }
 
-            if (_obj_blocking_at(nullptr, tile, source->elevation) == nullptr) {
+            // SFALL: Check neighboring tiles to prevent critters from
+            // overlapping other object tiles when moving to the retargeted
+            // tile (the source itself doesn't block it).
+            if (_obj_blocking_at(source, tile, source->elevation) == nullptr
+                && ((source->flags & OBJECT_MULTIHEX) == OBJECT_NONE || aiMultihexMoveIsBlocking(source, tile) == nullptr)) {
                 int distance = tileDistanceBetween(*tilePtr, tile);
                 if (distance < minDistance) {
                     minDistance = distance;
@@ -2951,7 +2998,7 @@ static int _ai_try_attack(Object* attacker, Object* defender)
 
                 if (roundsLoaded > 0) {
                     int volume = _gsound_compute_relative_volume(attacker);
-                    const char* sfx = sfxBuildWeaponName(WEAPON_SOUND_EFFECT_READY, weapon, hitMode, nullptr);
+                    const char* sfx = sfxBuildWeaponName(WeaponSoundEffect::Ready, weapon, hitMode, nullptr);
                     _gsound_play_sfx_file_volume(sfx, volume);
                     _ai_magic_hands(attacker, weapon, 5002);
 
@@ -2979,7 +3026,7 @@ static int _ai_try_attack(Object* attacker, Object* defender)
 
                         if (remainingAmmoQuantity != -1) {
                             int volume = _gsound_compute_relative_volume(attacker);
-                            const char* sfx = sfxBuildWeaponName(WEAPON_SOUND_EFFECT_READY, weapon, hitMode, nullptr);
+                            const char* sfx = sfxBuildWeaponName(WeaponSoundEffect::Ready, weapon, hitMode, nullptr);
                             _gsound_play_sfx_file_volume(sfx, volume);
                             _ai_magic_hands(attacker, weapon, 5002);
 
@@ -2998,7 +3045,7 @@ static int _ai_try_attack(Object* attacker, Object* defender)
                     }
                 } else {
                     int volume = _gsound_compute_relative_volume(attacker);
-                    const char* sfx = sfxBuildWeaponName(WEAPON_SOUND_EFFECT_OUT_OF_AMMO, weapon, hitMode, nullptr);
+                    const char* sfx = sfxBuildWeaponName(WeaponSoundEffect::OutOfAmmo, weapon, hitMode, nullptr);
                     _gsound_play_sfx_file_volume(sfx, volume);
                     _ai_magic_hands(attacker, weapon, 5001);
 
@@ -3157,7 +3204,7 @@ void aiAttemptWeaponReload(Object* critter, int animate)
 
         if (loadedRounds != 0 && objectIsPartyMember(critter)) {
             int volume = _gsound_compute_relative_volume(critter);
-            const char* sfx = sfxBuildWeaponName(WEAPON_SOUND_EFFECT_READY, weapon, HIT_MODE_RIGHT_WEAPON_PRIMARY, nullptr);
+            const char* sfx = sfxBuildWeaponName(WeaponSoundEffect::Ready, weapon, HIT_MODE_RIGHT_WEAPON_PRIMARY, nullptr);
             _gsound_play_sfx_file_volume(sfx, volume);
 
             if (animate) {
@@ -3817,7 +3864,7 @@ static int aiMessageListInit()
     }
 
     char path[COMPAT_MAX_PATH];
-    snprintf(path, sizeof(path), "%s%s", asc_5186C8, "combatai.msg");
+    snprintf(path, sizeof(path), "%s%s", gGameMsgPath, "combatai.msg");
 
     if (!messageListLoad(&gCombatAiMessageList, path)) {
         return -1;

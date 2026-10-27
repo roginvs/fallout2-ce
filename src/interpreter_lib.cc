@@ -15,6 +15,7 @@
 #include "svga.h"
 #include "text_font.h"
 #include "window.h"
+#include "window_defs.h"
 #include "window_manager_private.h"
 
 namespace fallout {
@@ -194,7 +195,7 @@ void opFillWin3x3(Program* program)
 // 0x461850 op_format
 static void opFormat(Program* program)
 {
-    int textAlignment = programStackPopInteger(program);
+    TextAlignment textAlignment = programStackPopEnum<TextAlignment>(program);
     int height = programStackPopInteger(program);
     int width = programStackPopInteger(program);
     int y = programStackPopInteger(program);
@@ -344,12 +345,8 @@ static void opPrintRect(Program* program)
 {
     scriptWindowSelectId(program->windowId);
 
-    int v1 = programStackPopInteger(program);
-    if (v1 > 2) {
-        programFatalError("Invalid arg 3 given to printrect, expecting int");
-    }
-
-    int v2 = programStackPopInteger(program);
+    TextAlignment textAlignment = programStackPopEnum<TextAlignment>(program);
+    int width = programStackPopInteger(program);
 
     ProgramValue value = programStackPopValue(program);
     char string[80];
@@ -365,7 +362,7 @@ static void opPrintRect(Program* program)
         break;
     }
 
-    if (!scriptWindowPrintRect(string, v2, v1)) {
+    if (!scriptWindowPrintRect(string, width, textAlignment)) {
         programFatalError("Error in printrect");
     }
 }
@@ -762,7 +759,7 @@ void opCreateWin(Program* program)
     width = (width * windowGetXres() + 639) / 640;
     height = (height * windowGetYres() + 479) / 480;
 
-    if (scriptWindowCreate(windowName, x, y, width, height, COLOR_BLACK | DRAW_TEXT_FLAG_NONE, 0) == -1) {
+    if (scriptWindowCreate(windowName, x, y, width, height, COLOR_BLACK | DRAW_TEXT_FLAG_NONE, WINDOW_NONE) == -1) {
         programFatalError("Couldn't create window.");
     }
 }
@@ -1099,7 +1096,7 @@ void opAddButton(Program* program)
     y = (y * windowGetYres() + 479) / 480;
     x = (x * windowGetXres() + 639) / 640;
 
-    scriptWindowAddButton(buttonName, x, y, width, height, 0);
+    scriptWindowAddButton(buttonName, x, y, width, height, BUTTON_FLAG_NONE);
 }
 
 // addbuttontext
@@ -1928,58 +1925,15 @@ static int intLibSoundPlay(char* fileName, int mode)
     }
 
     SoundError rc = soundLoad(sound, fileName);
-    if (rc != SOUND_NO_ERROR) {
-        goto err;
+
+    if (rc == SOUND_NO_ERROR) {
+        rc = soundPlay(sound);
+        if (rc == SOUND_NO_ERROR) {
+            return index | 0xA0000000;
+        }
     }
 
-    rc = soundPlay(sound);
-
-    // TODO: Maybe wrong.
-    switch (rc) {
-    case SOUND_NO_DEVICE:
-        debugPrint("soundPlay error: %s\n", "SOUND_NO_DEVICE");
-        goto err;
-    case SOUND_NOT_INITIALIZED:
-        debugPrint("soundPlay error: %s\n", "SOUND_NOT_INITIALIZED");
-        goto err;
-    case SOUND_NO_SOUND:
-        debugPrint("soundPlay error: %s\n", "SOUND_NO_SOUND");
-        goto err;
-    case SOUND_FUNCTION_NOT_SUPPORTED:
-        debugPrint("soundPlay error: %s\n", "SOUND_FUNC_NOT_SUPPORTED");
-        goto err;
-    case SOUND_NO_BUFFERS_AVAILABLE:
-        debugPrint("soundPlay error: %s\n", "SOUND_NO_BUFFERS_AVAILABLE");
-        goto err;
-    case SOUND_FILE_NOT_FOUND:
-        debugPrint("soundPlay error: %s\n", "SOUND_FILE_NOT_FOUND");
-        goto err;
-    case SOUND_ALREADY_PLAYING:
-        debugPrint("soundPlay error: %s\n", "SOUND_ALREADY_PLAYING");
-        goto err;
-    case SOUND_NOT_PLAYING:
-        debugPrint("soundPlay error: %s\n", "SOUND_NOT_PLAYING");
-        goto err;
-    case SOUND_ALREADY_PAUSED:
-        debugPrint("soundPlay error: %s\n", "SOUND_ALREADY_PAUSED");
-        goto err;
-    case SOUND_NOT_PAUSED:
-        debugPrint("soundPlay error: %s\n", "SOUND_NOT_PAUSED");
-        goto err;
-    case SOUND_INVALID_HANDLE:
-        debugPrint("soundPlay error: %s\n", "SOUND_INVALID_HANDLE");
-        goto err;
-    case SOUND_NO_MEMORY_AVAILABLE:
-        debugPrint("soundPlay error: %s\n", "SOUND_NO_MEMORY");
-        goto err;
-    case SOUND_UNKNOWN_ERROR:
-        debugPrint("soundPlay error: %s\n", "SOUND_ERROR");
-        goto err;
-    }
-
-    return index | 0xA0000000;
-
-err:
+    debugPrint("intLibSoundPlay: %d, %s\n", rc, soundGetErrorDescription(rc));
 
     soundDelete(sound);
     gIntLibSounds[index] = nullptr;

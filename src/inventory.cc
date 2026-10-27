@@ -1595,7 +1595,7 @@ static int inventoryMessageListInit()
     if (!messageListInit(&gInventoryMessageList))
         return -1;
 
-    snprintf(path, sizeof(path), "%s%s", asc_5186C8, "inventry.msg");
+    snprintf(path, sizeof(path), "%s%s", gGameMsgPath, "inventry.msg");
     if (!messageListLoad(&gInventoryMessageList, path))
         return -1;
 
@@ -1831,7 +1831,7 @@ static bool _setup_inventory(int inventoryWindowType)
         windowGetRect(gInventoryBarterBackgroundWindow, &bgWindowRect);
         int tradeWindowX = bgWindowRect.left + INVENTORY_TRADE_WINDOW_X;
         int tradeWindowY = bgWindowRect.top + INVENTORY_TRADE_WINDOW_Y;
-        gInventoryWindow = windowCreate(tradeWindowX, tradeWindowY, INVENTORY_TRADE_WINDOW_WIDTH, tradeWindowHeight, static_cast<ColorWithFlags>(257), 0);
+        gInventoryWindow = windowCreate(tradeWindowX, tradeWindowY, INVENTORY_TRADE_WINDOW_WIDTH, tradeWindowHeight, static_cast<ColorWithFlags>(257), WINDOW_NONE);
         gInventoryWindowMaxX = tradeWindowX + INVENTORY_TRADE_WINDOW_WIDTH;
         gInventoryWindowMaxY = tradeWindowY + tradeWindowHeight;
 
@@ -2164,7 +2164,7 @@ static void _exit_inventory(bool shouldEnableIso)
             Object* critter = attack.extras[index];
             if (critter != gDude
                 && critter->data.critter.combat.team != gDude->data.critter.combat.team
-                && statRoll(critter, STAT_PERCEPTION, 0, nullptr) >= ROLL_SUCCESS) {
+                && rollIsSuccess(statRoll(critter, STAT_PERCEPTION, 0, nullptr))) {
                 critterSetWhoHitMe(critter, gDude);
 
                 if (watcher == nullptr) {
@@ -6269,7 +6269,7 @@ static InventoryAmmoMoveResult _drop_ammo_into_weapon(Object* weapon, Object* am
         return INVENTORY_AMMO_MOVE_RESULT_FAILED;
     }
 
-    const char* sfx = sfxBuildWeaponName(WEAPON_SOUND_EFFECT_READY, weapon, HIT_MODE_RIGHT_WEAPON_PRIMARY, nullptr);
+    const char* sfx = sfxBuildWeaponName(WeaponSoundEffect::Ready, weapon, HIT_MODE_RIGHT_WEAPON_PRIMARY, nullptr);
     soundPlayFile(sfx);
 
     return INVENTORY_AMMO_MOVE_RESULT_SUCCESS;
