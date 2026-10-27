@@ -74,6 +74,10 @@ portion can be configured directly: set `endgame_play_after_slideshow=0`,
 `endgame_movie_male=10`, and `endgame_movie_female=11` for the sfall Fallout 1
 movie sequence. Time-limit and item-weight behavior are separate features.
 
+## Message language fallback
+
+Like sfall, CE uses `text/english/` when a message file or an individual message ID is missing from the selected language. Existing localized entries, including empty text, take precedence. Fallback entries include both English text and audio names.
+
 ## Opcodes / Metarules
 
 See [`https://sfall-team.github.io/sfall/`](https://sfall-team.github.io/sfall/) for documentation on specific functions.
