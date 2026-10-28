@@ -3485,7 +3485,7 @@ static int wmWorldMapFunc(int a1)
             break;
         }
 
-        int mouseEvent = mouseGetEvent();
+        MouseButtonEvent mouseEvent = mouseGetEvent();
 
         if (wmGenData.isWalking && wmTravelTickDue(now)) {
             wmPartyWalkingStep();
@@ -3589,7 +3589,7 @@ static int wmWorldMapFunc(int a1)
             }
         }
 
-        if ((mouseEvent & MOUSE_EVENT_LEFT_BUTTON_DOWN) != 0 && (mouseEvent & MOUSE_EVENT_LEFT_BUTTON_REPEAT) == 0) {
+        if ((mouseEvent & MouseButtonEvent::LeftButtonDown) != MouseButtonEvent::None && (mouseEvent & MouseButtonEvent::LeftButtonRepeat) == MouseButtonEvent::None) {
             if (mouseHitTestInWindow(wmBkWin, WM_VIEW_X, WM_VIEW_Y, WM_VIEW_WIDTH + WM_VIEW_X, WM_VIEW_HEIGHT + WM_VIEW_Y)) {
                 if (!wmGenData.isWalking && !mousePressed && abs(wmGenData.worldPosX - worldX) < 5 && abs(wmGenData.worldPosY - worldY) < 5) {
                     mousePressed = true;
@@ -3602,7 +3602,7 @@ static int wmWorldMapFunc(int a1)
             }
         }
 
-        if ((mouseEvent & MOUSE_EVENT_LEFT_BUTTON_UP) != 0) {
+        if ((mouseEvent & MouseButtonEvent::LeftButtonUp) != MouseButtonEvent::None) {
             if (mousePressed) {
                 mousePressed = false;
                 wmInterfaceRefresh();
@@ -3728,7 +3728,7 @@ static int wmWorldMapFunc(int a1)
             }
         }
 
-        if ((mouseEvent & MOUSE_EVENT_WHEEL) != 0) {
+        if ((mouseEvent & MouseButtonEvent::Wheel) != MouseButtonEvent::None) {
             int wheelX;
             int wheelY;
             mouseGetWheel(&wheelX, &wheelY);

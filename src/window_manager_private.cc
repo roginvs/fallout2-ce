@@ -1414,9 +1414,9 @@ int process_pull_down(int win, Rect* rect, char** items, int itemsLength, ColorW
             }
         }
 
-        if ((mouseGetEvent() & MOUSE_EVENT_LEFT_BUTTON_UP) != 0
-            || ((mouseGetEvent() & MOUSE_EVENT_LEFT_BUTTON_DOWN) != 0
-                && (mouseGetEvent() & MOUSE_EVENT_LEFT_BUTTON_REPEAT) == 0)) {
+        if ((mouseGetEvent() & MouseButtonEvent::LeftButtonUp) != MouseButtonEvent::None
+            || ((mouseGetEvent() & MouseButtonEvent::LeftButtonDown) != MouseButtonEvent::None
+                && (mouseGetEvent() & MouseButtonEvent::LeftButtonRepeat) == MouseButtonEvent::None)) {
             if (_mouse_click_in(rect->left, rect->top + 8, rect->right, rect->bottom - 9)) {
                 rc = focusedIndex;
             } else {

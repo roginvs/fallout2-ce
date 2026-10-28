@@ -24,6 +24,7 @@
 #include "svga.h"
 #include "text_font.h"
 #include "version.h"
+#include "window.h"
 #include "window_manager.h"
 
 #include "platform/git_version.h"
@@ -835,7 +836,7 @@ int mainMenuWindowHandleEvents()
                 rc = MAIN_MENU_SCREENSAVER;
                 continue;
             } else if (keyCode == 1111) {
-                if (!(mouseGetEvent() & MOUSE_EVENT_LEFT_BUTTON_REPEAT)) {
+                if ((mouseGetEvent() & MouseButtonEvent::LeftButtonRepeat) == MouseButtonEvent::None) {
                     // NOTE: Uninline.
                     main_menu_play_sound("nmselec0");
                 }
