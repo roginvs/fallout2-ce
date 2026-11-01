@@ -1,0 +1,172 @@
+name: Sync upstream main
+
+# Opens a cross-repository pull request that brings fallout2-ce/fallout2-ce
+# (main) into this fork's main: base = main (this repo), head = the upstream
+# branch itself (fallout2-ce:main), exactly like the compare view
+# main...fallout2-ce:fallout2-ce:main.
+# The head branch is live upstream, so an open PR updates itself as the
+# upstream advances. GitHub allows only ONE open PR per head branch; the job
+# refreshes the existing PR instead of creating duplicates.
+# The PR body groups the new upstream commits by pull request and lists
+# direct commits (made without a PR) separately.
+# The creation goes through the GraphQL createPullRequest mutation because
+# `gh pr create --head` does not support an organization-owned head repo.
+
+on:
+  schedule:
+    # Daily at 04:00 UTC
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/fallout2-ce/fallout2-ce.git
+          git fetch upstream main
+
+      - name: List new upstream commits
+        id: commits
+        run: |
+          # --first-parent walks the upstream line only: a merge-commit PR is a
+          # single entry here, so its constituent commits are not listed (and
+          # not misclassified as direct commits). Squash PRs are single commits
+          # anyway.
+          git log --format="%H%x09%s" --reverse --first-parent HEAD..upstream/main > /tmp/new-commits.tsv
+          COUNT=$(grep -c . /tmp/new-commits.tsv || true)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "New upstream commits: $COUNT"
+          cat /tmp/new-commits.tsv
+          test "$COUNT" -gt 0 || echo "Up to date, nothing to do"
+
+      - name: Classify commits into pull requests and direct commits
+        if: steps.commits.outputs.count != '0'
+        run: |
+          python3 - <<'PY'
+          import re
+
+          prs = {}
+          direct = []
+          for line in open("/tmp/new-commits.tsv"):
+              line = line.rstrip("\n")
+              if not line:
+                  continue
+              sha, subject = line.split("\t", 1)
+              m = re.search(r"\(#(\d+)\)\s*$", subject)
+              if not m:
+                  m = re.match(r"^Merge pull request #(\d+)", subject)
+              if m:
+                  n = m.group(1)
+                  title = re.sub(r"\s*\(#\d+\)\s*$", "", subject)
+                  title = re.sub(r"^Merge pull request #\d+ from \S+\s*", "", title)
+                  if not title:
+                      title = subject
+                  prs[n] = title
+              else:
+                  direct.append(f"`{sha[:8]}` {subject}")
+
+          with open("/tmp/prs.txt", "w") as f:
+              for n in sorted(prs, key=int):
+                  link = f"https://github.com/fallout2-ce/fallout2-ce/pull/{n}"
+                  f.write(f"[#{n}]({link}) {prs[n]}\n")
+          with open("/tmp/direct-commits.txt", "w") as f:
+              for line in direct:
+                  f.write(line + "\n")
+
+          print(f"Pull requests: {len(prs)}, direct commits: {len(direct)}")
+          PY
+
+      - name: Build PR body
+        if: steps.commits.outputs.count != '0'
+        run: |
+          COMMIT_COUNT=$(wc -l < /tmp/new-commits.tsv)
+          {
+            echo "Automated sync of \`fallout2-ce/fallout2-ce\` (main) into this fork."
+            echo
+            echo "The PR updates itself as the upstream branch advances; merge it whenever you are ready."
+            echo
+            echo "## Merged upstream pull requests"
+            echo
+            if [ -s /tmp/prs.txt ]; then
+              sed 's/^/- /' /tmp/prs.txt
+            else
+              echo "_none_"
+            fi
+            echo
+            echo "## Commits without a pull request"
+            echo
+            if [ -s /tmp/direct-commits.txt ]; then
+              sed 's/^/- /' /tmp/direct-commits.txt
+            else
+              echo "_none_"
+            fi
+            echo
+            echo "<details><summary>All commits ($COMMIT_COUNT)</summary>"
+            echo
+            sed 's/^/- /' /tmp/new-commits.tsv | cut -f2-
+            echo
+            echo "</details>"
+            echo
+            echo "If this PR shows merge conflicts: close it, merge \`fallout2-ce/main\` into \`main\` manually, the next scheduled run opens a fresh PR."
+          } > /tmp/pr-body.md
+          cat /tmp/pr-body.md
+
+      - name: Refresh existing sync PR
+        id: refresh
+        if: steps.commits.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=$(gh pr list --state open --limit 500 --base main \
+            --json number,baseRefName,headRefName,headRepositoryOwner \
+            -q '.[] | select(.baseRefName == "main" and .headRefName == "main" and .headRepositoryOwner.login == "fallout2-ce") | .number' \
+            | head -1)
+          if [ -n "$PR" ]; then
+            echo "Sync PR #$PR already exists, refreshing description"
+            gh pr edit "$PR" --body-file /tmp/pr-body.md
+            echo "existing=1" >> "$GITHUB_OUTPUT"
+            echo "number=$PR" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open sync PR
+        if: steps.commits.outputs.count != '0' && steps.refresh.outputs.existing != '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BASE_ID=$(gh api repos/"$GITHUB_REPOSITORY" --jq '.node_id')
+          HEAD_ID=$(gh api repos/fallout2-ce/fallout2-ce --jq '.node_id')
+          TITLE="Sync upstream fallout2-ce main ($(date -u +%F))"
+          gh api graphql \
+            -f query='
+              mutation($base: ID!, $head: ID!, $title: String!, $body: String!) {
+                createPullRequest(input: {
+                  repositoryId: $base,
+                  baseRefName: "main",
+                  headRefName: "main",
+                  headRepositoryId: $head,
+                  title: $title,
+                  body: $body
+                }) {
+                  pullRequest { number url }
+                }
+              }' \
+            -f base="$BASE_ID" \
+            -f head="$HEAD_ID" \
+            -f title="$TITLE" \
+            -f body="$(cat /tmp/pr-body.md)"
