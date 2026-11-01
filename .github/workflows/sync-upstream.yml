@@ -143,10 +143,12 @@ jobs:
             echo
             echo "## Verification"
             echo
+            echo "The sync branch is **not** a copy of upstream main: it is this fork's \`main\` with the organization merged in, so it contains both the upstream work and this fork's own changes. That is expected."
+            echo
             echo "- Synced up to upstream commit [\`fallout2-ce@\`${UPSTREAM_SHORT}](https://github.com/fallout2-ce/fallout2-ce/commit/${UPSTREAM_SHA})"
             echo "- Sync branch [\`sync/upstream-main@\`${SYNC_SHORT}](https://github.com/roginvs/fallout2-ce/commit/${SYNC_SHA}) — merge of [\`main@\`${MAIN_SHORT}](https://github.com/roginvs/fallout2-ce/commit/${MAIN_SHA}) and the upstream commit above."
             echo "- [Upstream commits missing from the sync branch](https://github.com/roginvs/fallout2-ce/compare/sync/upstream-main...fallout2-ce:fallout2-ce:main) — right after this run this compare must be empty (\"There isn't anything to compare\"), which proves the branch contains everything from the organization."
-            echo "- [What this fork carries beyond upstream](https://github.com/fallout2-ce/fallout2-ce/compare/main...roginvs:fallout2-ce:sync/upstream-main) — informational, shows this fork's own divergence."
+            echo "- [What this fork carries beyond upstream](https://github.com/fallout2-ce/fallout2-ce/compare/main...roginvs:fallout2-ce:sync/upstream-main) — informational: this fork's own divergence from the organization, expected to be non-empty."
             echo "- Built by [workflow run #${{ github.run_number }}](${RUN_URL})."
             echo
             echo "## Merged upstream pull requests"
