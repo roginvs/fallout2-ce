@@ -180,10 +180,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR=$(gh pr list --state open --limit 500 --base main \
-            --json number,baseRefName,headRefName \
-            -q '.[] | select(.baseRefName == "main" and .headRefName == "sync/upstream-main") | .number' \
+          PR=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&base=main&per_page=100" \
+            --jq '.[] | select(.head.ref == "sync/upstream-main") | .number' \
             | head -1)
+          if [ -z "$PR" ]; then
+            echo "No open sync PR found; open PRs with base main:"
+            gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&base=main&per_page=100" \
+              --jq '.[] | "#\(.number) head=\(.head.ref) base=\(.base.ref)"'
+          fi
           TITLE="Sync upstream fallout2-ce main ($(date -u +%F))"
           if [ -n "$PR" ]; then
             echo "Sync PR #$PR already exists, refreshing description"
