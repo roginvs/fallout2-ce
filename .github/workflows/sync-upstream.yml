@@ -133,9 +133,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR=$(gh pr list --state open --limit 500 \
-            --json number,headRefName,headRepositoryOwner \
-            -q '.[] | select(.headRefName == "main" and .headRepositoryOwner.login == "fallout2-ce") | .number' \
+          PR=$(gh pr list --state open --limit 500 --base main \
+            --json number,baseRefName,headRefName,headRepositoryOwner \
+            -q '.[] | select(.baseRefName == "main" and .headRefName == "main" and .headRepositoryOwner.login == "fallout2-ce") | .number' \
             | head -1)
           if [ -n "$PR" ]; then
             echo "Sync PR #$PR already exists, refreshing description"
