@@ -1,0 +1,92 @@
+name: Sync upstream main
+
+# Opens a pull request that brings fallout2-ce/fallout2-ce (main) into this
+# fork's main. The PR is created against main from a dedicated sync branch;
+# if the branch already has an open PR, pushing to it updates that PR.
+# Merge conflicts fail the run on purpose: resolve manually, do not pick sides.
+
+on:
+  schedule:
+    # Daily at 04:00 UTC
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/fallout2-ce/fallout2-ce.git
+          git fetch upstream main
+
+      - name: Count new upstream commits
+        id: newcommits
+        run: |
+          COUNT=$(git rev-list --count HEAD..upstream/main)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "New upstream commits: $COUNT"
+          git log --oneline --reverse HEAD..upstream/main > /tmp/new-commits.txt
+          cat /tmp/new-commits.txt
+
+      - name: Merge upstream into sync branch
+        if: steps.newcommits.outputs.count != '0'
+        run: |
+          git checkout -B sync/upstream-main
+          if ! git merge --no-edit upstream/main; then
+            git merge --abort
+            echo "::error::Merge conflict while syncing upstream/main into main. Resolve manually on branch sync/upstream-main."
+            exit 1
+          fi
+
+      - name: Push sync branch
+        if: steps.newcommits.outputs.count != '0'
+        run: git push --force origin sync/upstream-main
+
+      - name: Open or update pull request
+        if: steps.newcommits.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATE=$(date -u +%F)
+          TITLE="Sync upstream fallout2-ce main ($DATE)"
+
+          if gh pr list --head sync/upstream-main --state open --json number -q 'length' | grep -qv '^0$'; then
+            echo "PR already exists, updating branch is enough"
+            gh pr edit sync/upstream-main --title "$TITLE"
+            exit 0
+          fi
+
+          {
+            echo "Automated sync of \`fallout2-ce/fallout2-ce\` (main) into this fork."
+            echo
+            echo "## New upstream commits"
+            echo
+            sed 's/^/- /' /tmp/new-commits.txt
+            echo
+            echo "Conflicts fail the scheduled run; resolve them manually on \`sync/upstream-main\`."
+          } > /tmp/pr-body.md
+          gh pr create \
+            --base main \
+            --head sync/upstream-main \
+            --title "$TITLE" \
+            --body-file /tmp/pr-body.md
