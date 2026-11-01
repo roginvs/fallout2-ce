@@ -19,6 +19,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  contents: read
   pull-requests: write
 
 concurrency:
@@ -132,7 +133,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR=$(gh pr list --state open \
+          PR=$(gh pr list --state open --limit 500 \
             --json number,headRefName,headRepositoryOwner \
             -q '.[] | select(.headRefName == "main" and .headRepositoryOwner.login == "fallout2-ce") | .number' \
             | head -1)
