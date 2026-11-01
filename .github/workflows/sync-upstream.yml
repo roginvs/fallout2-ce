@@ -18,9 +18,12 @@ on:
     - cron: "0 4 * * *"
   workflow_dispatch:
 
+# The GITHUB_TOKEN is only used by checkout (contents: read). GitHub forbids
+# the Actions bot from creating cross-repository pull requests, so all gh steps
+# run with the SYNC_PAT secret (a user token able to open PRs whose head is
+# the upstream organization branch).
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: sync-upstream
@@ -131,7 +134,7 @@ jobs:
         id: refresh
         if: steps.commits.outputs.count != '0'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
           PR=$(gh pr list --state open --limit 500 --base main \
             --json number,baseRefName,headRefName,headRepositoryOwner \
@@ -147,7 +150,7 @@ jobs:
       - name: Open sync PR
         if: steps.commits.outputs.count != '0' && steps.refresh.outputs.existing != '1'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
           BASE_ID=$(gh api repos/"$GITHUB_REPOSITORY" --jq '.node_id')
           HEAD_ID=$(gh api repos/fallout2-ce/fallout2-ce --jq '.node_id')
