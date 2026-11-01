@@ -43,10 +43,14 @@ jobs:
       - name: List new upstream commits
         id: commits
         run: |
-          COUNT=$(git rev-list --count HEAD..upstream/main)
+          # --first-parent walks the upstream line only: a merge-commit PR is a
+          # single entry here, so its constituent commits are not listed (and
+          # not misclassified as direct commits). Squash PRs are single commits
+          # anyway.
+          git log --format="%H%x09%s" --reverse --first-parent HEAD..upstream/main > /tmp/new-commits.tsv
+          COUNT=$(grep -c . /tmp/new-commits.tsv || true)
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
           echo "New upstream commits: $COUNT"
-          git log --format="%H%x09%s" --reverse HEAD..upstream/main > /tmp/new-commits.tsv
           cat /tmp/new-commits.tsv
           test "$COUNT" -gt 0 || echo "Up to date, nothing to do"
 
