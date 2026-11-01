@@ -1,9 +1,14 @@
 name: Sync upstream main
 
-# Opens a pull request that brings fallout2-ce/fallout2-ce (main) into this
-# fork's main. The PR is created against main from a dedicated sync branch;
-# if the branch already has an open PR, pushing to it updates that PR.
-# Merge conflicts fail the run on purpose: resolve manually, do not pick sides.
+# Opens a cross-repository pull request that brings fallout2-ce/fallout2-ce
+# (main) into this fork's main: base = main (this repo), head = the upstream
+# branch itself (fallout2-ce:main), exactly like the compare view
+# main...fallout2-ce:fallout2-ce:main.
+# The head branch is live upstream, so an open PR updates itself as the
+# upstream advances. GitHub allows only ONE open PR per head branch; the job
+# refreshes the existing PR instead of creating duplicates.
+# The PR body groups the new upstream commits by pull request and lists
+# direct commits (made without a PR) separately.
 
 on:
   schedule:
@@ -12,7 +17,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
   pull-requests: write
 
 concurrency:
@@ -29,64 +33,112 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
       - name: Fetch upstream
         run: |
           git remote add upstream https://github.com/fallout2-ce/fallout2-ce.git
           git fetch upstream main
 
-      - name: Count new upstream commits
-        id: newcommits
+      - name: List new upstream commits
         run: |
           COUNT=$(git rev-list --count HEAD..upstream/main)
-          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
           echo "New upstream commits: $COUNT"
-          git log --oneline --reverse HEAD..upstream/main > /tmp/new-commits.txt
-          cat /tmp/new-commits.txt
-
-      - name: Merge upstream into sync branch
-        if: steps.newcommits.outputs.count != '0'
-        run: |
-          git checkout -B sync/upstream-main
-          if ! git merge --no-edit upstream/main; then
-            git merge --abort
-            echo "::error::Merge conflict while syncing upstream/main into main. Resolve manually on branch sync/upstream-main."
-            exit 1
-          fi
-
-      - name: Push sync branch
-        if: steps.newcommits.outputs.count != '0'
-        run: git push --force origin sync/upstream-main
-
-      - name: Open or update pull request
-        if: steps.newcommits.outputs.count != '0'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          DATE=$(date -u +%F)
-          TITLE="Sync upstream fallout2-ce main ($DATE)"
-
-          if gh pr list --head sync/upstream-main --state open --json number -q 'length' | grep -qv '^0$'; then
-            echo "PR already exists, updating branch is enough"
-            gh pr edit sync/upstream-main --title "$TITLE"
+          git log --format="%H%x09%s" --reverse HEAD..upstream/main > /tmp/new-commits.tsv
+          cat /tmp/new-commits.tsv
+          test "$COUNT" -gt 0 || {
+            echo "Up to date, nothing to do"
             exit 0
-          fi
+          }
 
+      - name: Classify commits into pull requests and direct commits
+        run: |
+          python3 - <<'PY'
+          import re
+
+          prs = {}
+          direct = []
+          for line in open("/tmp/new-commits.tsv"):
+              line = line.rstrip("\n")
+              if not line:
+                  continue
+              sha, subject = line.split("\t", 1)
+              m = re.search(r"\(#(\d+)\)\s*$", subject)
+              if not m:
+                  m = re.match(r"^Merge pull request #(\d+)", subject)
+              if m:
+                  n = m.group(1)
+                  title = re.sub(r"\s*\(#\d+\)\s*$", "", subject)
+                  title = re.sub(r"^Merge pull request #\d+ from \S+\s*", "", title)
+                  if not title:
+                      title = subject
+                  prs[n] = title
+              else:
+                  direct.append(f"`{sha[:8]}` {subject}")
+
+          with open("/tmp/prs.txt", "w") as f:
+              for n in sorted(prs, key=int):
+                  link = f"https://github.com/fallout2-ce/fallout2-ce/pull/{n}"
+                  f.write(f"[#{n}]({link}) {prs[n]}\n")
+          with open("/tmp/direct-commits.txt", "w") as f:
+              for line in direct:
+                  f.write(line + "\n")
+
+          print(f"Pull requests: {len(prs)}, direct commits: {len(direct)}")
+          PY
+
+      - name: Build PR body
+        run: |
+          COMMIT_COUNT=$(wc -l < /tmp/new-commits.tsv)
           {
             echo "Automated sync of \`fallout2-ce/fallout2-ce\` (main) into this fork."
             echo
-            echo "## New upstream commits"
+            echo "The PR updates itself as the upstream branch advances; merge it whenever you are ready."
             echo
-            sed 's/^/- /' /tmp/new-commits.txt
+            echo "## Merged upstream pull requests"
             echo
-            echo "Conflicts fail the scheduled run; resolve them manually on \`sync/upstream-main\`."
+            if [ -s /tmp/prs.txt ]; then
+              sed 's/^/- /' /tmp/prs.txt
+            else
+              echo "_none_"
+            fi
+            echo
+            echo "## Commits without a pull request"
+            echo
+            if [ -s /tmp/direct-commits.txt ]; then
+              sed 's/^/- /' /tmp/direct-commits.txt
+            else
+              echo "_none_"
+            fi
+            echo
+            echo "<details><summary>All commits ($COMMIT_COUNT)</summary>"
+            echo
+            sed 's/^/- /' /tmp/new-commits.tsv | cut -f2-
+            echo
+            echo "</details>"
+            echo
+            echo "If this PR shows merge conflicts: close it, merge \`fallout2-ce/main\` into \`main\` manually, the next scheduled run opens a fresh PR."
           } > /tmp/pr-body.md
+          cat /tmp/pr-body.md
+
+      - name: Refresh existing sync PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=$(gh pr list --state open \
+            --json number,headRefName,headRepositoryOwner \
+            -q '.[] | select(.headRefName == "main" and .headRepositoryOwner.login == "fallout2-ce") | .number' \
+            | head -1)
+          if [ -n "$PR" ]; then
+            echo "Sync PR #$PR already exists, refreshing description"
+            gh pr edit "$PR" --body-file /tmp/pr-body.md
+            exit 0
+          fi
+
+      - name: Open sync PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           gh pr create \
             --base main \
-            --head sync/upstream-main \
-            --title "$TITLE" \
+            --head "fallout2-ce:main" \
+            --title "Sync upstream fallout2-ce main ($(date -u +%F))" \
             --body-file /tmp/pr-body.md
