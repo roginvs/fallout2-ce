@@ -9,6 +9,8 @@ name: Sync upstream main
 # refreshes the existing PR instead of creating duplicates.
 # The PR body groups the new upstream commits by pull request and lists
 # direct commits (made without a PR) separately.
+# The creation goes through the GraphQL createPullRequest mutation because
+# `gh pr create --head` does not support an organization-owned head repo.
 
 on:
   schedule:
@@ -39,17 +41,17 @@ jobs:
           git fetch upstream main
 
       - name: List new upstream commits
+        id: commits
         run: |
           COUNT=$(git rev-list --count HEAD..upstream/main)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
           echo "New upstream commits: $COUNT"
           git log --format="%H%x09%s" --reverse HEAD..upstream/main > /tmp/new-commits.tsv
           cat /tmp/new-commits.tsv
-          test "$COUNT" -gt 0 || {
-            echo "Up to date, nothing to do"
-            exit 0
-          }
+          test "$COUNT" -gt 0 || echo "Up to date, nothing to do"
 
       - name: Classify commits into pull requests and direct commits
+        if: steps.commits.outputs.count != '0'
         run: |
           python3 - <<'PY'
           import re
@@ -86,6 +88,7 @@ jobs:
           PY
 
       - name: Build PR body
+        if: steps.commits.outputs.count != '0'
         run: |
           COMMIT_COUNT=$(wc -l < /tmp/new-commits.tsv)
           {
@@ -120,6 +123,8 @@ jobs:
           cat /tmp/pr-body.md
 
       - name: Refresh existing sync PR
+        id: refresh
+        if: steps.commits.outputs.count != '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -130,15 +135,33 @@ jobs:
           if [ -n "$PR" ]; then
             echo "Sync PR #$PR already exists, refreshing description"
             gh pr edit "$PR" --body-file /tmp/pr-body.md
-            exit 0
+            echo "existing=1" >> "$GITHUB_OUTPUT"
+            echo "number=$PR" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Open sync PR
+        if: steps.commits.outputs.count != '0' && steps.refresh.outputs.existing != '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr create \
-            --base main \
-            --head "fallout2-ce:main" \
-            --title "Sync upstream fallout2-ce main ($(date -u +%F))" \
-            --body-file /tmp/pr-body.md
+          BASE_ID=$(gh api repos/"$GITHUB_REPOSITORY" --jq '.node_id')
+          HEAD_ID=$(gh api repos/fallout2-ce/fallout2-ce --jq '.node_id')
+          TITLE="Sync upstream fallout2-ce main ($(date -u +%F))"
+          gh api graphql \
+            -f query='
+              mutation($base: ID!, $head: ID!, $title: String!, $body: String!) {
+                createPullRequest(input: {
+                  repositoryId: $base,
+                  baseRefName: "main",
+                  headRefName: "main",
+                  headRepositoryId: $head,
+                  title: $title,
+                  body: $body
+                }) {
+                  pullRequest { number url }
+                }
+              }' \
+            -f base="$BASE_ID" \
+            -f head="$HEAD_ID" \
+            -f title="$TITLE" \
+            -f body="$(cat /tmp/pr-body.md)"
