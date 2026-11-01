@@ -191,7 +191,13 @@ jobs:
           TITLE="Sync upstream fallout2-ce main ($(date -u +%F))"
           if [ -n "$PR" ]; then
             echo "Sync PR #$PR already exists, refreshing description"
-            gh pr edit "$PR" --title "$TITLE" --body-file /tmp/pr-body.md
+            # REST PATCH: the GITHUB_TOKEN's GraphQL access is flaky for PRs
+            # created by the same token via REST (gh pr edit resolves through
+            # GraphQL and intermittently fails to see the PR).
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/pulls/$PR" \
+              -F title="$TITLE" \
+              -F body="$(cat /tmp/pr-body.md)" \
+              --jq '.html_url'
           else
             # REST instead of `gh pr create`: the GraphQL createPullRequest
             # mutation is not usable by the Actions integration token.
