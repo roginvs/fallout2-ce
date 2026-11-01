@@ -6,7 +6,7 @@ name: Sync upstream main
 # pull request sync/upstream-main -> main.
 # While that PR is open, later runs re-merge, skip the push when the resulting
 # tree is unchanged, and refresh the PR description with the fresh commit
-# lists.
+# lists and verification links.
 # Merge conflicts fail the run on purpose: resolve manually, do not pick sides.
 # The PR body groups the new upstream commits by pull request and lists
 # direct commits (made without a PR) separately.
@@ -55,6 +55,8 @@ jobs:
           git log --format="%H%x09%s" --reverse --first-parent HEAD..upstream/main > /tmp/new-commits.tsv
           COUNT=$(grep -c . /tmp/new-commits.tsv || true)
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "main_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "upstream_sha=$(git rev-parse upstream/main)" >> "$GITHUB_OUTPUT"
           echo "New upstream commits: $COUNT"
           cat /tmp/new-commits.tsv
           test "$COUNT" -gt 0 || echo "Up to date, nothing to do"
@@ -96,12 +98,56 @@ jobs:
           print(f"Pull requests: {len(prs)}, direct commits: {len(direct)}")
           PY
 
-      - name: Build PR body
+      - name: Merge upstream into sync branch
         if: steps.commits.outputs.count != '0'
         run: |
+          git checkout -B sync/upstream-main
+          if ! git merge --no-edit upstream/main; then
+            git merge --abort
+            echo "::error::Merge conflict while syncing upstream/main into main. Resolve manually on branch sync/upstream-main."
+            exit 1
+          fi
+
+      - name: Push sync branch when changed
+        id: push
+        if: steps.commits.outputs.count != '0'
+        run: |
+          # Skip the push when the resulting tree equals the already pushed
+          # branch: re-merging produces a new merge commit with a fresh
+          # timestamp even when nothing changed, and pushing it would reset
+          # review state on the open PR for no content change.
+          if git fetch origin sync/upstream-main 2>/dev/null; then
+            if git diff --quiet FETCH_HEAD..HEAD; then
+              echo "sync/upstream-main is already up to date, skipping push"
+              echo "sha=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          git push --force origin HEAD:refs/heads/sync/upstream-main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build PR body
+        if: steps.commits.outputs.count != '0'
+        env:
+          MAIN_SHA: ${{ steps.commits.outputs.main_sha }}
+          UPSTREAM_SHA: ${{ steps.commits.outputs.upstream_sha }}
+          SYNC_SHA: ${{ steps.push.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
           COMMIT_COUNT=$(wc -l < /tmp/new-commits.tsv)
+          MAIN_SHORT=${MAIN_SHA:0:8}
+          UPSTREAM_SHORT=${UPSTREAM_SHA:0:8}
+          SYNC_SHORT=${SYNC_SHA:0:8}
           {
             echo "Automated sync of \`fallout2-ce/fallout2-ce\` (main) into this fork."
+            echo
+            echo "## Verification"
+            echo
+            echo "- Synced up to upstream commit [\`fallout2-ce@\`${UPSTREAM_SHORT}](https://github.com/fallout2-ce/fallout2-ce/commit/${UPSTREAM_SHA})"
+            echo "- Sync branch [\`sync/upstream-main@\`${SYNC_SHORT}](https://github.com/roginvs/fallout2-ce/commit/${SYNC_SHA}) — merge of [\`main@\`${MAIN_SHORT}](https://github.com/roginvs/fallout2-ce/commit/${MAIN_SHA}) and the upstream commit above."
+            echo "- [Upstream commits missing from the sync branch](https://github.com/roginvs/fallout2-ce/compare/sync/upstream-main...fallout2-ce:fallout2-ce:main) — right after this run this compare must be empty (\"There isn't anything to compare\"), which proves the branch contains everything from the organization."
+            echo "- [What this fork carries beyond upstream](https://github.com/fallout2-ce/fallout2-ce/compare/main...roginvs:fallout2-ce:sync/upstream-main) — informational, shows this fork's own divergence."
+            echo "- Built by [workflow run #${{ github.run_number }}](${RUN_URL})."
             echo
             echo "## Merged upstream pull requests"
             echo
@@ -128,31 +174,6 @@ jobs:
             echo "If this PR shows merge conflicts: close it, merge \`fallout2-ce/main\` into \`main\` manually, the next scheduled run opens a fresh PR."
           } > /tmp/pr-body.md
           cat /tmp/pr-body.md
-
-      - name: Merge upstream into sync branch
-        if: steps.commits.outputs.count != '0'
-        run: |
-          git checkout -B sync/upstream-main
-          if ! git merge --no-edit upstream/main; then
-            git merge --abort
-            echo "::error::Merge conflict while syncing upstream/main into main. Resolve manually on branch sync/upstream-main."
-            exit 1
-          fi
-
-      - name: Push sync branch when changed
-        if: steps.commits.outputs.count != '0'
-        run: |
-          # Skip the push when the resulting tree equals the already pushed
-          # branch: re-merging produces a new merge commit with a fresh
-          # timestamp even when nothing changed, and pushing it would reset
-          # review state on the open PR for no content change.
-          if git fetch origin sync/upstream-main 2>/dev/null; then
-            if git diff --quiet FETCH_HEAD..HEAD; then
-              echo "sync/upstream-main is already up to date, skipping push"
-              exit 0
-            fi
-          fi
-          git push --force origin HEAD:refs/heads/sync/upstream-main
 
       - name: Open or refresh sync PR
         if: steps.commits.outputs.count != '0'
