@@ -1,16 +1,15 @@
 name: Sync upstream main
 
-# Opens a cross-repository pull request that brings fallout2-ce/fallout2-ce
-# (main) into this fork's main: base = main (this repo), head = the upstream
-# branch itself (fallout2-ce:main), exactly like the compare view
-# main...fallout2-ce:fallout2-ce:main.
-# The head branch is live upstream, so an open PR updates itself as the
-# upstream advances. GitHub allows only ONE open PR per head branch; the job
-# refreshes the existing PR instead of creating duplicates.
+# Brings fallout2-ce/fallout2-ce (main) into this fork's main through a sync
+# branch: the workflow merges upstream/main into a dedicated branch
+# (sync/upstream-main), pushes it with the default GITHUB_TOKEN, and opens a
+# pull request sync/upstream-main -> main.
+# While that PR is open, later runs re-merge, skip the push when the resulting
+# tree is unchanged, and refresh the PR description with the fresh commit
+# lists.
+# Merge conflicts fail the run on purpose: resolve manually, do not pick sides.
 # The PR body groups the new upstream commits by pull request and lists
 # direct commits (made without a PR) separately.
-# The creation goes through the GraphQL createPullRequest mutation because
-# `gh pr create --head` does not support an organization-owned head repo.
 
 on:
   schedule:
@@ -18,12 +17,9 @@ on:
     - cron: "0 4 * * *"
   workflow_dispatch:
 
-# The GITHUB_TOKEN is only used by checkout (contents: read). GitHub forbids
-# the Actions bot from creating cross-repository pull requests, so all gh steps
-# run with the SYNC_PAT secret (a user token able to open PRs whose head is
-# the upstream organization branch).
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 concurrency:
   group: sync-upstream
@@ -38,6 +34,11 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Fetch upstream
         run: |
@@ -102,8 +103,6 @@ jobs:
           {
             echo "Automated sync of \`fallout2-ce/fallout2-ce\` (main) into this fork."
             echo
-            echo "The PR updates itself as the upstream branch advances; merge it whenever you are ready."
-            echo
             echo "## Merged upstream pull requests"
             echo
             if [ -s /tmp/prs.txt ]; then
@@ -130,46 +129,48 @@ jobs:
           } > /tmp/pr-body.md
           cat /tmp/pr-body.md
 
-      - name: Refresh existing sync PR
-        id: refresh
+      - name: Merge upstream into sync branch
         if: steps.commits.outputs.count != '0'
-        env:
-          GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
-          PR=$(gh pr list --state open --limit 500 --base main \
-            --json number,baseRefName,headRefName,headRepositoryOwner \
-            -q '.[] | select(.baseRefName == "main" and .headRefName == "main" and .headRepositoryOwner.login == "fallout2-ce") | .number' \
-            | head -1)
-          if [ -n "$PR" ]; then
-            echo "Sync PR #$PR already exists, refreshing description"
-            gh pr edit "$PR" --body-file /tmp/pr-body.md
-            echo "existing=1" >> "$GITHUB_OUTPUT"
-            echo "number=$PR" >> "$GITHUB_OUTPUT"
+          git checkout -B sync/upstream-main
+          if ! git merge --no-edit upstream/main; then
+            git merge --abort
+            echo "::error::Merge conflict while syncing upstream/main into main. Resolve manually on branch sync/upstream-main."
+            exit 1
           fi
 
-      - name: Open sync PR
-        if: steps.commits.outputs.count != '0' && steps.refresh.outputs.existing != '1'
-        env:
-          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+      - name: Push sync branch when changed
+        if: steps.commits.outputs.count != '0'
         run: |
-          BASE_ID=$(gh api repos/"$GITHUB_REPOSITORY" --jq '.node_id')
-          HEAD_ID=$(gh api repos/fallout2-ce/fallout2-ce --jq '.node_id')
+          # Skip the push when the resulting tree equals the already pushed
+          # branch: re-merging produces a new merge commit with a fresh
+          # timestamp even when nothing changed, and pushing it would reset
+          # review state on the open PR for no content change.
+          if git fetch origin sync/upstream-main 2>/dev/null; then
+            if git diff --quiet FETCH_HEAD..HEAD; then
+              echo "sync/upstream-main is already up to date, skipping push"
+              exit 0
+            fi
+          fi
+          git push --force origin HEAD:refs/heads/sync/upstream-main
+
+      - name: Open or refresh sync PR
+        if: steps.commits.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=$(gh pr list --state open --limit 500 --base main \
+            --json number,baseRefName,headRefName \
+            -q '.[] | select(.baseRefName == "main" and .headRefName == "sync/upstream-main") | .number' \
+            | head -1)
           TITLE="Sync upstream fallout2-ce main ($(date -u +%F))"
-          gh api graphql \
-            -f query='
-              mutation($base: ID!, $head: ID!, $title: String!, $body: String!) {
-                createPullRequest(input: {
-                  repositoryId: $base,
-                  baseRefName: "main",
-                  headRefName: "main",
-                  headRepositoryId: $head,
-                  title: $title,
-                  body: $body
-                }) {
-                  pullRequest { number url }
-                }
-              }' \
-            -f base="$BASE_ID" \
-            -f head="$HEAD_ID" \
-            -f title="$TITLE" \
-            -f body="$(cat /tmp/pr-body.md)"
+          if [ -n "$PR" ]; then
+            echo "Sync PR #$PR already exists, refreshing description"
+            gh pr edit "$PR" --title "$TITLE" --body-file /tmp/pr-body.md
+          else
+            gh pr create \
+              --base main \
+              --head sync/upstream-main \
+              --title "$TITLE" \
+              --body-file /tmp/pr-body.md
+          fi
