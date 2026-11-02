@@ -21,9 +21,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  # Required to push upstream commits that touch .github/workflows/* files
-  # (e.g. org CI changes): without it GitHub rejects the mirror push.
-  workflows: write
 
 concurrency:
   group: sync-upstream
