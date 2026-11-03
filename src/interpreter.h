@@ -9,6 +9,7 @@
 #include "object.h"
 #include "proto_types.h"
 #include "random.h"
+#include "sfall_lists.h"
 #include "stat_defs.h"
 #include "window_defs.h"
 #include "worldmap.h"
@@ -228,7 +229,7 @@ extern int _TimeOut;
 char* _interpretMangleName(char* s);
 void _interpretOutputFunc(int (*func)(const char*));
 int _interpretOutput(const char* format, ...);
-[[noreturn]] void programFatalError(const char* str, ...);
+void programFatalError(const char* str, ...);
 void programPrintError(const char* format, ...);
 void interpreterStringRefCountDecrease(Program* program, opcode_t opcode, int value);
 void programFree(Program* program);
@@ -529,6 +530,17 @@ inline Roll programStackPopEnum(Program* program)
     }
 
     return static_cast<Roll>(roll);
+}
+
+template <>
+inline ListType programStackPopEnum(Program* program)
+{
+    int listType = programStackPopInteger(program);
+    if (!listTypeIsValid(listType)) {
+        programPrintError("invalid list type %d", listType);
+    }
+
+    return static_cast<ListType>(listType);
 }
 
 void programReturnStackPushValue(Program* program, ProgramValue& programValue);

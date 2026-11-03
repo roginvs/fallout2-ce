@@ -56,12 +56,12 @@ namespace fallout {
 #define CALLED_SHOT_WINDOW_WIDTH (504)
 #define CALLED_SHOT_WINDOW_HEIGHT (309)
 
-typedef enum DamageCalculationType {
-    DAMAGE_CALCULATION_TYPE_VANILLA = 0,
-    DAMAGE_CALCULATION_TYPE_GLOVZ = 1,
-    DAMAGE_CALCULATION_TYPE_GLOVZ_WITH_DAMAGE_MULTIPLIER_TWEAK = 2,
-    DAMAGE_CALCULATION_TYPE_YAAM = 5,
-} DamageCalculationType;
+enum DamageCalculationType : int {
+    Vanilla = 0,
+    Glovz = 1,
+    GlovzWithDamageMultiplierTweak = 2,
+    Yaam = 5,
+};
 
 typedef struct CombatAiInfo {
     Object* friendlyDead;
@@ -2001,7 +2001,7 @@ static int gBurstModCenterDivisor = 3;
 static int gBurstModTargetMultiplier = 1;
 static int gBurstModTargetDivisor = 2;
 static UnarmedHitDescription gUnarmedHitDescriptions[HIT_MODE_COUNT];
-static int gDamageCalculationType;
+static DamageCalculationType gDamageCalculationType;
 static bool gBonusHthDamageFix;
 static bool gRemoveCriticalTimeLimits;
 static bool gDisplayBonusDamage;
@@ -2899,6 +2899,20 @@ static void _combat_over()
         if (ProtoId(critter) == CritterProtoTypeId::Goris && !critterIsDead(critter) && !_isLoadingGame()) {
             waitForGorisAnimation(critter);
         }
+
+        // SFALL: Fix for knocked down critters not playing stand up animation
+        // when the combat ends (when DAM_LOSE_TURN and DAM_KNOCKED_DOWN flags
+        // are set); one woken from a knockout outside its turn stands up a
+        // moment later (its wake up event).
+        Dam results = critter->data.critter.combat.results;
+        critter->data.critter.combat.results &= ~(DAM_LOSE_TURN | DAM_KNOCKOUT_WOKEN);
+        if ((results & (DAM_DEAD | DAM_KNOCKED_OUT)) == DAM_NONE && (results & DAM_KNOCKED_DOWN) != DAM_NONE) {
+            if ((results & DAM_KNOCKOUT_WOKEN) != DAM_NONE) {
+                queueAddEvent(1, critter, nullptr, EVENT_TYPE_KNOCKOUT);
+            } else {
+                _dude_standup(critter);
+            }
+        }
     }
 
     tileWindowRefresh();
@@ -3628,6 +3642,10 @@ void _combat(CombatStartData* csd)
 
             for (; curIndex < _list_com; curIndex++) {
                 _combat_set_move(_combat_list[curIndex]);
+
+                // SFALL: The woken mark lasts until the critter's turn (see
+                // `DAM_KNOCKOUT_WOKEN`).
+                _combat_list[curIndex]->data.critter.combat.results &= ~DAM_KNOCKOUT_WOKEN;
 
                 if (combatTurnHooked(_combat_list[curIndex], false) == -1) {
                     break;
@@ -4828,9 +4846,9 @@ static void attackComputeDamage(Attack* attack, int numRounds, int baseDamageMul
 
     // SFALL: HOOK_SUBCOMBATDAMAGE would fit here when no built-in damage
     // formula is selected. In sfall, DamageFormula 1/2/5 bypasses that hook.
-    if (gDamageCalculationType == DAMAGE_CALCULATION_TYPE_GLOVZ || gDamageCalculationType == DAMAGE_CALCULATION_TYPE_GLOVZ_WITH_DAMAGE_MULTIPLIER_TWEAK) {
+    if (gDamageCalculationType == DamageCalculationType::Glovz || gDamageCalculationType == DamageCalculationType::GlovzWithDamageMultiplierTweak) {
         damageModCalculateGlovz(&context);
-    } else if (gDamageCalculationType == DAMAGE_CALCULATION_TYPE_YAAM) {
+    } else if (gDamageCalculationType == DamageCalculationType::Yaam) {
         damageModCalculateYaam(&context);
     } else {
         damageResistance += weaponGetAmmoDamageResistanceModifier(attack->weapon);
@@ -6917,8 +6935,8 @@ static HitMode unarmedGetHitModeInRange(HitMode firstHitMode, HitMode lastHitMod
 
 static void damageModInit()
 {
-    gDamageCalculationType = DAMAGE_CALCULATION_TYPE_VANILLA;
-    configGetInt(&gContentConfig, CONTENT_CONFIG_COMBAT_SECTION, "damage_formula", &gDamageCalculationType, DAMAGE_CALCULATION_TYPE_VANILLA);
+    gDamageCalculationType = DamageCalculationType::Vanilla;
+    configGetEnum<DamageCalculationType>(&gContentConfig, CONTENT_CONFIG_COMBAT_SECTION, "damage_formula", &gDamageCalculationType, DamageCalculationType::Vanilla);
 
     gBonusHthDamageFix = true;
     configGetBool(&gContentConfig, CONTENT_CONFIG_COMBAT_SECTION, "bonus_hth_damage_fix", &gBonusHthDamageFix);
@@ -7007,7 +7025,7 @@ static void damageModCalculateGlovz(DamageCalculationContext* context)
             }
         }
 
-        if (gDamageCalculationType == DAMAGE_CALCULATION_TYPE_GLOVZ_WITH_DAMAGE_MULTIPLIER_TWEAK) {
+        if (gDamageCalculationType == DamageCalculationType::GlovzWithDamageMultiplierTweak) {
             damage += damageModGlovzDivRound(damage * context->baseDamageMult * 25, 100);
         } else {
             damage = damage * context->baseDamageMult / 2;

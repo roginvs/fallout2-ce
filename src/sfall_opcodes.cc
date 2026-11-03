@@ -1075,7 +1075,7 @@ static void op_set_self(Program* program)
 // list_begin
 static void op_list_begin(Program* program)
 {
-    int listType = programStackPopInteger(program);
+    ListType listType = programStackPopEnum<ListType>(program);
     int listId = sfallListsCreate(listType);
     programStackPushInteger(program, listId);
 }
@@ -1356,7 +1356,17 @@ static void op_play_sfall_sound(Program* program)
 {
     int mode = programStackPopInteger(program);
     const char* path = programStackPopString(program);
-    programStackPushInteger(program, scriptSoundPlay(path, mode));
+
+    int soundId = 0;
+    if (mode >= 0) {
+        int volumeReduction = (mode & 0x7FFF0000) >> 16;
+        ScriptSoundMode soundMode = static_cast<ScriptSoundMode>(mode & 0xF);
+        soundId = scriptSoundPlay(path, soundMode, volumeReduction);
+    } else {
+        programPrintError("play_sfall_sound: invalid script sound mode %d.", mode);
+    }
+
+    programStackPushInteger(program, soundId);
 }
 
 static void op_stop_sfall_sound(Program* program)
@@ -1376,7 +1386,7 @@ static void op_force_encounter_with_flags(Program* program)
 // list_as_array
 static void op_list_as_array(Program* program)
 {
-    int type = programStackPopInteger(program);
+    ListType type = programStackPopEnum<ListType>(program);
     int arrayId = ListAsArray(type);
     programStackPushInteger(program, arrayId);
 }
@@ -1728,6 +1738,30 @@ static void op_resize_array(Program* program)
     auto newLen = programStackPopInteger(program);
     auto arrayId = programStackPopInteger(program);
     ResizeArray(arrayId, newLen);
+}
+
+// get_npc_level
+static void op_get_npc_level(Program* program)
+{
+    ProgramValue value = programStackPopValue(program);
+    int level = -1;
+    if (value.isString()) {
+        level = partyMemberGetNpcLevel(kPartyMemberLookupByName, programGetString(program, value.opcode, value.integerValue));
+    } else if (value.isInt()) {
+        level = partyMemberGetNpcLevel(value.integerValue);
+    }
+    programStackPushInteger(program, level);
+}
+
+// inc_npc_level
+static void op_inc_npc_level(Program* program)
+{
+    ProgramValue value = programStackPopValue(program);
+    if (value.isString()) {
+        partyMemberIncNpcLevel(kPartyMemberLookupByName, programGetString(program, value.opcode, value.integerValue));
+    } else if (value.isInt()) {
+        partyMemberIncNpcLevel(value.integerValue);
+    }
 }
 
 // party_member_list
@@ -2516,7 +2550,9 @@ void sfallOpcodesInit()
     // 0x81a4 - void set_eax_environment(int environment)
 
     // 0x81a5 - void inc_npc_level(int pid/string name)
+    interpreterRegisterOpcode(0x81A5, op_inc_npc_level);
     // 0x8241 - int  get_npc_level(int pid/string name)
+    interpreterRegisterOpcode(0x8241, op_get_npc_level);
 
     // 0x81a6 - int get_viewport_x()
     // 0x81a7 - int get_viewport_y()
