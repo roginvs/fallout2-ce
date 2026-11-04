@@ -483,11 +483,33 @@ void track_offset_request(std::string fName, fallout::opcode_t opcode, const std
     offset_requests[opcode][offset].insert(fName);
 }
 
+// A continuous region of script bytecode attributed to one or more script
+// functions (procedures).
+struct ScriptRegion {
+    std::string functions;
+    size_t start;
+    size_t end;
+};
+
+// Reads a null-terminated identifier from the identifiers block, bounded by
+// the file size.
+std::string read_identifier_name(unsigned char* data, int fileSize, size_t identifiersPos, int nameOffset)
+{
+    const size_t start = identifiersPos + nameOffset;
+    if (nameOffset < 0 || start >= static_cast<size_t>(fileSize)) {
+        return "<invalid name>";
+    }
+
+    const auto terminator = std::find(data + start, data + fileSize, static_cast<unsigned char>(0));
+    return std::string(reinterpret_cast<const char*>(data) + start, reinterpret_cast<const char*>(terminator));
+}
+
 void check_int_data(
     std::string fName,
     unsigned char* data,
     size_t start_pos,
-    size_t end_pos)
+    size_t end_pos,
+    std::string functions)
 {
     size_t i = start_pos;
     std::vector<ScannedStackValue> stack;
@@ -495,8 +517,8 @@ void check_int_data(
         const size_t opcodePos = i;
         auto opcode = fallout::stackReadInt16(data, i);
         if (!((opcode >> 8) & 0x80)) {
-            scan_errors[fName].insert("ERROR: Wrong opcode " + toHexString(opcode) + " at pos=" + toHexString(i));
-            printf("ERROR: Wrong opcode %x in file %s at pos=0x%lx\n", opcode, fName.c_str(), i);
+            scan_errors[fName].insert("ERROR: Wrong opcode " + toHexString(opcode) + " at pos=" + toHexString(i) + " in function '" + functions + "'");
+            printf("ERROR: Wrong opcode %x in file %s at pos=0x%lx (function '%s')\n", opcode, fName.c_str(), i, functions.c_str());
             return;
         };
         unsigned int opcodeIndex = opcode & 0x3FF;
@@ -515,8 +537,8 @@ void check_int_data(
                     unknown_hooks[hookId].insert(fName);
                 }
             } else {
-                scan_errors[fName].insert("ERROR: Unknown usage of register_hook at pos=" + toHexString(i));
-                printf("ERROR: Unknown usage of register_hook in file %s at pos=0x%lx\n", fName.c_str(), i);
+                scan_errors[fName].insert("ERROR: Unknown usage of register_hook at pos=" + toHexString(i) + " in function '" + functions + "'");
+                printf("ERROR: Unknown usage of register_hook in file %s at pos=0x%lx (function '%s')\n", fName.c_str(), i, functions.c_str());
                 return;
             }
         } else if (opcodeIndex == 0x262 || opcodeIndex == 0x27d) { // register_hook_proc / register_hook_proc_spec
@@ -527,8 +549,8 @@ void check_int_data(
                     unknown_hooks[hookId].insert(fName);
                 }
             } else {
-                scan_errors[fName].insert("ERROR: Unknown usage of register_hook_proc at pos=" + toHexString(i));
-                printf("ERROR: Unknown usage of register_hook_proc in file %s at pos=0x%lx\n", fName.c_str(), i);
+                scan_errors[fName].insert("ERROR: Unknown usage of register_hook_proc at pos=" + toHexString(i) + " in function '" + functions + "'");
+                printf("ERROR: Unknown usage of register_hook_proc in file %s at pos=0x%lx (function '%s')\n", fName.c_str(), i, functions.c_str());
                 return;
             }
         }
@@ -550,7 +572,7 @@ void check_file_data(unsigned char* data, int fileSize, std::string fName)
 
     auto script_strings = std::vector<std::string> {};
 
-    check_int_data(fName, data, 0, 0x2A);
+    check_int_data(fName, data, 0, 0x2A, "<header>");
 
     auto identifiers_pos = 24 * fallout::stackReadInt32(data, 42) + 42 + 4;
     auto static_strings_pos = identifiers_pos + fallout::stackReadInt32(data, identifiers_pos) + 4 + 4;
@@ -576,7 +598,77 @@ void check_file_data(unsigned char* data, int fileSize, std::string fName)
 
     // printf("File %s identifiers_pos=%x static_strings_pos=%x code_pos=%x\n", fName.c_str(), identifiers_pos,static_strings_pos, code_pos);
 
-    check_int_data(fName, data, code_pos, fileSize);
+    // Parse the procedure table, so that scans can be attributed to individual
+    // functions and a broken function does not abort the scan of the whole
+    // file. The layout matches fallout::Program: the count is at offset 42,
+    // followed by 24-byte entries (name, flags, time, condition offset, body
+    // offset, argument count), all big-endian.
+    const auto procedure_count = fallout::stackReadInt32(data, 42);
+    std::map<size_t, std::set<std::string>> function_starts;
+    bool have_functions = procedure_count > 0
+        && identifiers_pos + static_cast<size_t>(procedure_count) * 24 < static_cast<size_t>(fileSize);
+    if (have_functions) {
+        for (auto procedureIndex = 0; procedureIndex < procedure_count; procedureIndex++) {
+            const size_t entry_pos = identifiers_pos - 24 * procedure_count + 24 * procedureIndex;
+            if (entry_pos + 24 > static_cast<size_t>(fileSize)) {
+                have_functions = false;
+                break;
+            }
+
+            const auto name_offset = fallout::stackReadInt32(data, entry_pos);
+            const auto procedure_flags = fallout::stackReadInt32(data, entry_pos + 4);
+            const auto condition_offset = fallout::stackReadInt32(data, entry_pos + 12);
+            const auto body_offset = fallout::stackReadInt32(data, entry_pos + 16);
+
+            const auto name = read_identifier_name(data, fileSize, identifiers_pos, name_offset);
+            if (body_offset > 0 && body_offset < fileSize) {
+                function_starts[static_cast<size_t>(body_offset)].insert(name);
+            }
+            if ((procedure_flags & fallout::PROCEDURE_FLAG_CONDITIONAL) != 0
+                && condition_offset > 0 && condition_offset < fileSize) {
+                function_starts[static_cast<size_t>(condition_offset)].insert(name);
+            }
+        }
+    }
+
+    std::vector<ScriptRegion> regions;
+    if (have_functions && !function_starts.empty()) {
+        // Everything between the static strings and the first function body is
+        // the program prologue.
+        if (code_pos >= 0 && code_pos < fileSize
+            && function_starts.find(static_cast<size_t>(code_pos)) == function_starts.end()) {
+            function_starts[static_cast<size_t>(code_pos)].insert("<prologue>");
+        }
+
+        for (const auto& [start, names] : function_starts) {
+            if (static_cast<size_t>(start) < static_cast<size_t>(code_pos)
+                || static_cast<size_t>(start) >= static_cast<size_t>(fileSize)) {
+                continue;
+            }
+
+            std::string joined;
+            for (const auto& name : names) {
+                if (!joined.empty()) {
+                    joined += ", ";
+                }
+                joined += name;
+            }
+
+            regions.push_back({ joined, static_cast<size_t>(start), static_cast<size_t>(fileSize) });
+        }
+
+        for (size_t index = 0; index + 1 < regions.size(); index++) {
+            regions[index].end = regions[index + 1].start;
+        }
+    }
+
+    if (regions.empty()) {
+        regions.push_back({ "<whole file>", static_cast<size_t>(code_pos), static_cast<size_t>(fileSize) });
+    }
+
+    for (const auto& region : regions) {
+        check_int_data(fName, data, region.start, region.end, region.functions);
+    }
 
     for (auto script_str : script_strings) {
         if (
