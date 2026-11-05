@@ -1358,29 +1358,9 @@ const langData = /** @type {const} */ ({
  */
 
 export function renderMenu() {
-    let menuDiv = document.getElementById("menu_content");
+    const menuDiv = document.getElementById("menu_content");
     if (!menuDiv) {
-        // Self-heal instead of throwing "No menu div!" (Rollbar #661).
-        //
-        // Offline-first clients are safe: the service worker serves an engine
-        // snapshot that is always internally consistent, so old shell and old
-        // scripts never mix. But some in-app browsers (observed: the Facebook
-        // WebView opened via a shared link with ?fbclid=) do not install the
-        // service worker and take the shell from their own HTTP cache, so such
-        // clients can load a stale index.html (without #menu_content, added
-        // later) together with this fresher module fetched over network
-        // (Cache-Control: no-cache revalidates the modules, but the shell is
-        // already what it is). Throwing here left those users with a dead,
-        // half-rendered page.
-        //
-        // Creating the container on the fly makes the menu render under any
-        // shell vintage; the div inside #menu still receives styling via its
-        // id-based CSS rules. The systemic fix remains on the service worker
-        // side (per-build cache versioning), tracked separately.
-        menuDiv = document.createElement("div");
-        menuDiv.id = "menu_content";
-        const menu = document.getElementById("menu");
-        (menu ?? document.body).appendChild(menuDiv);
+        throw new Error(`No menu div!`);
     }
 
     const buildCommit = /** @type {HTMLAnchorElement | null} */ (

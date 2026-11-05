@@ -161,27 +161,3 @@ test("JavaScript download failure also rejects an early WASM waiter", async ({
     });
     expect(result).toBe("rejected");
 });
-
-test("renderMenu self-heals a shell without #menu_content (stale no-SW cache)", async ({
-    page,
-}) => {
-    // Simulates clients that bypass the service worker (in-app WebViews) and
-    // load an old shell without #menu_content together with fresh modules.
-    // See the comment in renderMenu: the container must be created, the
-    // menu must not die with "No menu div!".
-    await page.route("**/wasm-startup-harness", (route) =>
-        route.fulfill({
-            contentType: "text/html",
-            body: '<div id="menu"><div id="old_stub"></div></div><div id="status_text"></div><div id="error_text"></div><div><canvas id="canvas"></canvas></div>',
-        }),
-    );
-    await page.goto("/wasm-startup-harness#/FalloutNevadaEng");
-    await page.evaluate(async () => {
-        const { renderMenu } = await import("/mainmenu.mjs");
-        renderMenu();
-    });
-    // The container was created where the DOM had none.
-    await expect(page.locator("#menu #menu_content")).toHaveCount(1);
-    // The game start entries render into the created container.
-    await expect(page.locator(START)).toBeVisible();
-});
