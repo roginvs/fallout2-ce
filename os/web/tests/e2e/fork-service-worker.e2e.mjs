@@ -1,10 +1,5 @@
-// Fork P2: service worker version and autoreload guard
-// (index.sw.js versionrequest, service_worker_manager.mjs preventAutoreload).
-// The shell asks the active worker for VERSION (debug tag "version"), which
-// CMake fills from @WEB_ASSET_VERSION@. A new worker taking control reloads a
-// controlled page, but not while a game is started (preventAutoreload).
-// A new worker is made by registering the same script under another URL.
-// Shell only: the game is started but not waited for.
+// Worker updates wait until existing game tabs close. The active build and
+// its cache must remain in use throughout a running game.
 import { expect, test } from "../helpers/fixtures.mjs";
 
 const FOLDER = "FalloutNevadaEng";
@@ -33,7 +28,7 @@ const takeOver = (page, url) =>
         navigator.serviceWorker.register(url);
     }, url);
 
-test("fork P2: service worker reports build VERSION; no autoreload in game", async ({
+test("fork P2: service worker reports build VERSION; updates wait for game tabs", async ({
     page,
 }) => {
     test.setTimeout(5 * 60_000);
@@ -45,47 +40,27 @@ test("fork P2: service worker reports build VERSION; no autoreload in game", asy
     await page.goto(`/#/${FOLDER}`);
     await expect.poll(() => versionTag(page), { timeout: 60_000 }).toBe(built);
 
-    // Controlled page: a new worker taking control reloads the page.
+    // Start a controlled session before installing an update.
     await page.reload();
     await expect.poll(() => versionTag(page), { timeout: 60_000 }).toBe(built);
-    await takeOver(page, "index.sw.js?e2e=1");
-    await expect
-        .poll(() => marker(page), {
-            timeout: 60_000,
-            message: "page should reload when a new worker takes control",
-        })
-        .toBe(null);
-    // After reload the shell registers plain index.sw.js again (one more
-    // takeover and reload); wait until the page settles with the start button.
-    await expect
-        .poll(
-            async () => {
-                const v = await versionTag(page);
-                await page.waitForTimeout(5_000);
-                return v === built && (await versionTag(page)) === built;
-            },
-            { timeout: 90_000 },
-        )
-        .toBe(true);
     const start = page.locator(`#start_${FOLDER}`);
     await start.waitFor({ state: "visible", timeout: 60_000 });
 
-    // Game started: preventAutoreload keeps the page on a takeover.
-    await start.click();
-    await page.locator("#canvas").waitFor({ state: "visible" });
-    await takeOver(page, "index.sw.js?e2e=2");
+    // A different script URL forces an install even when the build is the same.
+    // It must wait instead of taking over or deleting the running build's cache.
+    await takeOver(page, "index.sw.js?e2e=waiting");
     await expect
-        .poll(
-            () =>
-                page.evaluate(
-                    () => /** @type {any} */ (window).__controllerChanges,
-                ),
-            { timeout: 60_000 },
+        .poll(() =>
+            page.evaluate(async () => {
+                const registration =
+                    await navigator.serviceWorker.getRegistration();
+                return registration?.waiting?.state;
+            }),
         )
-        .toBeGreaterThan(0);
-    await page.waitForTimeout(5_000);
+        .toBe("installed");
     expect(await marker(page), "no reload while the game runs").toBe(
         "same page",
     );
+    expect(await page.evaluate(() => window.__controllerChanges)).toBe(0);
     await expect(page.locator("#canvas")).toBeVisible();
 });
