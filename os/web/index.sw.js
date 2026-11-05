@@ -57,29 +57,40 @@ const CACHE_FILES = [
     // "sonora-640x480-ru.png",
     // "sonora-hires-ru.png",
 
-    // @TODO: Do we want to use '/'? Is this relative to service worker registration? If so, then how it works in "fetch" event?
-    "/",
+    // The shell at the registration's root, including preview subdirectories.
+    "./",
 ];
 
 // CMake replaces this with a hash of the finished web assets.
 const VERSION = "@WEB_ASSET_VERSION@";
 
-const ENGINE_CACHE_NAME = "engine";
+// CacheStorage is shared across registrations on an origin. Keep both builds
+// and preview scopes separate, including while a new worker is installing.
+const ENGINE_CACHE_PREFIX = `engine-${encodeURIComponent(me.registration.scope)}-`;
+const ENGINE_CACHE_NAME = `${ENGINE_CACHE_PREFIX}${VERSION}`;
+const CACHE_URLS = CACHE_FILES.map(
+    (path) => new URL(path, me.registration.scope).href,
+);
+const ENGINE_URLS = new Set(CACHE_URLS);
 
 me.addEventListener("install", (event) => {
     event.waitUntil(
         (async () => {
+            const cacheAlreadyExists = await caches.has(ENGINE_CACHE_NAME);
             const cache = await caches.open(ENGINE_CACHE_NAME);
-
-            for (const fpath of CACHE_FILES) {
-                await cache.add(
-                    new Request(fpath, {
-                        cache: "no-cache",
-                        headers: {
-                            "Cache-Control": "no-cache",
-                        },
-                    }),
+            try {
+                // addAll commits only after every response succeeds. A failed
+                // install cannot overwrite part of an existing build's cache.
+                await cache.addAll(
+                    CACHE_URLS.map(
+                        (url) => new Request(url, { cache: "no-cache" }),
+                    ),
                 );
+            } catch (error) {
+                if (!cacheAlreadyExists) {
+                    await caches.delete(ENGINE_CACHE_NAME);
+                }
+                throw error;
             }
 
             await me.skipWaiting();
@@ -91,13 +102,17 @@ me.addEventListener("activate", (event) => {
     event.waitUntil(
         (async () => {
             for (const cacheKey of await caches.keys()) {
-                // Drop old cache schema because newer asyncfetchfs saved files into cache on its own
+                // Drop old cache schema because newer asyncfetchfs saved files into cache on its own.
                 const GAMES_OLD_CACHE_PREFIX = "gamedata_";
                 const GAMES_OLD_CACHE_PREFIX_2 = "gamescache";
 
                 if (
                     cacheKey.startsWith(GAMES_OLD_CACHE_PREFIX) ||
-                    cacheKey.startsWith(GAMES_OLD_CACHE_PREFIX_2)
+                    cacheKey.startsWith(GAMES_OLD_CACHE_PREFIX_2) ||
+                    (cacheKey.startsWith(ENGINE_CACHE_PREFIX) &&
+                        cacheKey !== ENGINE_CACHE_NAME) ||
+                    (cacheKey === "engine" &&
+                        new URL(me.registration.scope).pathname === "/")
                 ) {
                     await caches.delete(cacheKey);
                 }
@@ -109,44 +124,31 @@ me.addEventListener("activate", (event) => {
 });
 
 me.addEventListener("fetch", (event) => {
-    // console.info("service worker request", event.request.url);
-
     const url = new URL(event.request.url);
-
-    //console.info(`Requested '${url}`);
-    //console.info(new URL(url).pathname);
-
-    // Skip cross-origin requests, like those for Google Analytics.
-    if (url.origin !== me.location.origin) {
+    if (event.request.method !== "GET" || url.origin !== me.location.origin) {
         return;
     }
 
-    // Do not even try to fetch if it not an engine
-    if (
-        // TODO: Improve that
-        !CACHE_FILES.some((f) => url.pathname === f || url.pathname === "/" + f)
-    ) {
+    // Tracking parameters (e.g. fbclid) must not bypass the cached shell.
+    url.search = "";
+    if (!ENGINE_URLS.has(url.href)) {
         return;
     }
     event.respondWith(
-        (async (request) => {
-            const cachedResponse = await caches.match(url);
+        (async () => {
+            const cachedResponse = await caches.match(url.href, {
+                cacheName: ENGINE_CACHE_NAME,
+            });
             if (cachedResponse) {
                 return cachedResponse;
             }
 
-            const responseFromNetwork = await fetch(url);
-
-            const cloned = responseFromNetwork.clone();
-            console.warn(
-                `Service worker saved engine '${url}' to cache during fetch. ` +
-                    `This should never happen because all engine files should be saved during install phase`,
-            );
+            // Preserve the network fallback and its cache write on a miss.
+            const responseFromNetwork = await fetch(event.request);
             const cache = await caches.open(ENGINE_CACHE_NAME);
-            cache.put(request, cloned);
-
+            event.waitUntil(cache.put(url.href, responseFromNetwork.clone()));
             return responseFromNetwork;
-        })(event.request),
+        })(),
     );
 });
 
