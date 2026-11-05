@@ -1358,7 +1358,10 @@ const langData = /** @type {const} */ ({
  */
 
 export function renderMenu() {
-    const menuDiv = document.getElementById("menu_content");
+    // Before Oct 17 the shell rendered directly into #menu (Rollbar #661).
+    const menuDiv =
+        document.getElementById("menu_content") ??
+        document.getElementById("menu");
     if (!menuDiv) {
         throw new Error(`No menu div!`);
     }
