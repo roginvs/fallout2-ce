@@ -4,15 +4,11 @@ import { gzipSync } from "node:zlib";
 const EMPTY_WASM = Buffer.from("0061736d01000000", "hex");
 const START = "#start_FalloutNevadaEng";
 
-async function openMenu(
-    page,
-    deferInstantiation = false,
-    menuMarkup = '<div id="menu"><div id="menu_content"></div></div>',
-) {
+async function openMenu(page, deferInstantiation = false) {
     await page.route("**/wasm-startup-harness", (route) =>
         route.fulfill({
             contentType: "text/html",
-            body: `${menuMarkup}<div id="status_text"></div><div id="error_text"></div><div><canvas id="canvas"></canvas></div>`,
+            body: '<div id="menu"><div id="menu_content"></div></div><div id="status_text"></div><div id="error_text"></div><div><canvas id="canvas"></canvas></div>',
         }),
     );
     await page.route("**/fallout2-ce.js", (route) =>
@@ -165,24 +161,3 @@ test("JavaScript download failure also rejects an early WASM waiter", async ({
     });
     expect(result).toBe("rejected");
 });
-
-for (const [shell, menuMarkup] of [
-    ["pre-Oct17 shell", '<div id="menu"></div>'],
-    ["shell without either menu container", ""],
-]) {
-    test(`Start works after restoring the menu in a ${shell}`, async ({
-        page,
-    }) => {
-        await page.route("**/engine.wasm", (route) =>
-            route.fulfill({ body: EMPTY_WASM }),
-        );
-        await openMenu(page, false, menuMarkup);
-        await expect(page.locator("#menu #menu_content")).toHaveCount(1);
-        await page.locator(START).click();
-        await expect(page.locator("#menu")).toBeHidden();
-        await expect(page.locator("#error_text")).toContainText(
-            "filesystem reached",
-        );
-        expect(await page.evaluate(() => window.fsStartedWithReady)).toBe(true);
-    });
-}

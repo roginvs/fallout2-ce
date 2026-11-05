@@ -1358,23 +1358,9 @@ const langData = /** @type {const} */ ({
  */
 
 export function renderMenu() {
-    let menuDiv = document.getElementById("menu_content");
+    const menuDiv = document.getElementById("menu_content");
     if (!menuDiv) {
-        // Rollbar #661: a fresh module can encounter an older shell, whose
-        // empty #menu predates #menu_content (Oct 17). The reports do not
-        // establish how the HTML and module versions became mismatched.
-        // Keep rendering compatible, including the wrapper Start hides.
-        let menu = document.getElementById("menu");
-        if (!menu) {
-            menu = document.createElement("div");
-            menu.id = "menu";
-            (document.getElementById("container") ?? document.body).appendChild(
-                menu,
-            );
-        }
-        menuDiv = document.createElement("div");
-        menuDiv.id = "menu_content";
-        menu.appendChild(menuDiv);
+        throw new Error(`No menu div!`);
     }
 
     const buildCommit = /** @type {HTMLAnchorElement | null} */ (
