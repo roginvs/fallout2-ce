@@ -1115,7 +1115,9 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     // TODO: Just add those files into the game folder and remove this
 
                     return ifaceWorkaroundFetcher(
-                        filePath.toLowerCase().split("/").pop(),
+                        /** @type {string} */ (
+                            filePath.toLowerCase().split("/").pop()
+                        ),
                     );
                 }
                 return data;
