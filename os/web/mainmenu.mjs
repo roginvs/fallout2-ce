@@ -836,11 +836,18 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
             // it retries every 3s instead of returning an empty file, same
             // as every other game file.
             const ifaceWorkaroundFetcher = createFetcher(
+                // urlPrefix: those 3 files exist only in Nevada folder,
+                // so they are always taken from there, for every game
                 "./game/FalloutNevadaEng/Patch001.dat/ART/INTRFACE/",
+                // cacheName: this game's cache, so "clear cache" removes them too
                 getCacheName(game.folder, game.filesVersion),
+                // useGzip: fetch "<name>.gz" and inflate it
                 true,
+                // onFetching: no status text for those small files
                 () => {},
+                // fileTransformer: none, use file as is
                 null,
+                // filesVersion: appended as "?v=" to the URL
                 game.filesVersion,
             );
 
