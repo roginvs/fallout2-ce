@@ -71,7 +71,6 @@ const ENGINE_CACHE_NAME = `${ENGINE_CACHE_PREFIX}${VERSION}`;
 const CACHE_URLS = CACHE_FILES.map(
     (path) => new URL(path, me.registration.scope).href,
 );
-const ENGINE_URLS = new Set(CACHE_URLS);
 
 me.addEventListener("install", (event) => {
     event.waitUntil(
@@ -136,14 +135,20 @@ me.addEventListener("fetch", (event) => {
         return;
     }
 
-    // Tracking parameters (e.g. fbclid) must not bypass the cached shell.
-    url.search = "";
-    if (!ENGINE_URLS.has(url.href)) {
+    // Do not even try to fetch if it not an engine. Pathnames are relative to
+    // the registration scope so a preview subdirectory matches its own assets.
+    if (
+        !CACHE_FILES.some(
+            (f) => url.pathname === new URL(f, me.registration.scope).pathname,
+        )
+    ) {
         return;
     }
     event.respondWith(
-        (async () => {
-            const cachedResponse = await caches.match(url.href, {
+        (async (request) => {
+            // Ignore the query, e.g. "/?window=1", so it is served offline too
+            const cachedResponse = await caches.match(url, {
+                ignoreSearch: true,
                 cacheName: ENGINE_CACHE_NAME,
             });
             if (cachedResponse) {
@@ -158,9 +163,9 @@ me.addEventListener("fetch", (event) => {
                     `This should never happen because all engine files should be saved during install phase`,
             );
             const cache = await caches.open(ENGINE_CACHE_NAME);
-            event.waitUntil(cache.put(url.href, cloned));
+            event.waitUntil(cache.put(request, cloned));
             return responseFromNetwork;
-        })(),
+        })(event.request),
     );
 });
 
