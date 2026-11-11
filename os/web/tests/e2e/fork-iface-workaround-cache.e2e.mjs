@@ -1,9 +1,10 @@
 // The fileTransformer workaround always fetches
 // data/art/intrface/hr_ifacelft2.frm, hr_ifacerht2.frm and hr_iface_800.frm
-// from ./game/FalloutNevadaEng/Patch001.dat/ART/INTRFACE/<name>.gz, for every
-// game. A plain fetch() hangs forever when the server never answers. After a
-// first online start the three files must come from Cache Storage so a second
-// start still reaches the engine main menu with the network hanging.
+// from the FalloutNevadaEng game fetcher
+// (Patch001.dat/ART/INTRFACE/<name>.gz), for every game. A plain fetch()
+// hangs forever when the server never answers. After a first online start
+// the three files must come from Cache Storage so a second start still
+// reaches the engine main menu with the network hanging.
 // HTTP cache is disabled (CDP) so a browser cache hit cannot mask the bug.
 // Canvas frames are read with toDataURL: Playwright's screenshot waits for
 // document.fonts.ready, which never settles when the network is hung.
@@ -19,7 +20,13 @@ process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = "1";
 // the network is held open.
 test.use({ trace: "off" });
 
-const FOLDER = "FalloutNevadaEng";
+/** @type {{ folder: string, label: string }[]} */
+const GAMES = [
+    { folder: "FalloutNevadaEng", label: "Nevada Eng" },
+    // Original Fallout 2 is not on the site; Sonora checks the same
+    // Nevada Eng fetcher path when starting a different game.
+    { folder: "Fallout_Sonora_1_15_dlc_eng", label: "Sonora 1.15 Eng" },
+];
 
 /**
  * @param {import("@playwright/test").Page} page
@@ -107,38 +114,40 @@ async function startGameFromShell(page, folder) {
     await page.locator("#canvas").waitFor({ state: "visible" });
 }
 
-test("fork: hr_iface workaround starts offline from cache", async ({
-    page,
-    context,
-}, testInfo) => {
-    test.setTimeout(10 * 60_000);
+for (const { folder, label } of GAMES) {
+    test(`fork: hr_iface workaround starts offline from cache (${label})`, async ({
+        page,
+        context,
+    }, testInfo) => {
+        test.setTimeout(10 * 60_000);
 
-    const cdp = await context.newCDPSession(page);
-    await cdp.send("Network.enable");
-    await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+        const cdp = await context.newCDPSession(page);
+        await cdp.send("Network.enable");
+        await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
 
-    // index.html, not "/": the candidate proxy serves "/" from upstream.
-    await page.goto(`/index.html#/${FOLDER}`);
-    expect(new URL(page.url()).hostname).not.toBe("localhost");
-    await page.evaluate(() => navigator.serviceWorker.ready);
-    await page.reload();
-    await page.waitForFunction(() => !!navigator.serviceWorker.controller, {
-        timeout: 60_000,
+        // index.html, not "/": the candidate proxy serves "/" from upstream.
+        await page.goto(`/index.html#/${folder}`);
+        expect(new URL(page.url()).hostname).not.toBe("localhost");
+        await page.evaluate(() => navigator.serviceWorker.ready);
+        await page.reload();
+        await page.waitForFunction(() => !!navigator.serviceWorker.controller, {
+            timeout: 60_000,
+        });
+
+        await startGameFromShell(page, folder);
+        const onlineMenu = await waitForEngineMenu(page, { timeout: 180_000 });
+        await snap(testInfo, "01-online-main-menu", onlineMenu);
+
+        // Hang every request that reaches the network, including SW fetches.
+        // HTTP cache stays disabled so only Cache Storage can serve the three files.
+        // reload(), not goto() of the same URL: goto would not navigate and the
+        // in-game shell menu would stay hidden.
+        await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+        await context.route("**/*", () => {});
+
+        await page.reload({ waitUntil: "commit", timeout: 30_000 });
+        await startGameFromShell(page, folder);
+        const offlineMenu = await waitForEngineMenu(page, { timeout: 180_000 });
+        await snap(testInfo, "02-offline-main-menu", offlineMenu);
     });
-
-    await startGameFromShell(page, FOLDER);
-    const onlineMenu = await waitForEngineMenu(page, { timeout: 180_000 });
-    await snap(testInfo, "01-online-main-menu", onlineMenu);
-
-    // Hang every request that reaches the network, including SW fetches.
-    // HTTP cache stays disabled so only Cache Storage can serve the three files.
-    // reload(), not goto() of the same URL: goto would not navigate and the
-    // in-game shell menu would stay hidden.
-    await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
-    await context.route("**/*", () => {});
-
-    await page.reload({ waitUntil: "commit", timeout: 30_000 });
-    await startGameFromShell(page, FOLDER);
-    const offlineMenu = await waitForEngineMenu(page, { timeout: 180_000 });
-    await snap(testInfo, "02-offline-main-menu", offlineMenu);
-});
+}

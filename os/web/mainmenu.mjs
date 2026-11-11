@@ -835,10 +835,10 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
             // same cache. On a cache miss with a hanging or failed network
             // it retries every 3s instead of returning an empty file, same
             // as every other game file.
-            const ifaceWorkaroundFetcher = createFetcher(
-                // urlPrefix: those 3 files exist only in Nevada folder,
-                // so they are always taken from there, for every game
-                "./game/FalloutNevadaEng/Patch001.dat/ART/INTRFACE/",
+            const nevadaFetcher = createFetcher(
+                // urlPrefix: Nevada Eng game folder; request files as
+                // Patch001.dat/ART/INTRFACE/<name>
+                "./game/FalloutNevadaEng/",
                 // cacheName: this game's cache, so "clear cache" removes them too
                 getCacheName(game.folder, game.filesVersion),
                 // useGzip: fetch "<name>.gz" and inflate it
@@ -1121,10 +1121,11 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     // Workaround to fix missing files without re-calculating index
                     // TODO: Just add those files into the game folder and remove this
 
-                    return ifaceWorkaroundFetcher(
-                        /** @type {string} */ (
-                            filePath.toLowerCase().split("/").pop()
-                        ),
+                    return nevadaFetcher(
+                        "Patch001.dat/ART/INTRFACE/" +
+                            /** @type {string} */ (
+                                filePath.toLowerCase().split("/").pop()
+                            ),
                     );
                 }
                 return data;
