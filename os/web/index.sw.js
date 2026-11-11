@@ -130,7 +130,10 @@ me.addEventListener("fetch", (event) => {
     }
     event.respondWith(
         (async (request) => {
-            const cachedResponse = await caches.match(url);
+            // Ignore the query, e.g. "/?window=1", so it is served offline too
+            const cachedResponse = await caches.match(url, {
+                ignoreSearch: true,
+            });
             if (cachedResponse) {
                 return cachedResponse;
             }
