@@ -1,7 +1,7 @@
 import { configuration } from "./config.mjs";
 import { showContextMenu } from "./contextmenu.mjs";
 import { addDebugTag } from "./debugTags.mjs";
-import { removeGameCache } from "./gamecache.mjs";
+import { getCacheName, removeGameCache } from "./gamecache.mjs";
 import { addHotkeysForFullscreen } from "./hotkeys_and_workarounds.mjs";
 import { IniParser } from "./iniparser.mjs";
 import { downloadAllGameFiles, initFilesystem } from "./initFilesystem.mjs";
@@ -1102,7 +1102,20 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                         filePath.toLowerCase().split("/").pop() +
                         ".gz";
 
-                    const newDataPackedBuf = await fetch(fName)
+                    // Cache-first, so offline start does not wait for the network
+                    const newDataPackedBuf = await caches
+                        .open(getCacheName(game.folder, game.filesVersion))
+                        .then(async (cache) => {
+                            const cached = await cache.match(fName);
+                            if (cached) {
+                                return cached;
+                            }
+                            const res = await fetch(fName);
+                            if (res.ok) {
+                                await cache.put(fName, res.clone());
+                            }
+                            return res;
+                        })
                         .then((res) => res.arrayBuffer())
                         .catch((e) => {});
                     if (!newDataPackedBuf) {
