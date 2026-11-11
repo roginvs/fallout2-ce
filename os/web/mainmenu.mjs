@@ -1,6 +1,7 @@
 import { configuration } from "./config.mjs";
 import { showContextMenu } from "./contextmenu.mjs";
 import { addDebugTag } from "./debugTags.mjs";
+import { createFetcher } from "./fetcher.mjs";
 import { getCacheName, removeGameCache } from "./gamecache.mjs";
 import { addHotkeysForFullscreen } from "./hotkeys_and_workarounds.mjs";
 import { IniParser } from "./iniparser.mjs";
@@ -827,6 +828,22 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
             /** @type {string | null} */
             let sfallModsIniPathToPatch = null;
 
+            // Use createFetcher: it is already cache-first, writes the cache
+            // with void cache.put(clone) so a Cache Storage failure cannot
+            // drop the downloaded response, and inflates .gz. We pass this
+            // game's filesVersion so the URL ?v= matches other files in the
+            // same cache. On a cache miss with a hanging or failed network
+            // it retries every 3s instead of returning an empty file, same
+            // as every other game file.
+            const ifaceWorkaroundFetcher = createFetcher(
+                "./game/FalloutNevadaEng/Patch001.dat/ART/INTRFACE/",
+                getCacheName(game.folder, game.filesVersion),
+                true,
+                () => {},
+                null,
+                game.filesVersion,
+            );
+
             /** @type {import("./fetcher.mjs").FileTransformer} */
             const fileTransformer = async (filePath, data) => {
                 if (
@@ -1097,33 +1114,9 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     // Workaround to fix missing files without re-calculating index
                     // TODO: Just add those files into the game folder and remove this
 
-                    const fName =
-                        "./game/FalloutNevadaEng/Patch001.dat/ART/INTRFACE/" +
-                        filePath.toLowerCase().split("/").pop() +
-                        ".gz";
-
-                    // Cache-first, so offline start does not wait for the network
-                    const newDataPackedBuf = await caches
-                        .open(getCacheName(game.folder, game.filesVersion))
-                        .then(async (cache) => {
-                            const cached = await cache.match(fName);
-                            if (cached) {
-                                return cached;
-                            }
-                            const res = await fetch(fName);
-                            if (res.ok) {
-                                await cache.put(fName, res.clone());
-                            }
-                            return res;
-                        })
-                        .then((res) => res.arrayBuffer())
-                        .catch((e) => {});
-                    if (!newDataPackedBuf) {
-                        // If failed to download then do not stop
-                        return new Uint8Array(0);
-                    }
-                    const newData = inflate(new Uint8Array(newDataPackedBuf));
-                    return new Uint8Array(newData);
+                    return ifaceWorkaroundFetcher(
+                        filePath.toLowerCase().split("/").pop(),
+                    );
                 }
                 return data;
             };
