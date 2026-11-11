@@ -72,12 +72,18 @@ me.addEventListener("install", (event) => {
         (async () => {
             const cacheAlreadyExists = await caches.has(ENGINE_CACHE_NAME);
             const cache = await caches.open(ENGINE_CACHE_NAME);
+
             try {
-                await cache.addAll(
-                    CACHE_FILES.map(
-                        (fpath) => new Request(fpath, { cache: "no-cache" }),
-                    ),
-                );
+                for (const fpath of CACHE_FILES) {
+                    await cache.add(
+                        new Request(fpath, {
+                            cache: "no-cache",
+                            headers: {
+                                "Cache-Control": "no-cache",
+                            },
+                        }),
+                    );
+                }
             } catch (error) {
                 if (!cacheAlreadyExists) {
                     await caches.delete(ENGINE_CACHE_NAME);
@@ -97,14 +103,14 @@ me.addEventListener("activate", (event) => {
                 // Drop old cache schema because newer asyncfetchfs saved files into cache on its own
                 const GAMES_OLD_CACHE_PREFIX = "gamedata_";
                 const GAMES_OLD_CACHE_PREFIX_2 = "gamescache";
+                const GAMES_OLD_CACHE_PREFIX_3 = "engine";
 
                 if (
                     cacheKey.startsWith(GAMES_OLD_CACHE_PREFIX) ||
                     cacheKey.startsWith(GAMES_OLD_CACHE_PREFIX_2) ||
                     (cacheKey.startsWith(ENGINE_CACHE_PREFIX) &&
                         cacheKey !== ENGINE_CACHE_NAME) ||
-                    (cacheKey === "engine" &&
-                        new URL(me.registration.scope).pathname === "/")
+                    cacheKey === GAMES_OLD_CACHE_PREFIX_3
                 ) {
                     await caches.delete(cacheKey);
                 }
@@ -156,6 +162,9 @@ me.addEventListener("fetch", (event) => {
                     `This should never happen because all engine files should be saved during install phase`,
             );
             const cache = await caches.open(ENGINE_CACHE_NAME);
+            // waitUntil keeps the worker alive until the cache write finishes,
+            // otherwise it can be lost if the worker is stopped or replaced
+            // right after responding
             event.waitUntil(cache.put(request, cloned));
             return responseFromNetwork;
         })(event.request),
