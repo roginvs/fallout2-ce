@@ -1,7 +1,8 @@
 import { configuration } from "./config.mjs";
 import { showContextMenu } from "./contextmenu.mjs";
 import { addDebugTag } from "./debugTags.mjs";
-import { removeGameCache } from "./gamecache.mjs";
+import { createFetcher } from "./fetcher.mjs";
+import { getCacheName, removeGameCache } from "./gamecache.mjs";
 import { addHotkeysForFullscreen } from "./hotkeys_and_workarounds.mjs";
 import { IniParser } from "./iniparser.mjs";
 import { downloadAllGameFiles, initFilesystem } from "./initFilesystem.mjs";
@@ -827,6 +828,29 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
             /** @type {string | null} */
             let sfallModsIniPathToPatch = null;
 
+            // Use createFetcher: it is already cache-first, writes the cache
+            // with void cache.put(clone) so a Cache Storage failure cannot
+            // drop the downloaded response, and inflates .gz. We pass this
+            // game's filesVersion so the URL ?v= matches other files in the
+            // same cache. On a cache miss with a hanging or failed network
+            // it retries every 3s instead of returning an empty file, same
+            // as every other game file.
+            const nevadaFetcher = createFetcher(
+                // urlPrefix: Nevada Eng game folder; request files as
+                // Patch001.dat/ART/INTRFACE/<name>
+                "./game/FalloutNevadaEng/",
+                // cacheName: this game's cache, so "clear cache" removes them too
+                getCacheName(game.folder, game.filesVersion),
+                // useGzip: fetch "<name>.gz" and inflate it
+                true,
+                // onFetching: no status text for those small files
+                () => {},
+                // fileTransformer: none, use file as is
+                null,
+                // filesVersion: appended as "?v=" to the URL
+                game.filesVersion,
+            );
+
             /** @type {import("./fetcher.mjs").FileTransformer} */
             const fileTransformer = async (filePath, data) => {
                 if (
@@ -1097,20 +1121,12 @@ function renderGameMenu(game, menuDiv, lang, hideWhenNoSaveGames) {
                     // Workaround to fix missing files without re-calculating index
                     // TODO: Just add those files into the game folder and remove this
 
-                    const fName =
-                        "./game/FalloutNevadaEng/Patch001.dat/ART/INTRFACE/" +
-                        filePath.toLowerCase().split("/").pop() +
-                        ".gz";
-
-                    const newDataPackedBuf = await fetch(fName)
-                        .then((res) => res.arrayBuffer())
-                        .catch((e) => {});
-                    if (!newDataPackedBuf) {
-                        // If failed to download then do not stop
-                        return new Uint8Array(0);
-                    }
-                    const newData = inflate(new Uint8Array(newDataPackedBuf));
-                    return new Uint8Array(newData);
+                    return nevadaFetcher(
+                        "Patch001.dat/ART/INTRFACE/" +
+                            /** @type {string} */ (
+                                filePath.toLowerCase().split("/").pop()
+                            ),
+                    );
                 }
                 return data;
             };
