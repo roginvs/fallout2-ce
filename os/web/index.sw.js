@@ -64,13 +64,8 @@ const CACHE_FILES = [
 // CMake replaces this with a hash of the finished web assets.
 const VERSION = "@WEB_ASSET_VERSION@";
 
-// CacheStorage is shared across registrations on an origin. Keep both builds
-// and preview scopes separate, including while a new worker is installing.
 const ENGINE_CACHE_PREFIX = `engine-${encodeURIComponent(me.registration.scope)}-`;
 const ENGINE_CACHE_NAME = `${ENGINE_CACHE_PREFIX}${VERSION}`;
-const CACHE_URLS = CACHE_FILES.map(
-    (path) => new URL(path, me.registration.scope).href,
-);
 
 me.addEventListener("install", (event) => {
     event.waitUntil(
@@ -78,11 +73,9 @@ me.addEventListener("install", (event) => {
             const cacheAlreadyExists = await caches.has(ENGINE_CACHE_NAME);
             const cache = await caches.open(ENGINE_CACHE_NAME);
             try {
-                // addAll commits only after every response succeeds. A failed
-                // install cannot overwrite part of an existing build's cache.
                 await cache.addAll(
-                    CACHE_URLS.map(
-                        (url) => new Request(url, { cache: "no-cache" }),
+                    CACHE_FILES.map(
+                        (fpath) => new Request(fpath, { cache: "no-cache" }),
                     ),
                 );
             } catch (error) {
@@ -135,9 +128,9 @@ me.addEventListener("fetch", (event) => {
         return;
     }
 
-    // Do not even try to fetch if it not an engine. Pathnames are relative to
-    // the registration scope so a preview subdirectory matches its own assets.
+    // Do not even try to fetch if it not an engine
     if (
+        // TODO: Improve that
         !CACHE_FILES.some(
             (f) => url.pathname === new URL(f, me.registration.scope).pathname,
         )
