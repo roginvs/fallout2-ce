@@ -57,29 +57,38 @@ const CACHE_FILES = [
     // "sonora-640x480-ru.png",
     // "sonora-hires-ru.png",
 
-    // @TODO: Do we want to use '/'? Is this relative to service worker registration? If so, then how it works in "fetch" event?
-    "/",
+    // The shell at the registration's root, including preview subdirectories.
+    "./",
 ];
 
 // CMake replaces this with a hash of the finished web assets.
 const VERSION = "@WEB_ASSET_VERSION@";
 
-const ENGINE_CACHE_NAME = "engine";
+const ENGINE_CACHE_PREFIX = `engine-${encodeURIComponent(me.registration.scope)}-`;
+const ENGINE_CACHE_NAME = `${ENGINE_CACHE_PREFIX}${VERSION}`;
 
 me.addEventListener("install", (event) => {
     event.waitUntil(
         (async () => {
+            const cacheAlreadyExists = await caches.has(ENGINE_CACHE_NAME);
             const cache = await caches.open(ENGINE_CACHE_NAME);
 
-            for (const fpath of CACHE_FILES) {
-                await cache.add(
-                    new Request(fpath, {
-                        cache: "no-cache",
-                        headers: {
-                            "Cache-Control": "no-cache",
-                        },
-                    }),
-                );
+            try {
+                for (const fpath of CACHE_FILES) {
+                    await cache.add(
+                        new Request(fpath, {
+                            cache: "no-cache",
+                            headers: {
+                                "Cache-Control": "no-cache",
+                            },
+                        }),
+                    );
+                }
+            } catch (error) {
+                if (!cacheAlreadyExists) {
+                    await caches.delete(ENGINE_CACHE_NAME);
+                }
+                throw error;
             }
 
             await me.skipWaiting();
@@ -94,10 +103,14 @@ me.addEventListener("activate", (event) => {
                 // Drop old cache schema because newer asyncfetchfs saved files into cache on its own
                 const GAMES_OLD_CACHE_PREFIX = "gamedata_";
                 const GAMES_OLD_CACHE_PREFIX_2 = "gamescache";
+                const OLD_ENGINE_CACHE_NAME = "engine";
 
                 if (
                     cacheKey.startsWith(GAMES_OLD_CACHE_PREFIX) ||
-                    cacheKey.startsWith(GAMES_OLD_CACHE_PREFIX_2)
+                    cacheKey.startsWith(GAMES_OLD_CACHE_PREFIX_2) ||
+                    (cacheKey.startsWith(ENGINE_CACHE_PREFIX) &&
+                        cacheKey !== ENGINE_CACHE_NAME) ||
+                    cacheKey === OLD_ENGINE_CACHE_NAME
                 ) {
                     await caches.delete(cacheKey);
                 }
@@ -117,14 +130,16 @@ me.addEventListener("fetch", (event) => {
     //console.info(new URL(url).pathname);
 
     // Skip cross-origin requests, like those for Google Analytics.
-    if (url.origin !== me.location.origin) {
+    if (event.request.method !== "GET" || url.origin !== me.location.origin) {
         return;
     }
 
     // Do not even try to fetch if it not an engine
     if (
         // TODO: Improve that
-        !CACHE_FILES.some((f) => url.pathname === f || url.pathname === "/" + f)
+        !CACHE_FILES.some(
+            (f) => url.pathname === new URL(f, me.registration.scope).pathname,
+        )
     ) {
         return;
     }
@@ -133,6 +148,7 @@ me.addEventListener("fetch", (event) => {
             // Ignore the query, e.g. "/?window=1", so it is served offline too
             const cachedResponse = await caches.match(url, {
                 ignoreSearch: true,
+                cacheName: ENGINE_CACHE_NAME,
             });
             if (cachedResponse) {
                 return cachedResponse;
@@ -146,8 +162,10 @@ me.addEventListener("fetch", (event) => {
                     `This should never happen because all engine files should be saved during install phase`,
             );
             const cache = await caches.open(ENGINE_CACHE_NAME);
-            cache.put(request, cloned);
-
+            // waitUntil keeps the worker alive until the cache write finishes,
+            // otherwise it can be lost if the worker is stopped or replaced
+            // right after responding
+            event.waitUntil(cache.put(request, cloned));
             return responseFromNetwork;
         })(event.request),
     );
