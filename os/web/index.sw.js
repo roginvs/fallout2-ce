@@ -103,14 +103,14 @@ me.addEventListener("activate", (event) => {
                 // Drop old cache schema because newer asyncfetchfs saved files into cache on its own
                 const GAMES_OLD_CACHE_PREFIX = "gamedata_";
                 const GAMES_OLD_CACHE_PREFIX_2 = "gamescache";
-                const GAMES_OLD_CACHE_PREFIX_3 = "engine";
+                const OLD_ENGINE_CACHE_NAME = "engine";
 
                 if (
                     cacheKey.startsWith(GAMES_OLD_CACHE_PREFIX) ||
                     cacheKey.startsWith(GAMES_OLD_CACHE_PREFIX_2) ||
                     (cacheKey.startsWith(ENGINE_CACHE_PREFIX) &&
                         cacheKey !== ENGINE_CACHE_NAME) ||
-                    cacheKey === GAMES_OLD_CACHE_PREFIX_3
+                    cacheKey === OLD_ENGINE_CACHE_NAME
                 ) {
                     await caches.delete(cacheKey);
                 }
