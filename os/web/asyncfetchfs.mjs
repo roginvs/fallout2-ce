@@ -64,7 +64,7 @@ function getNodePath(node) {
  *   unloadTimerId?: number
  * } & FsNode} AsyncFetchFsNode
  *
- * @typedef {{ node: AsyncFetchFsNode, fd: number, position: number}} AsyncFetchFsStream
+ * @typedef {{ node: AsyncFetchFsNode, fd: number, position: number, asyncOpen?: Promise<void> }} AsyncFetchFsStream
  */
 
 const MEGABYTE = 1024 * 1024;
@@ -488,31 +488,46 @@ export const ASYNCFETCHFS = {
                 clearTimeout(node.unloadTimerId);
             }
 
-            if (Asyncify.state == Asyncify.State.Normal) {
+            // Asyncify (release) re-enters open() after rewind. JSPI (debug)
+            // suspends once, and Asyncify.State is not defined in that runtime.
+            const hasAsyncifyState =
+                typeof Asyncify.State === "object" && Asyncify.State !== null;
+            const rewinding =
+                hasAsyncifyState &&
+                Asyncify.state === Asyncify.State.Rewinding;
+
+            if (!rewinding) {
                 if (node.contents) {
                     node.openedCount++;
                     return;
                 }
-            }
 
-            if (node.is_memfs) {
-                if (Asyncify.state !== Asyncify.State.Normal) {
-                    throw new Error(
-                        `Unexpected Asyncify state=${Asyncify.state}, memfs nodes are not async`,
-                    );
+                if (node.is_memfs) {
+                    if (
+                        hasAsyncifyState &&
+                        Asyncify.state !== Asyncify.State.Normal
+                    ) {
+                        throw new Error(
+                            `Unexpected Asyncify state=${Asyncify.state}, memfs nodes are not async`,
+                        );
+                    }
+
+                    node.openedCount++;
+                    return;
                 }
 
-                node.openedCount++;
-                return;
+                // ___syscall_openat creates a new stream every time it runs.
+                // The transform calls it again after rewind, so drop this fd.
+                // JSPI does not rewind and must keep the fd.
+                if (
+                    hasAsyncifyState &&
+                    Asyncify.state === Asyncify.State.Normal
+                ) {
+                    FS.closeStream(stream.fd);
+                }
             }
 
-            // ___syscall_openat creates new stream everytime it runs
-            // We need to close this stream when we run for the first time in async mode
-            if (Asyncify.state == Asyncify.State.Normal) {
-                FS.closeStream(stream.fd);
-            }
-
-            return Asyncify.handleAsync(async () => {
+            const pending = Asyncify.handleAsync(async () => {
                 const inGamePath = getNodePath(node);
 
                 const opts = node.opts;
@@ -526,6 +541,10 @@ export const ASYNCFETCHFS = {
                 node.contents = data;
                 node.openedCount++;
             });
+            if (pending && typeof pending.then === "function") {
+                stream.asyncOpen = pending;
+            }
+            return pending;
         },
         /**
          *

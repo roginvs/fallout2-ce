@@ -595,8 +595,24 @@ else()
         add_compile_options( -sMEMORY64 )
     endif()
 
+    # Debug builds only need current Chrome, which has JSPI on by default
+    # (Chrome 137+). Release keeps the Asyncify transform for older browsers.
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+        set(OPTION_WASM_JSPI ON)
+    endif()
+
     if(OPTION_WASM_JSPI)
-        target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sJSPI" )
+        target_link_options(${EXECUTABLE_NAME} PRIVATE "-sJSPI")
+        # Stock ___syscall_openat ignores the Promise from stream_ops.open.
+        # JSPI only suspends when that import returns a Promise.
+        target_link_options(${EXECUTABLE_NAME} PRIVATE
+            "--js-library" "${CMAKE_CURRENT_SOURCE_DIR}/src/web/jspi_syscall_openat.js")
+        # TextDecoder is built into Chrome; skip Emscripten's UTF-8 fallback.
+        target_link_options(${EXECUTABLE_NAME} PRIVATE "-sTEXTDECODER=2")
+        # Pass i64 values as BigInt instead of Binaryen's i32-pair legalization.
+        target_link_options(${EXECUTABLE_NAME} PRIVATE "-sWASM_BIGINT")
+        target_link_options(${EXECUTABLE_NAME} PRIVATE "-sMIN_CHROME_VERSION=137")
+        target_link_options(${EXECUTABLE_NAME} PRIVATE "-sENVIRONMENT=web")
     else()
         target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sASYNCIFY" )
         target_link_options( ${EXECUTABLE_NAME} PRIVATE "-sASYNCIFY_STACK_SIZE=20480" )

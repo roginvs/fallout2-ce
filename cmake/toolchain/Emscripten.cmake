@@ -11,7 +11,7 @@ set( CMAKE_CXX_COMPILER                 "em++" )
 set( EXECUTABLE_NAME fallout2-ce )
 
 option(OPTION_WASM_64 "Build wasm64 module" OFF)
-option(OPTION_WASM_JSPI "Build wasm with JSPI support instead of asyncify module" OFF)
+option(OPTION_WASM_JSPI "Build wasm with native JSPI instead of the Asyncify transform" OFF)
 
 # Touch toolchain variable to suppress "unused variable" warning.
 # This happens if CMake is invoked with the same command line the second time.
