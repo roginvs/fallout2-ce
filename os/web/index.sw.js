@@ -66,23 +66,10 @@ const VERSION = "@WEB_ASSET_VERSION@";
 
 const ENGINE_CACHE_NAME = "engine";
 
-/** @type {Promise<Cache> | undefined} */
-let engineCachePromise;
-
-function openEngineCache() {
-    if (!engineCachePromise) {
-        engineCachePromise = caches.open(ENGINE_CACHE_NAME).catch((error) => {
-            engineCachePromise = undefined;
-            throw error;
-        });
-    }
-    return engineCachePromise;
-}
-
 me.addEventListener("install", (event) => {
     event.waitUntil(
         (async () => {
-            const cache = await openEngineCache();
+            const cache = await caches.open(ENGINE_CACHE_NAME);
 
             for (const fpath of CACHE_FILES) {
                 await cache.add(
@@ -144,11 +131,8 @@ me.addEventListener("fetch", (event) => {
     event.respondWith(
         (async (request) => {
             // Ignore the query, e.g. "/?window=1", so it is served offline too.
-            // Match only the engine cache. caches.match() walks every cache
-            // for this origin, including the large per-game stores, and each
-            // shell request waits on that. Game files are read by fetcher.mjs
-            // from their own cache and do not come through this handler.
-            const cache = await openEngineCache();
+            // Engine cache only: caches.match walks the large game caches too.
+            const cache = await caches.open(ENGINE_CACHE_NAME);
             const cachedResponse = await cache.match(url, {
                 ignoreSearch: true,
             });
