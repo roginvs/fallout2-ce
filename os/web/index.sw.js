@@ -130,8 +130,10 @@ me.addEventListener("fetch", (event) => {
     }
     event.respondWith(
         (async (request) => {
-            // Ignore the query, e.g. "/?window=1", so it is served offline too
-            const cachedResponse = await caches.match(url, {
+            // Ignore the query, e.g. "/?window=1", so it is served offline too.
+            // Engine cache only: caches.match walks the large game caches too.
+            const cache = await caches.open(ENGINE_CACHE_NAME);
+            const cachedResponse = await cache.match(url, {
                 ignoreSearch: true,
             });
             if (cachedResponse) {
@@ -145,7 +147,6 @@ me.addEventListener("fetch", (event) => {
                 `Service worker saved engine '${url}' to cache during fetch. ` +
                     `This should never happen because all engine files should be saved during install phase`,
             );
-            const cache = await caches.open(ENGINE_CACHE_NAME);
             cache.put(request, cloned);
 
             return responseFromNetwork;
