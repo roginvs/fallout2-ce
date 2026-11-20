@@ -62,6 +62,17 @@ export const configuration = {
             filesVersion: "1",
         },
         {
+            name: "Fallout: Sonora 1.16 (+ DLC)",
+            folder: "Fallout_Sonora_1_16b_dlc",
+            lang: "ru",
+            gameType: "sonora",
+            links: [
+                "https://fallout-nevada.ucoz.ru/index/fallout_sonora/0-59",
+                "https://fallout-nevada.ucoz.ru/index/fallout_sonora_dlc/0-62",
+            ],
+            filesVersion: "2",
+        },
+        {
             name: "Fallout: Sonora 1.16.4 NovaRain (+ DLC)",
             folder: "Fallout_Sonora_1_16_4_novarain_ru",
             lang: "ru",
@@ -103,6 +114,17 @@ export const configuration = {
             filesVersion: "1",
         },
         {
+            name: "Fallout: Sonora English 1.15 (+ DLC) by Cambragol 1.05",
+            folder: "Fallout_Sonora_1_15_dlc_eng",
+            lang: "en",
+            gameType: "sonora",
+            links: [
+                "https://fallout-nevada.ucoz.ru/index/opisanie_fallout_sonora/0-59",
+                "https://cambragol.github.io/Fallout-Sonora/",
+            ],
+            filesVersion: "3",
+        },
+        {
             name: "Fallout: Sonora English 1.16.4E (+ DLC) by Cambragol + NovaRain",
             folder: "Fallout_Sonora_1_16_4_novarain_eng",
             lang: "en",
@@ -117,17 +139,6 @@ export const configuration = {
         {
             name: "Fallout: Sonora English 1.16.4E (+ DLC) by Cambragol",
             folder: "Fallout_Sonora_1_16_E_dlc_eng",
-            lang: "en",
-            gameType: "sonora",
-            links: [
-                "https://fallout-nevada.ucoz.ru/index/opisanie_fallout_sonora/0-59",
-                "https://cambragol.github.io/Fallout-Sonora/",
-            ],
-            filesVersion: "3",
-        },
-        {
-            name: "Fallout: Sonora English 1.15 (+ DLC) by Cambragol 1.05",
-            folder: "Fallout_Sonora_1_15_dlc_eng",
             lang: "en",
             gameType: "sonora",
             links: [
