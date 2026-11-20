@@ -1,9 +1,12 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
-import zlib from "zlib";
-import crypto from "crypto";
 import { spawnSync } from "child_process";
+import {
+    NATIVE_IGNORE_RES,
+    SMALL_DAT_MAX_BYTES,
+    createSonoraTools,
+} from "./prepare-sonora-common.mjs";
 
 // Official Fallout Sonora 1.16b + Dayglow, from the authors' Mail.ru links.
 // The whole build stays on the external SSD. Only the gzipped folder is
@@ -24,6 +27,24 @@ if (isDryRun) {
 } else {
     console.info("NOT a dry-run, files will be changed!");
 }
+
+const {
+    run,
+    assembleInto,
+    alignOfficialSonoraConfig,
+    clearSavegames,
+    createEmptyMarkers,
+    writeIndex,
+    compressDir,
+    hardlinkGames,
+    validateGames,
+    gzRead,
+    readCfg,
+    freeBytes,
+    sha1File,
+    listFiles,
+    FsRemoveQuietly,
+} = createSonoraTools(isDryRun);
 
 // Sizes are the Mail.ru file sizes. sha1 is of the bytes we downloaded;
 // Mail.ru's own "hash" field is not a sha1 of the file.
@@ -60,15 +81,6 @@ const MIN_HOME_FREE_BYTES = 3 * 1024 * 1024 * 1024;
 // no patchNNN.dat, so the DLC's patchDLC.dat becomes patch000.dat.
 const PATCH_DAT_NAME = "patch000.dat";
 
-const NATIVE_IGNORE_RES = [
-    /\.exe$/i,
-    /\.dll$/i,
-    /\.ipa/i,
-    /\.apk/i,
-    /^fallout-sonora-/i,
-];
-
-const SMALL_DAT_MAX_BYTES = 8 * 1024 * 1024;
 const KNOWN_COPY_ENTRIES = ["BIS_mapper", "data", "mods"];
 const KNOWN_COPY_RES = [
     /^readme/i,
@@ -234,58 +246,22 @@ const steps = {
         if (!requireDir(STAGING_DIR, "Staging is missing, run unzip and dlc first")) {
             return;
         }
-        const entries = fs.readdirSync(STAGING_DIR);
-        const native = [];
-        const unknown = [];
-        /** @type {string[]} */
-        const dats = [];
-        for (const entry of entries) {
-            const resolved = path.join(STAGING_DIR, entry);
-            if (NATIVE_IGNORE_RES.some((re) => re.test(entry))) {
-                native.push(entry);
-                continue;
-            }
-            if (/\.dat$/i.test(entry) && fs.statSync(resolved).isFile()) {
-                if (fs.statSync(resolved).size >= SMALL_DAT_MAX_BYTES) {
-                    dats.push(entry);
-                } else {
-                    console.info("Small dat, keeping as a raw file:", entry);
-                }
-                continue;
-            }
-            if (
-                KNOWN_COPY_ENTRIES.includes(entry) ||
-                KNOWN_COPY_RES.some((re) => re.test(entry))
-            ) {
-                continue;
-            }
-            unknown.push(entry);
-        }
-        console.info("Dropping native files:", native.join(", ") || "(none)");
-        console.info("Unpacking large dats:", dats.join(", ") || "(none)");
-        if (!dats.includes(PATCH_DAT_NAME)) {
-            console.error("Expected", PATCH_DAT_NAME, "to be a large dat");
-            process.exit(1);
-        }
-        if (unknown.length > 0) {
-            console.error("Unknown entries, stopping:", unknown.join(", "));
-            process.exit(1);
-        }
-        for (const entry of native) {
-            FsRemoveQuietly(path.join(STAGING_DIR, entry));
-        }
-        for (const dat of dats) {
-            unpackDat(path.join(STAGING_DIR, dat), path.join(STAGING_DIR, dat));
-        }
+        assembleInto(
+            STAGING_DIR,
+            STAGING_DIR,
+            KNOWN_COPY_ENTRIES,
+            KNOWN_COPY_RES,
+            [PATCH_DAT_NAME],
+        );
     },
 
     clean() {
         if (!requireDir(STAGING_DIR, "Staging is missing")) {
             return;
         }
-        alignWithOlderSonoraConfigs(STAGING_DIR);
+        alignOfficialSonoraConfig(STAGING_DIR);
         const cfg = readCfg(path.join(STAGING_DIR, "fallout2.cfg"));
-        console.info("Cfg after alignment with 1.13/1.15:");
+        console.info("Cfg:");
         for (const key of [
             "master_dat",
             "master_patches",
@@ -299,13 +275,7 @@ const steps = {
         console.info(
             `  violence_level=${cfg["preferences"]?.violence_level ?? "???"}`,
         );
-        const savegameDir = path.join(STAGING_DIR, "data", "SAVEGAME");
-        if (fs.existsSync(savegameDir)) {
-            for (const f of fs.readdirSync(savegameDir)) {
-                FsRemoveQuietly(path.join(savegameDir, f));
-            }
-            console.info("Cleared SAVEGAME");
-        }
+        clearSavegames(STAGING_DIR);
         FsRemoveQuietly(path.join(STAGING_DIR, ".DS_Store"));
         createEmptyMarkers(STAGING_DIR);
     },
@@ -314,29 +284,14 @@ const steps = {
         if (!requireDir(STAGING_DIR, "Staging is missing")) {
             return;
         }
-        const lines = [];
-        for (const relPath of listFiles(STAGING_DIR)) {
-            const fullPath = path.join(STAGING_DIR, relPath);
-            const size = fs.statSync(fullPath).size;
-            const hash = sha256File(fullPath);
-            lines.push(`${size} ${hash}  ./${relPath}`);
-        }
-        if (isDryRun) {
-            console.info(`(dry) would write index with ${lines.length} files`);
-            return;
-        }
-        fs.writeFileSync(
-            path.join(STAGING_DIR, "index.txt"),
-            lines.join("\n") + "\n",
-        );
-        console.info(`Index written: ${lines.length} files`);
+        writeIndex(STAGING_DIR);
     },
 
     compress() {
         if (!requireDir(STAGING_DIR, "Staging is missing")) {
             return;
         }
-        run("pigz", ["-r", "--best", "."], { cwd: STAGING_DIR });
+        compressDir(STAGING_DIR);
         console.info("Compressed on the SSD");
     },
 
@@ -381,20 +336,7 @@ const steps = {
             console.error("Game folder is missing, run transfer first:", DEST_DIR);
             process.exit(1);
         }
-        run(
-            "node",
-            [
-                path.join(
-                    os.homedir(),
-                    "fallout2-ce-web",
-                    "scripts",
-                    "make-hardlinks-for-duplicated-files.mjs",
-                ),
-                GAMES_DIR,
-                "nodry",
-            ],
-            { stdio: "inherit" },
-        );
+        hardlinkGames(GAMES_DIR);
     },
 
     validate() {
@@ -406,19 +348,7 @@ const steps = {
             console.error("Game folder is missing, run transfer first:", DEST_DIR);
             process.exit(1);
         }
-        run(
-            "node",
-            [
-                path.join(
-                    os.homedir(),
-                    "fallout2-ce-web",
-                    "scripts",
-                    "validate-index-txt-checksums.mjs",
-                ),
-                GAMES_DIR,
-            ],
-            { stdio: "inherit" },
-        );
+        validateGames(GAMES_DIR);
         for (const dat of ["master.dat", "critter.dat", PATCH_DAT_NAME]) {
             const p = path.join(DEST_DIR, dat);
             const ok = fs.existsSync(p) && fs.statSync(p).isDirectory();
@@ -449,37 +379,6 @@ Manual checklist:
 - deploy`);
     },
 };
-
-/**
- * Match Russian 1.13/1.15 where the web launcher does not already override
- * the value. violence_level and art_cache_size are the only fallout2.cfg
- * differences. ddraw.ini in those builds is only SkipOpeningMovies; the
- * other sfall keys are not rewritten by the launcher and would be migrated
- * into data/config/game.cfg on first start.
- *
- * @param {string} dir
- */
-function alignWithOlderSonoraConfigs(dir) {
-    const cfgPath = path.join(dir, "fallout2.cfg");
-    let cfg = fs.readFileSync(cfgPath);
-    const next = cfg
-        .toString("latin1")
-        .replace(/^violence_level=\d+/m, "violence_level=3")
-        .replace(/^art_cache_size=\d+/m, "art_cache_size=64");
-    if (!/^violence_level=3\r?$/m.test(next) || !/^art_cache_size=64\r?$/m.test(next)) {
-        console.error("Could not align fallout2.cfg with 1.13/1.15");
-        process.exit(1);
-    }
-    if (!isDryRun) {
-        fs.writeFileSync(cfgPath, Buffer.from(next, "latin1"));
-    }
-    const ddrawPath = path.join(dir, "ddraw.ini");
-    const ddraw = "[Misc]\nSkipOpeningMovies=1\n\n";
-    console.info("ddraw.ini replaced with the 1.15 SkipOpeningMovies stub");
-    if (!isDryRun) {
-        fs.writeFileSync(ddrawPath, ddraw);
-    }
-}
 
 /**
  * @param {string} dir
@@ -573,195 +472,6 @@ async function mailruBase() {
     return String(url).replace(/\/$/, "");
 }
 
-/**
- * @param {string} filePath
- * @param {string} dstDir
- */
-function unpackDat(filePath, dstDir) {
-    if (isDryRun) {
-        console.info("(dry) would unpack", path.basename(filePath));
-        return;
-    }
-    const tmp = dstDir + ".unpacking";
-    fs.rmSync(tmp, { recursive: true, force: true });
-    fs.mkdirSync(tmp, { recursive: true });
-    // -t lowercases file names, matching existing game folders.
-    run("dat-unpacker", ["-q", "-t", "-s", filePath, "-d", tmp]);
-    fs.rmSync(filePath, { force: true });
-    fs.renameSync(tmp, dstDir);
-}
-
-/**
- * @param {string} dir
- */
-function createEmptyMarkers(dir) {
-    if (isDryRun) {
-        console.info("(dry) would add .empty markers under", dir);
-        return;
-    }
-    const keepDirs = [
-        "data/SAVEGAME",
-        "data/MAPS",
-        "data/proto/items",
-        "data/proto/critters",
-    ];
-    for (const keep of keepDirs) {
-        const dirPath = path.join(dir, ...keep.split("/"));
-        fs.mkdirSync(dirPath, { recursive: true });
-        fs.writeFileSync(path.join(dirPath, ".empty"), "");
-    }
-    let extraMarkers = 0;
-    const visit = (/** @type {string} */ sub) => {
-        for (const name of fs.readdirSync(sub)) {
-            const p = path.join(sub, name);
-            if (fs.statSync(p).isDirectory()) {
-                visit(p);
-            }
-        }
-        if (sub !== dir && fs.readdirSync(sub).length === 0) {
-            fs.writeFileSync(path.join(sub, ".empty"), "");
-            extraMarkers++;
-            console.info("Extra empty dir marker:", path.relative(dir, sub));
-        }
-    };
-    visit(dir);
-    console.info(
-        "Empty-folder markers:",
-        keepDirs.length,
-        "required,",
-        extraMarkers,
-        "extra",
-    );
-}
-
-/**
- * @param {string} mount
- * @returns {number}
- */
-function freeBytes(mount) {
-    const res = spawnSync("df", ["-B1", "--output=avail", mount], {
-        encoding: "utf8",
-    });
-    const line = (res.stdout || "").trim().split("\n").pop() ?? "";
-    const n = Number(line);
-    if (!Number.isFinite(n)) {
-        console.error("Could not read free space for", mount);
-        process.exit(1);
-    }
-    return n;
-}
-
-/**
- * @param {string} filePath
- * @returns {string}
- */
-function sha1File(filePath) {
-    const res = spawnSync("sha1sum", [filePath], { encoding: "utf8" });
-    if (res.status !== 0) {
-        console.error("sha1sum failed", filePath, res.stderr || "");
-        process.exit(1);
-    }
-    return res.stdout.split(/\s+/)[0];
-}
-
-/**
- * @param {string} filePath
- * @returns {string}
- */
-function sha256File(filePath) {
-    return crypto
-        .createHash("sha256")
-        .update(fs.readFileSync(filePath))
-        .digest("hex");
-}
-
-/**
- * @param {string} file
- * @returns {string}
- */
-function gzRead(file) {
-    return zlib.gunzipSync(fs.readFileSync(file)).toString("utf8");
-}
-
-/**
- * @param {string} file
- */
-function readCfg(file) {
-    /** @type {{[section: string]: {[key: string]: string}}} */
-    const result = { other: {} };
-    let section = "other";
-    for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-        const header = /^\[(.+)\]\s*$/.exec(line);
-        if (header) {
-            section = header[1].toLowerCase();
-            continue;
-        }
-        const kv = /^([^=;#\s][^=]*)=(.*)$/.exec(line);
-        if (kv) {
-            result[section] ??= {};
-            result[section][kv[1].trim().toLowerCase()] = kv[2].trim();
-        }
-    }
-    return result;
-}
-
-/**
- * @param {string} dir
- * @returns {string[]}
- */
-function listFiles(dir) {
-    /** @type {string[]} */
-    const result = [];
-    const visit = (/** @type {string} */ current) => {
-        for (const entry of fs.readdirSync(current)) {
-            const full = path.join(current, entry);
-            const rel = path.relative(dir, full).replaceAll(path.sep, "/");
-            if (fs.statSync(full).isDirectory()) {
-                visit(full);
-            } else {
-                result.push(rel);
-            }
-        }
-    };
-    visit(dir);
-    return result;
-}
-
-/**
- * @param {string} file
- */
-function FsRemoveQuietly(file) {
-    if (isDryRun) {
-        console.info("(dry) would remove ", file);
-        return;
-    }
-    fs.rmSync(file, { recursive: true, force: true });
-}
-
-/**
- * @param {string} cmd
- * @param {string[]} args
- * @param {SpawnSyncOptionsWithStringEncoding} [opts]
- */
-function run(cmd, args, opts) {
-    console.info("> " + [cmd, ...args].join(" "));
-    if (isDryRun) {
-        return;
-    }
-    const res = spawnSync(cmd, args, { encoding: "utf8", ...opts });
-    if (res.status !== 0) {
-        console.error(
-            "Command failed:",
-            cmd,
-            ...(opts?.cwd ? [`(cwd ${opts.cwd})`] : []),
-        );
-        console.error(res.stdout || "");
-        console.error(res.stderr || "");
-        process.exit(res.status ?? 1);
-    }
-}
-
-/** @typedef {import("child_process").SpawnSyncOptionsWithStringEncoding} SpawnSyncOptionsWithStringEncoding */
 
 for (const step of activeSteps) {
     console.info(`\n===== Step ${step} =====`);

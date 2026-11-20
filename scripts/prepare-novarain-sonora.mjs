@@ -1,10 +1,10 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
-import zlib from "zlib";
-import crypto from "crypto";
-import readline from "readline/promises";
 import { spawnSync } from "child_process";
+import {
+    createSonoraTools,
+} from "./prepare-sonora-common.mjs";
 
 // Release tag: default is the release we are preparing right now, when a new
 // version comes out pass it as the first argument and everything (downloads,
@@ -37,6 +37,22 @@ if (isDryRun) {
     console.info("NOT a dry-run, files will be changed!");
 }
 
+const {
+    run,
+    unpackDat,
+    assembleInto,
+    createEmptyMarkers,
+    writeIndex,
+    compressDir,
+    hardlinkGames,
+    validateGames,
+    listFiles,
+    sha256File,
+    gzRead,
+    readCfg,
+    FsRemoveQuietly,
+} = createSonoraTools(isDryRun);
+
 // Names of the two release assets we need. One carries the version: e.g.
 // Fallout_Sonora_1.16.4E_sfall.zip.
 const MAIN_ASSET_RE = /^Fallout_Sonora_.*_sfall\.zip$/;
@@ -50,23 +66,8 @@ const RU_DIR_NAME = `Fallout_Sonora_${VERSION_SLUG}_novarain_ru`;
 const EN_DIR = path.join(GAMES_DIR, EN_DIR_NAME);
 const RU_DIR = path.join(GAMES_DIR, RU_DIR_NAME);
 
-// Native-only files of the repack, useless in the web player: executables,
-// libraries, platform builds. This is the ONLY thing we drop; every other
-// file of the repack is kept (sfall.dat, translations, docs, everything).
-const NATIVE_IGNORE_RES = [
-    /\.exe$/i,
-    /\.dll$/i,
-    /\.ipa/i,
-    /\.apk/i,
-    /^fallout-sonora-/i,
-];
-
 // Files and directories we know how to handle in the unpacked repack.
 // Anything else stops the assemble step and asks for our attention.
-
-// Dats smaller than this stay raw: the engine fetches and parses them whole,
-// unpacking into directories only pays off for the big ones.
-const SMALL_DAT_MAX_BYTES = 8 * 1024 * 1024;
 const KNOWN_COPY_ENTRIES = [
     "BIS_mapper",
     "data",
@@ -245,78 +246,12 @@ const steps = {
                 stagingRoot,
             );
         }
-        const entries = fs.readdirSync(stagingRoot);
-        const native = [];
-        const unknown = [];
-        /** @type {string[]} */
-        const dats = [];
-        const copy = [];
-        for (const entry of entries) {
-            const resolved = path.join(stagingRoot, entry);
-            if (NATIVE_IGNORE_RES.some((re) => re.test(entry))) {
-                native.push(entry);
-                if (!isDryRun) {
-                    fs.rmSync(resolved, { recursive: true, force: true });
-                }
-                continue;
-            }
-            const isDat = /\.dat$/i.test(entry);
-            if (isDat) {
-                // Big dats are unpacked into same-named directories (engine
-                // reads dat names as directories, individual files are
-                // fetched on demand). Small dats are kept as raw files, the
-                // engine fetches and parses them whole.
-                if (fs.statSync(resolved).size >= SMALL_DAT_MAX_BYTES) {
-                    dats.push(entry);
-                } else {
-                    copy.push(entry);
-                    console.info(
-                        "Small dat, keeping as raw file (no unpack):",
-                        entry,
-                    );
-                }
-                continue;
-            }
-            if (
-                KNOWN_COPY_ENTRIES.includes(entry) ||
-                KNOWN_COPY_RES.some((re) => re.test(entry)) ||
-                KNOWN_COPY_DAT_RES.some((re) => re.test(entry))
-            ) {
-                copy.push(entry);
-                continue;
-            }
-            unknown.push(entry);
-        }
-        console.info(
-            "Ignoring native files:",
-            native.length,
-            native.join(", "),
+        assembleInto(
+            stagingRoot,
+            EN_DIR,
+            KNOWN_COPY_ENTRIES,
+            [...KNOWN_COPY_RES, ...KNOWN_COPY_DAT_RES],
         );
-        if (unknown.length > 0) {
-            console.error("Unknown entries, stopping:", unknown.join(", "));
-            console.error(
-                "Add them to the script lists and re-run (they are not moved).",
-            );
-            process.exit(1);
-        }
-
-        for (const entry of copy) {
-            moveEntry(path.join(stagingRoot, entry), path.join(EN_DIR, entry));
-        }
-        for (const dat of dats) {
-            unpackDat(path.join(stagingRoot, dat), path.join(EN_DIR, dat));
-        }
-
-        // Verify the staging root is empty now.
-        const leftovers = fs.readdirSync(stagingRoot);
-        if (leftovers.length > 0) {
-            console.error(
-                "Staging is not empty after move:",
-                leftovers.join(", "),
-            );
-            console.error("Fix the script lists and re-run.");
-            process.exit(1);
-        }
         if (!isDryRun) {
             fs.rmSync(UNPACKED_DIR, { recursive: true });
             console.info("Staging cleaned");
@@ -427,9 +362,6 @@ const steps = {
             console.info("(dry) EN_DIR does not exist yet, step is a no-op");
             return;
         }
-        // Same format as game/pack.sh and the web README: "size sha256  ./path".
-        // make-hardlinks-for-duplicated-files.mjs and asyncfetchfs expect the ./
-        // prefix, the hashes are of the still uncompressed contents.
         for (const [dir, label] of [
             [EN_DIR, "EN"],
             [RU_DIR, "RU"],
@@ -438,24 +370,8 @@ const steps = {
                 console.error(`${label} folder is missing:`, dir);
                 process.exit(1);
             }
-            const lines = [];
-            for (const relPath of listFiles(dir)) {
-                const fullPath = path.join(dir, relPath);
-                const size = fs.statSync(fullPath).size;
-                const hash = sha256File(fullPath);
-                lines.push(`${size} ${hash}  ./${relPath}`);
-            }
-            if (isDryRun) {
-                console.info(
-                    `(dry) would write index with ${lines.length} files for ${label}`,
-                );
-                continue;
-            }
-            fs.writeFileSync(
-                path.join(dir, "index.txt"),
-                lines.join("\n") + "\n",
-            );
-            console.info(`Index written for ${label}: ${lines.length} files`);
+            console.info(label);
+            writeIndex(dir);
         }
     },
 
@@ -468,7 +384,7 @@ const steps = {
                 console.info(`(dry) ${label} missing, gzip skipped`);
                 continue;
             }
-            run("pigz", ["-r", "--best", "."], { cwd: dir });
+            compressDir(dir);
             console.info(`${label} compressed`);
         }
     },
@@ -478,21 +394,7 @@ const steps = {
             console.info("(dry) EN_DIR does not exist yet, step is a no-op");
             return;
         }
-        run(
-            "node",
-            [
-                path.join(
-                    os.homedir(),
-                    "fallout2-ce-web",
-                    "scripts",
-                    "make-hardlinks-for-duplicated-files.mjs",
-                ),
-                GAMES_DIR,
-                "nodry",
-            ],
-            // Show its progress lines live.
-            { stdio: "inherit" },
-        );
+        hardlinkGames(GAMES_DIR);
     },
 
     async validate() {
@@ -500,20 +402,7 @@ const steps = {
             console.info("(dry) EN_DIR does not exist yet, step is a no-op");
             return;
         }
-        run(
-            "node",
-            [
-                path.join(
-                    os.homedir(),
-                    "fallout2-ce-web",
-                    "scripts",
-                    "validate-index-txt-checksums.mjs",
-                ),
-                GAMES_DIR,
-            ],
-            // Show the validator's per-game OK/error lines.
-            { stdio: "inherit" },
-        );
+        validateGames(GAMES_DIR);
         const cfg = gzRead(path.join(EN_DIR, "fallout2.cfg.gz"));
         console.info(
             "fallout2.cfg from pack:\n",
@@ -603,33 +492,6 @@ the new versions become the default.`);
 };
 
 /**
- * @param {string} filePath
- * @param {string} dstDir
- */
-function unpackDat(filePath, dstDir) {
-    fs.mkdirSync(dstDir, { recursive: true });
-    // -t lowercases file names, matching existing game folders.
-    run("dat-unpacker", ["-q", "-t", "-s", filePath, "-d", dstDir]);
-    if (!isDryRun) {
-        fs.rmSync(filePath, { force: true });
-    }
-}
-
-/**
- * Copy entry across filesystems and remove the source.
- * @param {string} src
- * @param {string} dst
- */
-function moveEntry(src, dst) {
-    console.info("Moving", path.basename(src), "->", dst);
-    if (isDryRun) {
-        return;
-    }
-    fs.cpSync(src, dst, { recursive: true });
-    fs.rmSync(src, { recursive: true, force: true });
-}
-
-/**
  * Enable or disable the russian language mod in a folder's mods_order.txt.
  * The base build ships English only (disabled), the russian folder gets it
  * enabled. The mod itself may be absent; only the order line is touched.
@@ -659,53 +521,6 @@ function setRussianModState(dir, enabled) {
     );
 }
 
-/**
- * README "Add empty files to keep empty folders": asyncfetchfs builds the
- * virtual tree only from files listed in index.txt, so an empty folder
- * never appears in the web FS. Create the conventional markers for the
- * engine paths plus every other empty folder found in the tree.
- *
- * @param {string} dir Game folder root.
- */
-function createEmptyMarkers(dir) {
-    const keepDirs = [
-        "data/SAVEGAME",
-        "data/MAPS",
-        "data/proto/items",
-        "data/proto/critters",
-    ];
-    for (const keep of keepDirs) {
-        const dirPath = path.join(dir, ...keep.split("/"));
-        fs.mkdirSync(dirPath, { recursive: true });
-        fs.writeFileSync(path.join(dirPath, ".empty"), "");
-    }
-    console.info("Created", keepDirs.length, "empty-folder markers:", dir);
-
-    // Any other empty folder would be invisible in the web FS as well; mark
-    // it too (bottom-up so nested chain empties are all marked).
-    let extraMarkers = 0;
-    const visit = (/** @type {string} */ sub) => {
-        for (const name of fs.readdirSync(sub)) {
-            const p = path.join(sub, name);
-            if (fs.statSync(p).isDirectory()) {
-                visit(p);
-            }
-        }
-        if (fs.readdirSync(sub).length === 0) {
-            fs.writeFileSync(path.join(sub, ".empty"), "");
-            extraMarkers++;
-            console.info("Extra empty dir marker:", path.relative(dir, sub));
-        }
-    };
-    for (const keep of keepDirs) {
-        visit(path.join(dir, ...keep.split("/")));
-    }
-    console.info(
-        extraMarkers > 0
-            ? `Extra empty dir markers created: ${extraMarkers}`
-            : "No extra empty dirs, nothing to mark",
-    );
-}
 
 async function fetchAssets() {
     const url = `https://api.github.com/repos/NovaRain/Fallout-Sonora-English/releases/tags/${TAG}`;
@@ -758,124 +573,6 @@ async function downloadAsset(asset, filePath) {
     }
     console.info("sha256 verified:", asset.name);
 }
-
-/**
- * @param {string} filePath
- * @returns {string} sha256 hex digest
- */
-function sha256File(filePath) {
-    return crypto
-        .createHash("sha256")
-        .update(fs.readFileSync(filePath))
-        .digest("hex");
-}
-
-/**
- * @param {string} file
- * @returns {string} gunzipped utf8 text
- */
-function gzRead(file) {
-    return zlib.gunzipSync(fs.readFileSync(file)).toString("utf8");
-}
-
-/**
- * Parse simple ini into {lowercaseSection: {lowercaseKey: value}}.
- * @param {string} file
- */
-function readCfg(file) {
-    /** @type {{[section: string]: {[key: string]: string}}} */
-    const result = { other: {} };
-    let section = "other";
-    for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-        const header = /^\[(.+)\]\s*$/.exec(line);
-        if (header) {
-            section = header[1].toLowerCase();
-            continue;
-        }
-        const kv = /^([^=;#\s][^=]*)=(.*)$/.exec(line);
-        if (kv) {
-            result[section] ??= {};
-            result[section][kv[1].trim().toLowerCase()] = kv[2].trim();
-        }
-    }
-    return result;
-}
-
-/**
- * @param {string} dir
- * @returns {string[]} posix-like paths, "./" prefix stripped
- */
-function listFiles(dir) {
-    /** @type {string[]} */
-    const result = [];
-    const visit = (/** @type {string} */ current) => {
-        for (const entry of fs.readdirSync(current)) {
-            const full = path.join(current, entry);
-            const rel = path.relative(dir, full).replaceAll(path.sep, "/");
-            if (fs.statSync(full).isDirectory()) {
-                visit(full);
-            } else {
-                result.push(rel);
-            }
-        }
-    };
-    visit(dir);
-    return result;
-}
-
-/**
- * @param {string} file
- */
-function FsRemoveQuietly(file) {
-    if (isDryRun) {
-        console.info("(dry) would remove ", file);
-        return;
-    }
-    fs.rmSync(file, { recursive: true, force: true });
-}
-
-/**
- * @param {string} cmd
- * @param {string[]} args
- * @param {SpawnSyncOptionsWithStringEncoding} [opts]
- */
-function run(cmd, args, opts) {
-    console.info("> " + [cmd, ...args].join(" "));
-    if (isDryRun) {
-        return;
-    }
-    const res = spawnSync(cmd, args, { encoding: "utf8", ...opts });
-    if (res.status !== 0) {
-        console.error(
-            "Command failed:",
-            cmd,
-            ...(opts?.cwd ? [`(cwd ${opts.cwd})`] : []),
-        );
-        console.error(res.stdout || "");
-        console.error(res.stderr || "");
-        process.exit(1);
-    }
-}
-
-/**
- * @param {string} question
- * @returns {Promise<boolean>} true when user answered y
- */
-async function confirm(question) {
-    if (isDryRun) {
-        console.info("(dry) ask:", question);
-        return false;
-    }
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-    });
-    const answer = (await rl.question(question)).trim().toLowerCase();
-    rl.close();
-    return answer === "y" || answer === "yes";
-}
-
-/** @typedef {import("child_process").SpawnSyncOptionsWithStringEncoding} SpawnSyncOptionsWithStringEncoding */
 
 for (const step of activeSteps) {
     console.info(`\n===== Step ${step} =====`);
